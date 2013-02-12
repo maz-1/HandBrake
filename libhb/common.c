@@ -101,10 +101,13 @@ int hb_audio_mixdowns_count = sizeof(hb_audio_mixdowns) / sizeof(hb_mixdown_t);
 
 hb_encoder_t hb_video_encoders[] =
 {
-    { "H.264 (x264)",    "x264",    HB_VCODEC_X264,         HB_MUX_MP4|HB_MUX_MKV },
-    { "MPEG-4 (FFmpeg)", "ffmpeg4", HB_VCODEC_FFMPEG_MPEG4, HB_MUX_MP4|HB_MUX_MKV },
-    { "MPEG-2 (FFmpeg)", "ffmpeg2", HB_VCODEC_FFMPEG_MPEG2, HB_MUX_MP4|HB_MUX_MKV },
-    { "VP3 (Theora)",    "theora",  HB_VCODEC_THEORA,                  HB_MUX_MKV },
+#ifdef USE_QSV
+    { "H.264 (Intel QSV)",   "QSV",    HB_VCODEC_QSV_H264,           HB_MUX_MP4|HB_MUX_MKV },
+#endif
+    { "H.264 (x264)",       "x264",    HB_VCODEC_X264,          HB_MUX_MP4|HB_MUX_MKV },
+    { "MPEG-4 (FFmpeg)", "ffmpeg4", HB_VCODEC_FFMPEG_MPEG4,     HB_MUX_MP4|HB_MUX_MKV },
+    { "MPEG-2 (FFmpeg)", "ffmpeg2", HB_VCODEC_FFMPEG_MPEG2,     HB_MUX_MP4|HB_MUX_MKV },
+    { "VP3 (Theora)",     "theora",  HB_VCODEC_THEORA,          HB_MUX_MKV },
 };
 int hb_video_encoders_count = sizeof(hb_video_encoders) / sizeof(hb_encoder_t);
 
@@ -2032,7 +2035,19 @@ hb_filter_object_t * hb_filter_init( int filter_id )
         case HB_FILTER_ROTATE:
             filter = &hb_filter_rotate;
             break;
+#ifdef USE_QSV
+        case HB_FILTER_QSV:
+            filter = &hb_filter_qsv;
+            break;
 
+        case HB_FILTER_QSV_PRE:
+            filter = &hb_filter_qsv_pre;
+            break;
+
+        case HB_FILTER_QSV_POST:
+            filter = &hb_filter_qsv_post;
+            break;
+#endif
         default:
             filter = NULL;
             break;

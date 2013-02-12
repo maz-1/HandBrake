@@ -92,6 +92,7 @@ static int MKVInit( hb_mux_object_t * m )
     track->flagEnabled = 1;
     switch (job->vcodec)
     {
+        case HB_VCODEC_QSV_H264:
         case HB_VCODEC_X264:
             track->codecID = MK_VCODEC_MP4AVC;
             /* Taken from x264 muxers.c */
@@ -540,10 +541,10 @@ static int MKVMux(hb_mux_object_t *m, hb_mux_data_t *mux_data, hb_buffer_t *buf)
     }
     mk_addFrameData(m->file, mux_data->track, buf->data, buf->size);
     mk_setFrameFlags(m->file, mux_data->track, timecode,
-                     (((job->vcodec == HB_VCODEC_X264 || 
-                        (job->vcodec & HB_VCODEC_FFMPEG_MASK)) && 
-                       mux_data == job->mux_data) ? 
-                            (buf->s.frametype == HB_FRAME_IDR) : 
+                     (((job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264 ||
+                        (job->vcodec & HB_VCODEC_FFMPEG_MASK)) &&
+                       mux_data == job->mux_data) ?
+                            (buf->s.frametype == HB_FRAME_IDR) :
                             ((buf->s.frametype & HB_FRAME_KEY) != 0)), 0 );
     hb_buffer_close( &buf );
     return 0;

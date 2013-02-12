@@ -1175,7 +1175,9 @@ def createCLI():
     grp.add_option( '--disable-gst', default=False, action='store_true', help=h )
     h = IfHost( 'enable use of ffmpeg mpeg2 decoding', '*-*-*', none=optparse.SUPPRESS_HELP ).value
     grp.add_option( '--enable-ff-mpeg2', default=False, action='store_true', help=h )
-
+    h = IfHost( 'enable use of QSV HW acceleration for decode/VPP/encode', '*-*-*', none=optparse.SUPPRESS_HELP ).value
+    grp.add_option( '--enable-qsv', default=False, action='store_true', help=h )
+    
     cli.add_option_group( grp )
 
     ## add launch options
@@ -1615,6 +1617,7 @@ int main ()
     doc.add( 'FEATURE.gtk.mingw',  int( options.enable_gtk_mingw ))
     doc.add( 'FEATURE.gst',        int( not options.disable_gst ))
     doc.add( 'FEATURE.ff.mpeg2',   int( options.enable_ff_mpeg2 ))
+    doc.add( 'FEATURE.qsv',        int( options.enable_qsv ))
     doc.add( 'FEATURE.xcode',      int( not (Tools.xcodebuild.fail or options.disable_xcode or options.cross) ))
 
     if not Tools.xcodebuild.fail and not options.disable_xcode:

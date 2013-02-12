@@ -23,6 +23,10 @@
 #include "lang.h"
 #include "parsecsv.h"
 
+#ifdef USE_QSV
+#include "libavcodec/qsv.h"
+#endif
+
 #if defined( __APPLE_CC__ )
 #import <CoreServices/CoreServices.h>
 #include <IOKit/IOKitLib.h>
@@ -242,6 +246,16 @@ int main( int argc, char ** argv )
     fprintf( stderr, "%d CPU%s detected\n", hb_get_cpu_count(),
              hb_get_cpu_count( h ) > 1 ? "s" : "" );
 
+#ifdef USE_QSV
+    mfxIMPL impl = MFX_IMPL_HARDWARE;
+
+    //ver.Major = AV_QSV_MSDK_VERSION_MAJOR;
+    //ver.Minor = AV_QSV_MSDK_VERSION_MINOR;
+    mfxVersion ver = {{AV_QSV_MSDK_VERSION_MINOR, AV_QSV_MSDK_VERSION_MAJOR}};
+
+    fprintf( stderr,"HW/Intel QSV acceleration availability %sdetected\n", av_is_qsv_available(impl,&ver) < 0? "is NOT ":"" );
+#endif
+
     /* Exit ASAP on Ctrl-C */
     signal( SIGINT, SigHandler );
 
@@ -435,17 +449,17 @@ static void PrintTitleInfo( hb_title_t * title, int feature )
         audio = hb_list_audio_config_item( title->list_audio, i );
         if( ( audio->in.codec == HB_ACODEC_AC3 ) || ( audio->in.codec == HB_ACODEC_DCA) )
         {
-            fprintf( stderr, "    + %d, %s (iso639-2: %s), %dHz, %dbps\n", 
+            fprintf( stderr, "    + %d, %s (iso639-2: %s), %dHz, %dbps\n",
                      i + 1,
-                     audio->lang.description, 
+                     audio->lang.description,
                      audio->lang.iso639_2,
-                     audio->in.samplerate, 
+                     audio->in.samplerate,
                      audio->in.bitrate );
         }
         else
         {
-            fprintf( stderr, "    + %d, %s (iso639-2: %s)\n", 
-                     i + 1, 
+            fprintf( stderr, "    + %d, %s (iso639-2: %s)\n",
+                     i + 1,
                      audio->lang.description,
                      audio->lang.iso639_2 );
         }
@@ -454,7 +468,7 @@ static void PrintTitleInfo( hb_title_t * title, int feature )
     for( i = 0; i < hb_list_count( title->list_subtitle ); i++ )
     {
         subtitle = hb_list_item( title->list_subtitle, i );
-        fprintf( stderr, "    + %d, %s (iso639-2: %s) (%s)(%s)\n", 
+        fprintf( stderr, "    + %d, %s (iso639-2: %s) (%s)(%s)\n",
                  i + 1, subtitle->lang,
                  subtitle->iso639_2,
                  (subtitle->format == TEXTSUB) ? "Text" : "Bitmap",
@@ -617,8 +631,8 @@ static int HandleEvents( hb_handle_t * h )
                 die = 1;
                 break;
             }
-	        if( main_feature )
-	        {
+            if( main_feature )
+            {
                 int i;
                 int main_feature_idx=0;
                 int main_feature_pos=-1;
@@ -1293,9 +1307,9 @@ static int HandleEvents( hb_handle_t * h )
                 }
             }
 
-			if ( chapter_markers )
-			{
-				job->chapter_markers = chapter_markers;
+            if ( chapter_markers )
+            {
+                job->chapter_markers = chapter_markers;
 
                 if( marker_file != NULL )
                 {
@@ -1341,7 +1355,7 @@ static int HandleEvents( hb_handle_t * h )
                         hb_close_csv_file( file );
                     }
                 }
-			}
+            }
 
             if( crop[0] >= 0 && crop[1] >= 0 &&
                 crop[2] >= 0 && crop[3] >= 0 )
@@ -1358,8 +1372,13 @@ static int HandleEvents( hb_handle_t * h )
 
             job->deinterlace = deinterlace;
             job->grayscale   = grayscale;
-            
+
             hb_filter_object_t * filter;
+
+            if(vcodec == HB_VCODEC_QSV_H264)
+            {
+                job->vcodec = vcodec;
+            }
 
             /* Add selected filters */
             if( detelecine )
@@ -1407,7 +1426,7 @@ static int HandleEvents( hb_handle_t * h )
                     {
                         job->modulus = modulus;
                     }
-                    
+
                     if( width && height )
                     {
                         job->width  = width;
@@ -1441,24 +1460,24 @@ static int HandleEvents( hb_handle_t * h )
                     }
 
                 break;
-                
+
                 case 1: // Strict anammorphic
                     job->anamorphic.mode = anamorphic_mode;
                 break;
-                
+
                 case 2: // Loose anamorphic
                     job->anamorphic.mode = 2;
-                    
+
                     if (modulus)
                     {
                         job->modulus = modulus;
                     }
-                    
+
                     if( itu_par )
                     {
                         job->anamorphic.itu_par = itu_par;
                     }
-                    
+
                     if( width )
                     {
                         job->width = width;
@@ -1468,36 +1487,36 @@ static int HandleEvents( hb_handle_t * h )
                         /* Default to full width when one isn't specified for loose anamorphic */
                         job->width = title->width - job->crop[2] - job->crop[3];
                     }
-                    
+
                 break;
-                
-                case 3: // Custom Anamorphic 3: Power User Jamboree 
+
+                case 3: // Custom Anamorphic 3: Power User Jamboree
                     job->anamorphic.mode = 3;
-                    
+
                     if (modulus)
                     {
                         job->modulus = modulus;
                     }
-                    
+
                     if( itu_par )
                     {
                         job->anamorphic.itu_par = itu_par;
                     }
-                    
+
                     if( par_width && par_height )
                     {
                         job->anamorphic.par_width = par_width;
                         job->anamorphic.par_height = par_height;
                     }
-                    
+
                     if( keep_display_aspect )
                     {
                         job->anamorphic.keep_display_aspect = 1;
-                        
+
                         /* First, what *is* the display aspect? */
                         int cropped_width = title->width - job->crop[2] - job->crop[3];
                         int cropped_height = title->height - job->crop[0] - job->crop[1];
-                        
+
                         /* XXX -- I'm assuming people want to keep the source
                            display AR even though they might have already
                            asked for ITU values instead. */
@@ -1507,7 +1526,7 @@ static int HandleEvents( hb_handle_t * h )
                         /* When keeping display aspect, we have to rank some values
                            by priority in order to consistently handle situations
                            when more than one might be specified by default.
-                           
+
                            * First off, PAR gets ignored. (err make this reality)
                            * Height will be respected over all other settings,
                            * If it isn't set, display_width will be followed.
@@ -1523,18 +1542,18 @@ static int HandleEvents( hb_handle_t * h )
                             height = (int)( (double)display_width / display_aspect );
                         }
                     }
-                    
+
                     if( display_width )
                     {
                         /* Adjust the PAR to create the new display width
                            from the default job width. */
                         job->anamorphic.dar_width = display_width;
-                        
+
                         job->anamorphic.dar_height = height ?
                                                         height :
                                                         title->height - job->crop[0] - job->crop[1];
                     }
-                    
+
                     if( width && height )
                     {
                         /* Use these storage dimensions */
@@ -1559,7 +1578,7 @@ static int HandleEvents( hb_handle_t * h )
                         job->width = title->width - job->crop[2] - job->crop[3];
                         job->height = title->height - job->crop[0] - job->crop[1];
                     }
-                    
+
                 break;
             }
             // Validate and adjust job picture dimensions
@@ -1568,11 +1587,29 @@ static int HandleEvents( hb_handle_t * h )
             // Add filter that does cropping and scaling
             char * filter_str;
             filter_str = hb_strdup_printf("%d:%d:%d:%d:%d:%d",
-                job->width, job->height, 
+                job->width, job->height,
                 job->crop[0], job->crop[1], job->crop[2], job->crop[3] );
             filter = hb_filter_init( HB_FILTER_CROP_SCALE );
             hb_add_filter( job, filter, filter_str );
             free( filter_str );
+
+            if(vcodec == HB_VCODEC_QSV_H264)
+            {
+
+                char * filter_str;
+                filter_str = hb_strdup_printf("%d:%d:%d:%d:%d:%d_dei:%s",
+                        job->width, job->height,
+                        job->crop[0], job->crop[1], job->crop[2], job->crop[3], deinterlace ? (deinterlace_opt ? deinterlace_opt: "-1") : "0" );
+                filter = hb_filter_init( HB_FILTER_QSV );
+                hb_add_filter( job, filter, filter_str );
+                free( filter_str );
+
+                filter = hb_filter_init( HB_FILTER_QSV_PRE );
+                hb_add_filter( job, filter, NULL );
+                filter = hb_filter_init( HB_FILTER_QSV_POST );
+                hb_add_filter( job, filter, NULL );
+            }
+
 
             // Add framerate shaping filter
             if( vrate )
@@ -1626,7 +1663,7 @@ static int HandleEvents( hb_handle_t * h )
                             int i;
                             for( i = track_start - 1; i < track_end; i++ )
                             {
-                                if( hb_list_item( title->list_audio, i ) == NULL ) 
+                                if( hb_list_item( title->list_audio, i ) == NULL )
                                 {
                                     fprintf( stderr, "Warning: Could not find audio track %d, skipped\n", i + 1 );
                                     continue;
@@ -1656,7 +1693,7 @@ static int HandleEvents( hb_handle_t * h )
                     else
                     {
                         int i = atoi( token ) - 1;
-                        if( hb_list_item( title->list_audio, i ) == NULL ) 
+                        if( hb_list_item( title->list_audio, i ) == NULL )
                         {
                             fprintf( stderr, "Warning: could not find audio track %d, skipped\n", i + 1 );
                             continue;
@@ -1678,9 +1715,9 @@ static int HandleEvents( hb_handle_t * h )
                     for( i = 0; i < hb_list_count( title->list_audio ); i++ )
                     {
                         int track = i;
-                        
+
                         audio = hb_list_audio_config_item( title->list_audio, i );
-                        
+
                         if( cmp_lang( native_language, audio->lang.iso639_2 ) &&
                             audio->lang.type != 3 && // Directors 1
                             audio->lang.type != 4)   // Directors 2
@@ -1723,7 +1760,7 @@ static int HandleEvents( hb_handle_t * h )
 
             if( hb_list_count(audios) == 0 &&
                 hb_list_count(title->list_audio) > 0 )
-            {        
+            {
                 /* Create a new audio track with default settings */
                 audio = calloc( 1, sizeof( *audio ) );
                 hb_audio_config_init( audio );
@@ -1734,7 +1771,7 @@ static int HandleEvents( hb_handle_t * h )
             for( i = 0; i < tmp_num_audio_tracks; i++ )
             {
                 audio = hb_list_item( audios, 0 );
-                if( audio == NULL || 
+                if( audio == NULL ||
                     audio->in.track  == -1 ||
                     audio->out.track == -1 ||
                     audio->out.codec ==  0 ||
@@ -1847,12 +1884,12 @@ static int HandleEvents( hb_handle_t * h )
                             fprintf(stderr, "Invalid sample rate %d, using input rate %d\n", arate, audio->in.samplerate);
                             arate = audio->in.samplerate;
                         }
-                        
+
                         audio->out.samplerate = arate;
                         if( (++i) >= num_audio_tracks )
                             break;  /* We have more inputs than audio tracks, oops */
                     }
-                    else 
+                    else
                     {
                         fprintf(stderr, "Ignoring sample rate %d, no audio tracks\n", arate);
                     }
@@ -1877,7 +1914,7 @@ static int HandleEvents( hb_handle_t * h )
                 }
             }
             /* Sample Rate */
-            
+
             /* Audio Mixdown */
             i = 0;
             if ( mixdowns )
@@ -1929,7 +1966,7 @@ static int HandleEvents( hb_handle_t * h )
                     {
                         audio->out.bitrate = abitrate;
                     }
-                    else 
+                    else
                     {
                         fprintf(stderr, "Ignoring bitrate %d, no audio tracks\n", abitrate);
                     }
@@ -2025,7 +2062,7 @@ static int HandleEvents( hb_handle_t * h )
                         audio->out.dynamic_range_compression = d_r_c;
                         if( (++i) >= num_audio_tracks )
                             break;  /* We have more inputs than audio tracks, oops */
-                    } 
+                    }
                     else
                     {
                         fprintf(stderr, "Ignoring drc, no audio tracks\n");
@@ -2065,7 +2102,7 @@ static int HandleEvents( hb_handle_t * h )
                         audio->out.gain = gain;
                         if( (++i) >= num_audio_tracks )
                             break;  /* We have more inputs than audio tracks, oops */
-                    } 
+                    }
                     else
                     {
                         fprintf(stderr, "Ignoring gain, no audio tracks\n");
@@ -2264,7 +2301,7 @@ static int HandleEvents( hb_handle_t * h )
 
                         track = atoi(token) - 1;
                         subtitle = hb_list_item(title->list_subtitle, track);
-                        if( subtitle == NULL ) 
+                        if( subtitle == NULL )
                         {
                             fprintf( stderr, "Warning: Could not find subtitle track %d, skipped\n", track+1 );
                             continue;
@@ -2283,9 +2320,9 @@ static int HandleEvents( hb_handle_t * h )
                         }
 
                         force = test_sub_list(subforce, i+1);
-                        
+
                         int supports_burn = hb_subtitle_can_burn( subtitle->source );
-                        
+
                         if ( ( burn && supports_burn ) ||
                              !hb_subtitle_can_pass( subtitle->source, mux ) )
                         {
@@ -2296,7 +2333,7 @@ static int HandleEvents( hb_handle_t * h )
                                 continue;
                             }
                             sub_burned = 1;
-                            
+
                             // Mark as burn-in
                             sub_config.dest = RENDERSUB;
                         }
@@ -2344,7 +2381,7 @@ static int HandleEvents( hb_handle_t * h )
                     {
                         lang = srtlang[i];
                     }
-                    sub_config.default_track = 
+                    sub_config.default_track =
                            ( srtdefault != -1 ) && ( srtdefault == i + 1 );
                     sub_config.force = 0;
                     strncpy( sub_config.src_filename, srtfile[i], 255);
@@ -2360,13 +2397,13 @@ static int HandleEvents( hb_handle_t * h )
             if( native_language )
             {
                 audio = hb_list_audio_config_item(job->list_audio, 0);
-                
-                if( audio ) 
+
+                if( audio )
                 {
                     if( !cmp_lang( native_language, audio->lang.iso639_2 ) )
                     {
                         /*
-                         * Audio language is not the same as our native language. 
+                         * Audio language is not the same as our native language.
                          * If we have any subtitles in our native language they
                          * should be selected here if they haven't already been.
                          */
@@ -2378,7 +2415,7 @@ static int HandleEvents( hb_handle_t * h )
                             subtitle = hb_list_item( title->list_subtitle, i );
                             matched_track = i;
                             if (cmp_lang(native_language, subtitle->iso639_2))
-                            {  
+                            {
                                 /*
                                  * Found the first matching subtitle in our
                                  * native language. Is it already selected?
@@ -2386,7 +2423,7 @@ static int HandleEvents( hb_handle_t * h )
                                 for( i = 0; i < hb_list_count( job->list_subtitle ); i++ )
                                 {
                                     subtitle2 =  hb_list_item( job->list_subtitle, i );
-                                    
+
                                     if( subtitle2->track == subtitle->track) {
                                         /*
                                          * Already selected
@@ -2395,8 +2432,8 @@ static int HandleEvents( hb_handle_t * h )
                                     }
                                     subtitle2 = NULL;
                                 }
-                                
-                                if( subtitle2 == NULL ) 
+
+                                if( subtitle2 == NULL )
                                 {
                                     /*
                                      * Not already selected, so select it.
@@ -2468,31 +2505,31 @@ static int HandleEvents( hb_handle_t * h )
                 job->start_at_preview = start_at_preview - 1;
                 job->seek_points = preview_count;
             }
-            
+
             if( stop_at_pts )
             {
                 job->pts_to_stop = stop_at_pts;
                 subtitle_scan = 0;
             }
-            
+
             if( stop_at_frame )
             {
                 job->frame_to_stop = stop_at_frame;
                 subtitle_scan = 0;
             }
-            
+
             if( start_at_pts )
             {
                 job->pts_to_start = start_at_pts;
                 subtitle_scan = 0;
             }
-            
+
             if( start_at_frame )
             {
                 job->frame_to_start = start_at_frame;
                 subtitle_scan = 0;
             }
-            
+
             if( subtitle_scan )
             {
                 /*
@@ -2572,7 +2609,7 @@ static int HandleEvents( hb_handle_t * h )
                      p.job_cur, p.job_count, 100.0 * p.progress );
             if( p.seconds > -1 )
             {
-                fprintf( stdout, " (ETA %02dh%02dm%02ds)", 
+                fprintf( stdout, " (ETA %02dh%02dm%02ds)",
                          p.hours, p.minutes, p.seconds );
             }
             fflush(stdout);
@@ -2711,6 +2748,7 @@ static void ShowHelp()
     for( i = 0; i < hb_video_encoders_count; i++ )
     {
         fprintf( out, "%s", hb_video_encoders[i].short_name );
+
         if( i != hb_video_encoders_count - 1 )
             fprintf( out, "/" );
         else
@@ -2769,7 +2807,11 @@ static void ShowHelp()
         fprintf( out, "%s\n", tmp );
     fprintf( out,
     "    -x, --encopts <string>  Specify advanced encoder options in the\n"
-    "                            same style as mencoder (x264 and ffmpeg only):\n"
+    "                            same style as mencoder (x264" );
+#ifdef USE_QSV
+        fprintf( out,",QSV");
+#endif
+    fprintf( out," and ffmpeg only):\n"
     "                            option1=value1:option2=value2\n"
     "        --h264-profile      When using x264, ensures compliance with the\n"
     "          <string>          specified H.264 profile:\n"
@@ -2978,7 +3020,11 @@ static void ShowHelp()
      "    -d, --deinterlace       Deinterlace video with yadif/mcdeint filter\n"
      "          <YM:FD:MM:QP>     (default 0:-1:-1:1)\n"
      "           or\n"
-     "          <fast/slow/slower>\n"
+     "          <fast/slow/slower");
+#ifdef USE_QSV
+     fprintf( out,"/qsv");
+#endif
+     fprintf( out, ">\n"
      "    -5, --decomb            Selectively deinterlaces when it detects combing\n"
      "          <MO:ME:MT:ST:BT:BX:BY:MG:VA:LA:DI:ER:NO:MD:PP:FD>\n"
      "          (default: 7:2:6:9:80:16:16:10:20:20:4:2:50:24:1:-1)\n"
@@ -3057,9 +3103,27 @@ static void ShowHelp()
     "                            If \"number\" is omitted, the first srt is default.\n"
     "                            \"number\" is an 1 based index into the srt-file list\n"
     "\n"
-
-
     );
+
+#ifdef USE_QSV
+    fprintf( out,
+    "### QSV Options, via --encopts=\"option1=value1:option2=value2\" -----------\n\n"
+    "        - qsv_target_usage  A range of numbers that indicate trade-offs between\n"
+    "          <number>          quality and speed, from 1 to 7 inclusive.\n"
+    "        - qsv_num_ref_frame Number of reference frames; if equal to 0, this parameter is\n"
+    "          <number>          not specified.\n"
+    "        - qsv_gop_pic_size  Number of pictures within the current GOP (Group of Pictures);\n"
+    "          <number>          if equal to 0, then the GOP size is unspecified.\n"
+    "                            If equal to 1, only I-frames are used.\n"
+    "        - qsv_gop_ref_dist  Distance between I- or P- key frames; if it is zero,\n"
+    "          <number>          the GOP structure is unspecified.\n"
+    "                            Note: If GopRefDist = 1, there are no B-frames used.\n"
+    "        - qsv_async_depth   Specifies how many asynchronous operations an application performs\n"
+    "          <number>          before the application explicitly synchronizes the result.\n"
+    "                            If zero, the value is not specified. Default is 4\n"
+    "\n"
+    );
+#endif
 }
 
 /****************************************************************************
@@ -3089,13 +3153,13 @@ static void ShowPresets()
 
 static char * hb_strndup( char * str, int len )
 {
-	char * res;
-	int str_len = strlen( str );
+    char * res;
+    int str_len = strlen( str );
 
-	res = malloc( len > str_len ? str_len + 1 : len + 1 );
-	strncpy( res, str, len );
-	res[len] = '\0';
-	return res;
+    res = malloc( len > str_len ? str_len + 1 : len + 1 );
+    strncpy( res, str, len );
+    res[len] = '\0';
+    return res;
 }
 
 static char** str_split( char *str, char delem )
@@ -3169,7 +3233,7 @@ static double parse_hhmmss_strtok()
  ****************************************************************************/
 static int ParseOptions( int argc, char ** argv )
 {
-    
+
     #define PREVIEWS            257
     #define START_AT_PREVIEW    258
     #define START_AT            259
@@ -3201,7 +3265,7 @@ static int ParseOptions( int argc, char ** argv )
     #define H264_PROFILE        285
     #define H264_LEVEL          286
     #define NORMALIZE_MIX       287
-    
+
     for( ;; )
     {
         static struct option long_options[] =
@@ -3292,6 +3356,7 @@ static int ParseOptions( int argc, char ** argv )
             { "vfr",         no_argument,       &cfr,    0 },
             { "cfr",         no_argument,       &cfr,    1 },
             { "pfr",         no_argument,       &cfr,    2 },
+
 #if defined( __APPLE_CC__ )
             { "no-vlc-dylib-path", no_argument, &no_vlc_dylib,    1 },
 #endif
@@ -3528,6 +3593,10 @@ static int ParseOptions( int argc, char ** argv )
                     else if (!( strcmp( optarg, "bob" ) ))
                     {
                         deinterlace_opt = "15";
+                    }
+                    else if (!( strcmp( optarg, "qsv" ) ))
+                    {
+                        deinterlace_opt = "32";
                     }
                     else
                     {
@@ -3866,9 +3935,9 @@ static int CheckOptions( int argc, char ** argv )
                 // And add our extra path
                 if ( home != NULL )
                 {
-                    path = hb_strdup_printf("%s/lib:%s:%s:%s%s", home, 
-                                      DEFAULT_DYLD_PATH, 
-                                      EXTRA_VLC_DYLD_PATH, 
+                    path = hb_strdup_printf("%s/lib:%s:%s:%s%s", home,
+                                      DEFAULT_DYLD_PATH,
+                                      EXTRA_VLC_DYLD_PATH,
                                       home, EXTRA_VLC_DYLD_PATH);
                 }
                 else

@@ -564,6 +564,11 @@ void hb_buffer_move_subs( hb_buffer_t * dst, hb_buffer_t * src )
     // Note that dst takes ownership of the subtitles
     dst->sub       = src->sub;
     src->sub       = NULL;
+
+#ifdef USE_QSV
+	memcpy(&dst->qsv_details,&src->qsv_details,sizeof(src->qsv_details));
+#endif
+
 }
 
 hb_fifo_t * hb_fifo_init( int capacity, int thresh )

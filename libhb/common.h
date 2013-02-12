@@ -103,6 +103,22 @@ typedef struct hb_lock_s hb_lock_t;
 #include "audio_remap.h"
 #include "libavutil/channel_layout.h"
 
+#ifdef USE_QSV
+
+#ifndef MSDK_PRINT_RET_MSG
+#define MSDK_PRINT_RET_MSG(ERR) {\
+    hb_error("msdk/qsv: %d,\t%s\t%d", ERR, __FUNCTION__, __LINE__); \
+    exit(ERR); \
+    }
+#endif
+
+#ifndef DEBUG_ASSERT
+#define DEBUG_ASSERT(x,y)         {if ((x)) {hb_error("ASSERT: %s",y);exit(1);};}
+#endif
+
+#include "libavcodec/qsv.h"
+#endif
+
 hb_list_t * hb_list_init();
 int         hb_list_count( const hb_list_t * );
 void        hb_list_add( hb_list_t *, void * );
@@ -340,6 +356,7 @@ struct hb_job_s
 #define HB_VCODEC_MASK   0x0000FF
 #define HB_VCODEC_X264   0x000001
 #define HB_VCODEC_THEORA 0x000002
+#define HB_VCODEC_QSV_H264 0x000100
 #define HB_VCODEC_FFMPEG_MPEG4 0x000010
 #define HB_VCODEC_FFMPEG       HB_VCODEC_FFMPEG_MPEG4
 #define HB_VCODEC_FFMPEG_MPEG2 0x000020
@@ -361,7 +378,6 @@ struct hb_job_s
     char            *h264_profile;
     char            *h264_level;
     int             areBframes;
-
     int             color_matrix_code;
     int             color_prim;
     int             color_transfer;
@@ -427,6 +443,9 @@ struct hb_job_s
     uint32_t        frames_to_skip;     // decode but discard this many frames
                                         //  initially (for frame accurate positioning
                                         //  to non-I frames).
+#ifdef USE_QSV
+    av_qsv_context   *qsv;
+#endif
 
 #ifdef __LIBHB__
     /* Internal data */
@@ -919,6 +938,7 @@ extern hb_work_object_t hb_decssasub;
 extern hb_work_object_t hb_decpgssub;
 extern hb_work_object_t hb_encavcodec;
 extern hb_work_object_t hb_encx264;
+extern hb_work_object_t hb_encqsv;
 extern hb_work_object_t hb_enctheora;
 extern hb_work_object_t hb_deca52;
 extern hb_work_object_t hb_decdca;
@@ -998,8 +1018,13 @@ struct hb_filter_object_s
 
 enum
 {
+    // default MSDK VPP filters 
+    HB_FILTER_QSV = 1,
+    // for QSV - important to have before other filters
+    HB_FILTER_QSV_PRE,
+
     // First, filters that may change the framerate (drop or dup frames)
-    HB_FILTER_DETELECINE = 1,
+    HB_FILTER_DETELECINE,
     HB_FILTER_DECOMB,
     HB_FILTER_DEINTERLACE,
     HB_FILTER_VFR,
@@ -1011,6 +1036,9 @@ enum
     // Finally filters that don't care what order they are in,
     // except that they must be after the above filters
     HB_FILTER_ROTATE,
+
+    // for QSV - important to have as a last one
+    HB_FILTER_QSV_POST,
 };
 
 hb_filter_object_t * hb_filter_init( int filter_id );

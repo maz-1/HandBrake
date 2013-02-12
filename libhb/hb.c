@@ -469,6 +469,9 @@ hb_handle_t * hb_init( int verbose, int update_check )
     hb_register( &hb_decpgssub );
 	hb_register( &hb_encavcodec );
 	hb_register( &hb_encx264 );
+#ifdef USE_QSV
+    hb_register( &hb_encqsv );
+#endif
     hb_register( &hb_enctheora );
 	hb_register( &hb_deca52 );
 	hb_register( &hb_decavcodeca );
@@ -567,6 +570,9 @@ hb_handle_t * hb_init_dl( int verbose, int update_check )
     hb_register( &hb_decssasub );
 	hb_register( &hb_encavcodec );
 	hb_register( &hb_encx264 );
+#ifdef USE_QSV
+    hb_register( &hb_encqsv );
+#endif
     hb_register( &hb_enctheora );
 	hb_register( &hb_deca52 );
 	hb_register( &hb_decavcodeca );

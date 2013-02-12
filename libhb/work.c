@@ -11,6 +11,10 @@
 #include "a52dec/a52.h"
 #include "libavformat/avformat.h"
 
+#ifdef USE_QSV
+#include "libavcodec/qsv.h"
+#endif
+
 typedef struct
 {
     hb_list_t * jobs;
@@ -63,7 +67,7 @@ static void InitWorkState( hb_handle_t * h )
     p.rate_avg  = 0.0;
     p.hours     = -1;
     p.minutes   = -1;
-    p.seconds   = -1; 
+    p.seconds   = -1;
 #undef p
 
     hb_set_state( h, &state );
@@ -170,10 +174,10 @@ void hb_display_job_info( hb_job_t * job )
     hb_audio_t   * audio;
     hb_subtitle_t * subtitle;
     int             i, j;
-    
+
     hb_log("job configuration:");
     hb_log( " * source");
-    
+
     hb_log( "   + %s", title->path );
 
     if( job->pts_to_start || job->pts_to_stop )
@@ -216,7 +220,7 @@ void hb_display_job_info( hb_job_t * job )
     {
         hb_log( "   + data rate: %d kbps", title->data_rate / 1000 );
     }
-    
+
     hb_log( " * destination");
 
     hb_log( "   + %s", job->file );
@@ -225,7 +229,7 @@ void hb_display_job_info( hb_job_t * job )
     {
         case HB_MUX_MP4:
             hb_log("   + container: MPEG-4 (.mp4 and .m4v)");
-            
+
             if( job->ipod_atom )
                 hb_log( "     + compatibility atom for iPod 5G");
 
@@ -234,7 +238,7 @@ void hb_display_job_info( hb_job_t * job )
 
             if( job->mp4_optimize )
                 hb_log( "     + optimized for progressive web downloads");
-            
+
             if( job->color_matrix_code )
                 hb_log( "     + custom color matrix: %s", job->color_matrix_code == 1 ? "ITU Bt.601 (SD)" : job->color_matrix_code == 2 ? "ITU Bt.709 (HD)" : "Custom" );
             break;
@@ -248,16 +252,16 @@ void hb_display_job_info( hb_job_t * job )
     {
         hb_log( "     + chapter markers" );
     }
-    
+
     hb_log(" * video track");
-    
+
     hb_log("   + decoder: %s", title->video_codec_name );
-    
+
     if( title->video_bitrate )
     {
         hb_log( "     + bitrate %d kbps", title->video_bitrate / 1000 );
     }
-    
+
     if( job->cfr == 0 )
     {
         hb_log( "   + frame rate: same as source (around %.3f fps)",
@@ -298,19 +302,19 @@ void hb_display_job_info( hb_job_t * job )
             }
         }
     }
-    
+
     if( job->anamorphic.mode )
     {
         hb_log( "   + %s anamorphic", job->anamorphic.mode == 1 ? "strict" : job->anamorphic.mode == 2? "loose" : "custom" );
         if( job->anamorphic.mode == 3 && job->anamorphic.keep_display_aspect )
         {
-            hb_log( "     + keeping source display aspect ratio"); 
+            hb_log( "     + keeping source display aspect ratio");
         }
         hb_log( "     + storage dimensions: %d * %d, mod %i",
                     job->width, job->height, job->modulus );
         if( job->anamorphic.itu_par )
         {
-            hb_log( "     + using ITU pixel aspect ratio values"); 
+            hb_log( "     + using ITU pixel aspect ratio values");
         }
         hb_log( "     + pixel aspect ratio: %i / %i", job->anamorphic.par_width, job->anamorphic.par_height );
         hb_log( "     + display dimensions: %.0f * %i",
@@ -359,14 +363,14 @@ void hb_display_job_info( hb_job_t * job )
             hb_log( "     + h264 profile: %s", job->h264_profile );
         }
         if( job->h264_level && *job->h264_level &&
-            job->vcodec == HB_VCODEC_X264 )
+            (job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264))
         {
             hb_log( "     + h264 level: %s", job->h264_level );
         }
 
         if( job->vquality >= 0 )
         {
-            hb_log( "     + quality: %.2f %s", job->vquality, job->vcodec == HB_VCODEC_X264 ? "(RF)" : "(QP)" ); 
+            hb_log( "     + quality: %.2f %s", job->vquality, job->vcodec == HB_VCODEC_X264 ? "(RF)" : "(QP)" );
         }
         else
         {
@@ -431,7 +435,7 @@ void hb_display_job_info( hb_job_t * job )
             audio = hb_list_item( job->list_audio, i );
 
             hb_log( " * audio track %d", audio->config.out.track );
-            
+
             if( audio->config.out.name )
                 hb_log( "   + name: %s", audio->config.out.name );
 
@@ -490,7 +494,7 @@ void hb_display_job_info( hb_job_t * job )
                         else if( audio->config.out.samplerate > 0 )
                             hb_log( "     + samplerate: %d Hz", audio->config.out.samplerate );
                         if( audio->config.out.compression_level >= 0 )
-                            hb_log( "     + compression level: %.2f", 
+                            hb_log( "     + compression level: %.2f",
                                     audio->config.out.compression_level );
                         break;
                     }
@@ -574,7 +578,7 @@ static void do_job( hb_job_t * job )
                  * it would result in:
                  * - an emty track (forced and no forced hits)
                  * - an identical, duplicate subtitle track:
-                 *   -> both (or neither) are forced 
+                 *   -> both (or neither) are forced
                  *   -> subtitle is not forced but all its hits are forced */
                 if( ( interjob->select_subtitle->id == subtitle->id ) &&
                     ( ( subtitle->config.force &&
@@ -708,9 +712,97 @@ static void do_job( hb_job_t * job )
         init.pfr_vrate_base = job->pfr_vrate_base;
         init.pfr_vrate = job->pfr_vrate;
         init.cfr = 0;
+
+        int is_vpp_interlace = 0;
+        int is_actual_crop_resize = 0;
+        if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264)
+            for( i = 0; i < hb_list_count( job->list_filter ); i++){
+                hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
+                if(filter->id == HB_FILTER_DEINTERLACE){
+                    if(filter->settings){
+                        if(!(strcmp( filter->settings, "32" )))
+                            is_vpp_interlace = 1;
+                    }
+                    else{
+                      // for QSV path - deinterlace from QSV is default, if not param(s) set
+                      is_vpp_interlace = 2;
+                    }
+                }
+                else
+                if( filter->id == HB_FILTER_QSV ){
+                    if( job->width  != job->title->width ||
+                        job->height != job->title->height ||
+                        job->crop[0] != 0 ||  job->crop[1] != 0 ||
+                        job->crop[2] != 0 ||  job->crop[3] != 0){
+                        is_actual_crop_resize = 1;
+                    }
+                }
+            }
+         int is_additional_vpp_function = is_actual_crop_resize;
+
         for( i = 0; i < hb_list_count( job->list_filter ); )
         {
             hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
+
+            // to do not use QSV related if not handled from its decode
+            if( job->vcodec == HB_VCODEC_QSV_H264 )
+             // for now, only h.264 related stuff
+             if(title->video_codec_param != AV_CODEC_ID_H264){
+                if( filter->id == HB_FILTER_QSV_PRE  ||
+                    filter->id == HB_FILTER_QSV_POST ||
+                    filter->id == HB_FILTER_QSV ){
+                        hb_list_rem( job->list_filter, filter );
+                        hb_filter_close( &filter );
+                        continue;
+                }
+             }
+             else
+             if(title->video_codec_param == AV_CODEC_ID_H264){
+
+                // for QSV crop and scale taken as HW VPP
+                if( filter->id == HB_FILTER_CROP_SCALE  ||
+                    filter->id == HB_FILTER_VFR
+                    // to check and use with USER_VPP_FILTER, some should come from QSV/HW
+                    || filter->id == HB_FILTER_DETELECINE   // note: Table 3: Deinterlacing/Inverse Telecine Support in VPP, mediasdk-man.pdf
+                    || filter->id == HB_FILTER_DECOMB
+/*validated*/       ||(filter->id == HB_FILTER_DEINTERLACE && is_vpp_interlace)
+                    || filter->id == HB_FILTER_DEBLOCK
+                    || filter->id == HB_FILTER_DENOISE      // note: MFX_EXTBUFF_VPP_DENOISE
+                    || filter->id == HB_FILTER_RENDER_SUB
+/*validated*/ //    || filter->id == HB_FILTER_ROTATE       // validated,  note : it makes sense to have more local to Video Memory, OpenCL as an example
+                    || (filter->id == HB_FILTER_QSV && !is_additional_vpp_function )
+                    ){
+                        hb_list_rem( job->list_filter, filter );
+                        hb_filter_close( &filter );
+                        continue;
+                }
+
+                // only use if some filters are in between
+                if( filter->id == HB_FILTER_QSV_PRE  ||
+                    filter->id == HB_FILTER_QSV_POST){
+                    int to_use = 0;
+                    int x = 0;
+                    for(;x < hb_list_count( job->list_filter );x++){
+                        hb_filter_object_t * check_filter = hb_list_item( job->list_filter, x );
+                        if(check_filter->id > HB_FILTER_QSV_PRE && check_filter->id < HB_FILTER_QSV_POST &&
+                            // if original filter used - we need to wrap them into QSV pipeline
+                           (check_filter->id == HB_FILTER_DEINTERLACE && !is_vpp_interlace) &&
+                            check_filter->id != HB_FILTER_CROP_SCALE &&
+                            check_filter->id != HB_FILTER_VFR){
+                            to_use = 1;
+                            break;
+                        }
+                    }
+
+                    if(!to_use)
+                    {
+                        hb_list_rem( job->list_filter, filter );
+                        hb_filter_close( &filter );
+                        continue;
+                    }
+                }
+             }
+
             if( filter->init( filter, &init ) )
             {
                 hb_log( "Failure to initialise filter '%s', disabling",
@@ -755,12 +847,21 @@ static void do_job( hb_job_t * job )
             }
         }
     }
-    
-    job->fifo_mpeg2  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
-    job->fifo_raw    = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
-    job->fifo_sync   = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
-    job->fifo_mpeg4  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
-    job->fifo_render = NULL; // Attached to filter chain
+
+    if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264){
+        job->fifo_mpeg2  = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
+        job->fifo_raw    = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
+        job->fifo_sync   = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
+        job->fifo_render = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
+        job->fifo_mpeg4 = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
+    }
+    else{
+        job->fifo_mpeg2  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
+        job->fifo_raw    = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+        job->fifo_sync   = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+        job->fifo_mpeg4  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
+        job->fifo_render = NULL; // Attached to filter chain
+    }
 
     /* Audio fifos must be initialized before sync */
     if (!job->indepth_scan)
@@ -1070,11 +1171,14 @@ static void do_job( hb_job_t * job )
         case HB_VCODEC_X264:
             w = hb_get_work( WORK_ENCX264 );
             break;
+        case HB_VCODEC_QSV_H264:
+            w = hb_get_work( WORK_ENCQSV );
+            break;
         case HB_VCODEC_THEORA:
             w = hb_get_work( WORK_ENCTHEORA );
             break;
         }
-        // Handle case where there are no filters.  
+        // Handle case where there are no filters.
         // This really should never happen.
         if ( job->fifo_render )
             w->fifo_in  = job->fifo_render;
@@ -1134,7 +1238,7 @@ static void do_job( hb_job_t * job )
             }
         }
     }
-    
+
     if( job->chapter_markers && job->chapter_start == job->chapter_end )
     {
         job->chapter_markers = 0;
@@ -1265,7 +1369,7 @@ static void do_job( hb_job_t * job )
     hb_handle_t * h = job->h;
     hb_state_t state;
     hb_get_state( h, &state );
-    
+
     hb_log("work: average encoding speed for job is %f fps", state.param.working.rate_avg);
 
     job->done = 1;
@@ -1532,7 +1636,7 @@ static void work_loop( void * _w )
 
 /**
  * Performs the filter object's specific work function.
- * Loops calling work function for associated filter object. 
+ * Loops calling work function for associated filter object.
  * Sleeps when fifo is full.
  * Monitors work done indicator.
  * Exits loop when work indiactor is set.
