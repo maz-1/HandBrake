@@ -1044,21 +1044,13 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
 
 #ifdef USE_QSV
         if(job && job->vcodec == HB_VCODEC_QSV_H264 ){
-            pv->context->hwaccel_context              = &pv->qsv_config;
+            pv->context->hwaccel_context          = &pv->qsv_config;
             pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
             pv->qsv_config.additional_buffers     = 32; // FIFO_LARGE for now
             // decode is async, sync only at encode
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-
-//#define QSV_IMPL_HARDWARE
-        #ifdef QSV_IMPL_HARDWARE
-            pv->qsv_config.impl_requested = MFX_IMPL_HARDWARE;
-        #elif QSV_IMPL_SOFTWARE
-            pv->qsv_config.impl_requested = MFX_IMPL_SOFTWARE;
-        #else
-            pv->qsv_config.impl_requested = MFX_IMPL_AUTO;
-        #endif
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO;
         }
 #endif
 
@@ -1104,15 +1096,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             // decode is async, sync only at encode
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-
-//#define QSV_IMPL_HARDWARE
-        #ifdef QSV_IMPL_HARDWARE
-            pv->qsv_config.impl_requested = MFX_IMPL_HARDWARE;
-        #elif QSV_IMPL_SOFTWARE
-            pv->qsv_config.impl_requested = MFX_IMPL_SOFTWARE;
-        #else
-            pv->qsv_config.impl_requested = MFX_IMPL_AUTO;
-        #endif
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO;
         }
 #endif
 

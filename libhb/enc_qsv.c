@@ -168,9 +168,10 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
                             SWS_LANCZOS|SWS_ACCURATE_RND);
     }
 
-    MFXQueryIMPL(qsv->mfx_session,&qsv->impl);
+    sts = MFXQueryIMPL(qsv->mfx_session,&qsv->impl);
+    AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    char* impl_name = (MFX_IMPL_HARDWARE == qsv->impl) ? "hardware" : "software";
+    char* impl_name = (MFX_IMPL_SOFTWARE == qsv->impl) ? "software" : "hardware";
     hb_log("qsv: Intel QSV/MediaSDK uses %s implementation", impl_name);
 
     if(pv->is_sys_mem)
@@ -490,14 +491,7 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
         // no need to use additional sync as encode only -> single thread
         av_qsv_add_context_usage(qsv,0);
 
-//#define QSV_IMPL_HARDWARE
-        #ifdef QSV_IMPL_HARDWARE
-            qsv->impl = MFX_IMPL_HARDWARE;
-        #elif QSV_IMPL_SOFTWARE
-            qsv->impl = MFX_IMPL_SOFTWARE;
-        #else
-            qsv->impl = MFX_IMPL_AUTO;
-        #endif
+        qsv->impl = MFX_IMPL_AUTO;
 
         memset(&qsv->mfx_session, 0, sizeof(mfxSession));
         qsv->ver.Major = AV_QSV_MSDK_VERSION_MAJOR;
