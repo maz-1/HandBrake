@@ -799,9 +799,8 @@ static void do_job( hb_job_t * job )
                         hb_filter_object_t * check_filter = hb_list_item( job->list_filter, x );
                         if(check_filter->id > HB_FILTER_QSV_PRE && check_filter->id < HB_FILTER_QSV_POST &&
                             // if original filter used - we need to wrap them into QSV pipeline
-                           (check_filter->id == HB_FILTER_DEINTERLACE && !is_vpp_interlace) &&
-                            check_filter->id != HB_FILTER_CROP_SCALE &&
-                            check_filter->id != HB_FILTER_VFR){
+                           ((check_filter->id == HB_FILTER_DEINTERLACE && !is_vpp_interlace) ||
+                             check_filter->id == HB_FILTER_ROTATE )){
                             to_use = 1;
                             break;
                         }
