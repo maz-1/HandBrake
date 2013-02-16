@@ -27,7 +27,6 @@ namespace HandBrakeWPF.ViewModels
     using HandBrake.Interop.Model.Encoding.x264;
 
     using HandBrakeWPF.Commands.Interfaces;
-    using HandBrakeWPF.Model;
     using HandBrakeWPF.ViewModels.Interfaces;
 
     /// <summary>
@@ -60,6 +59,11 @@ namespace HandBrakeWPF.ViewModels
         /// Backing field used to display / hide the x264 options
         /// </summary>
         private bool displayX264Options;
+
+        /// <summary>
+        /// Backing field used to display / hide the h264 options
+        /// </summary>
+        private bool displayEncoderOptions;
 
         /// <summary>
         /// The quality max.
@@ -148,11 +152,15 @@ namespace HandBrakeWPF.ViewModels
         {
             get
             {
-                bool showAdvTabSetting =
-                    this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAdvancedTab);
+                bool showAdvTabSetting = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAdvancedTab);
                 if (!showAdvTabSetting)
                 {
                     this.UseAdvancedTab = false;
+                }
+
+                if (this.SelectedVideoEncoder == VideoEncoder.QuickSync)
+                {
+                    return false;
                 }
 
                 return showAdvTabSetting;
@@ -458,6 +466,7 @@ namespace HandBrakeWPF.ViewModels
                 this.DisplayX264Options = value == VideoEncoder.X264;
 
                 this.NotifyOfPropertyChange(() => this.Rfqp);
+                this.NotifyOfPropertyChange(() => this.ShowAdvancedTab);
             }
         }
 
@@ -498,6 +507,22 @@ namespace HandBrakeWPF.ViewModels
                     this.Task.ExtraAdvancedArguments = value;
                     this.NotifyOfPropertyChange(() => this.ExtraArguments);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to display H264
+        /// </summary>
+        public bool DisplayH264Options
+        {
+            get
+            {
+                return this.displayEncoderOptions;
+            }
+            set
+            {
+                this.displayEncoderOptions = value;
+                this.NotifyOfPropertyChange(() => this.DisplayH264Options);
             }
         }
 
@@ -820,6 +845,7 @@ namespace HandBrakeWPF.ViewModels
         /// </param>
         public void SetEncoder(VideoEncoder encoder)
         {
+            this.DisplayH264Options = encoder == VideoEncoder.X264 || encoder == VideoEncoder.QuickSync;
             this.DisplayX264Options = encoder == VideoEncoder.X264;
         }
 

@@ -106,7 +106,7 @@
             </StackPanel>
 
             <!-- H264 settings -->
-            <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,20,0,0" Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}">
+            <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,20,0,0" Visibility="{Binding DisplayH264Options, Converter={StaticResource boolToVisConverter}}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -118,8 +118,7 @@
                 <CheckBox Content="Use Advanced Tab instead" Grid.Row="1" IsChecked="{Binding UseAdvancedTab}" 
                           Visibility="{Binding ShowAdvancedTab, Converter={StaticResource boolToVisConverter}, ConverterParameter=false}" />
 
-                <Grid Grid.Row="2" Margin="0,5,0,0" IsEnabled="{Binding UseAdvancedTab, Converter={StaticResource inverseConverter}}"
-                      Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}">
+                <Grid Grid.Row="2" Margin="0,5,0,0" IsEnabled="{Binding UseAdvancedTab, Converter={StaticResource inverseConverter}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -139,22 +138,27 @@
 
 
                     <!-- Row 1 -->
-                    <TextBlock Text="x264 Preset:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" />
-                    <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal">
+                    <TextBlock Text="x264 Preset:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"
+                               Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal"
+                                Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}" >
                         <Slider Minimum="0" Maximum="9" Width="150" Value="{Binding X264PresetValue, Mode=Default, UpdateSourceTrigger=PropertyChanged}" 
                             IsSnapToTickEnabled="True" TickFrequency="1" TickPlacement="BottomRight" ToolTip="{x:Static Properties:Resources.Video_x264Preset}" 
                             Style="{StaticResource LongToolTipHolder}" />
                         <TextBlock Text="{Binding X264Preset, Converter={StaticResource enumComboConverter}}" Margin="5,0,0,0" />
                     </StackPanel>
 
-                    <TextBlock Text="x264 Tune:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,10,0,0"  />
+                    <TextBlock Text="x264 Tune:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,10,0,0" 
+                               Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}" />
                     <ComboBox Width="100" Grid.Row="2" Grid.Column="1" Margin="5,10,5,0" Height="22"
-                          ItemsSource="{Binding X264Tunes, Converter={StaticResource enumComboConverter}}" 
-                          SelectedItem="{Binding X264Tune, Converter={StaticResource enumComboConverter}}"
-                          ToolTip="{x:Static Properties:Resources.Video_x264Tune}"
-                          Style="{StaticResource LongToolTipHolder}" />
+                              ItemsSource="{Binding X264Tunes, Converter={StaticResource enumComboConverter}}" 
+                              SelectedItem="{Binding X264Tune, Converter={StaticResource enumComboConverter}}"
+                              Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}"
+                              ToolTip="{x:Static Properties:Resources.Video_x264Tune}"
+                              Style="{StaticResource LongToolTipHolder}" />
                     <CheckBox IsChecked="{Binding FastDecode}" Content="Fast Decode" Grid.Row="2" Grid.Column="2" Margin="10,10,10,0" VerticalAlignment="Center"
-                          ToolTip="{x:Static Properties:Resources.Video_x264FastDecode}"/>
+                              Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}"
+                              ToolTip="{x:Static Properties:Resources.Video_x264FastDecode}"/>
 
 
                     <!-- Row 2-->
@@ -173,10 +177,12 @@
                           ToolTip="{x:Static Properties:Resources.Video_x264Level}"/>
 
                     <!-- Row 3 -->
-                    <TextBlock Text="Extra Options:" Grid.Row="4" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                    <TextBlock Text="Extra Options:" Grid.Row="4" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                               Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}" />
                     <TextBox Text="{Binding ExtraArguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Height="30" MaxLines="2" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Margin="5,10,0,0" VerticalAlignment="Center"
-                         ToolTip="{Binding FullOptionsTooltip}"/>
+                             Height="30" MaxLines="2" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Margin="5,10,0,0" VerticalAlignment="Center"
+                             ToolTip="{Binding FullOptionsTooltip}"
+                             Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}" />
 
 
                 </Grid>
