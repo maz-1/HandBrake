@@ -18,10 +18,10 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ContentControl x:Name="X264ViewModel"
+        <ContentControl x:Name="X264ViewModel" Grid.Row="0"
                         Visibility="{Binding ShowX264Panel, Converter={StaticResource BooleanVisibilityConverter}}" />
 
-        <ContentControl x:Name="EncoderOptionsViewModel" 
+        <ContentControl x:Name="EncoderOptionsViewModel" Grid.Row="0"
                         Visibility="{Binding ShowSimplePanel, Converter={StaticResource BooleanVisibilityConverter}}" />
 
 

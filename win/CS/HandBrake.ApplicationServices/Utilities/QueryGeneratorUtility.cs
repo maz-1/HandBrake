@@ -945,17 +945,37 @@ namespace HandBrake.ApplicationServices.Utilities
 
                 if (task.H264Profile != x264Profile.None)
                 {
-                    query += string.Format(" --h264-profile={0} ", task.H264Profile.ToString().ToLower().Replace(" ", string.Empty));
+                    query += string.Format(
+                        " --h264-profile={0} ", task.H264Profile.ToString().ToLower().Replace(" ", string.Empty));
                 }
 
-                if (!string.IsNullOrEmpty(task.AdvancedEncoderOptions))
+                if (task.VideoEncoder == VideoEncoder.QuickSync)
+                {
+                    string qsvPreset;
+                    switch (task.QsvPreset)
+                    {
+                        case QsvPreset.Quality:
+                            qsvPreset = "1";
+                            break;
+                        case QsvPreset.Balanced:
+                            qsvPreset = "4";
+                            break;
+                        default:
+                            qsvPreset = "7";
+                            break;
+                    }
+
+                    query += string.IsNullOrEmpty(task.AdvancedEncoderOptions)
+                                 ? string.Format(" -x qsv-target-usage={0}", qsvPreset)
+                                 : string.Format(" -x qsv-target-usage={0}:{1}", qsvPreset, task.AdvancedEncoderOptions);
+                }
+                else if (!string.IsNullOrEmpty(task.AdvancedEncoderOptions))
                 {
                     query += string.Format(" -x {0}", task.AdvancedEncoderOptions);
                 }
 
                 return query;
             }
-
 
             return string.IsNullOrEmpty(task.AdvancedEncoderOptions) ? string.Empty : string.Format(" -x {0}", task.AdvancedEncoderOptions);
         }

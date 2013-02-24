@@ -61,6 +61,11 @@ namespace HandBrakeWPF.ViewModels
         private bool displayX264Options;
 
         /// <summary>
+        /// The display qsv options.
+        /// </summary>
+        private bool displayQSVOptions;
+
+        /// <summary>
         /// Backing field used to display / hide the h264 options
         /// </summary>
         private bool displayEncoderOptions;
@@ -89,6 +94,11 @@ namespace HandBrakeWPF.ViewModels
         /// The x264 preset value.
         /// </summary>
         private int x264PresetValue;
+
+        /// <summary>
+        /// The qsv preset value.
+        /// </summary>
+        private int qsvPresetValue;
 
         /// <summary>
         /// The extra arguments.
@@ -129,6 +139,7 @@ namespace HandBrakeWPF.ViewModels
             this.VideoEncoders = EnumHelper<VideoEncoder>.GetEnumList();
 
             X264Presets = new BindingList<x264Preset>(EnumHelper<x264Preset>.GetEnumList().ToList());
+            QsvPresets = new BindingList<QsvPreset>(EnumHelper<QsvPreset>.GetEnumList().ToList());
             H264Profiles = EnumHelper<x264Profile>.GetEnumList();
             X264Tunes = EnumHelper<x264Tune>.GetEnumList().Where(t => t != x264Tune.Fastdecode);
             this.H264Levels = Levels;
@@ -464,6 +475,9 @@ namespace HandBrakeWPF.ViewModels
 
                 // Hide the x264 controls when not needed.
                 this.DisplayX264Options = value == VideoEncoder.X264;
+                this.DisplayQSVOptions = value == VideoEncoder.QuickSync;
+                this.DisplayH264Options = value == VideoEncoder.X264 || value == VideoEncoder.QuickSync;
+                this.UseAdvancedTab = value != VideoEncoder.QuickSync && this.UseAdvancedTab;
 
                 this.NotifyOfPropertyChange(() => this.Rfqp);
                 this.NotifyOfPropertyChange(() => this.ShowAdvancedTab);
@@ -543,6 +557,22 @@ namespace HandBrakeWPF.ViewModels
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether to display qsv options.
+        /// </summary>
+        public bool DisplayQSVOptions
+        {
+            get
+            {
+                return this.displayQSVOptions;
+            }
+            set
+            {
+                this.displayQSVOptions = value;
+                this.NotifyOfPropertyChange(() => this.DisplayQSVOptions);
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the x 264 preset value.
         /// </summary>
         public int X264PresetValue
@@ -578,6 +608,45 @@ namespace HandBrakeWPF.ViewModels
                     this.Task.X264Preset = value;
                     this.NotifyOfPropertyChange(() => this.X264Preset);
                     ResetAdvancedTab();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets X264Preset.
+        /// </summary>
+        public QsvPreset QsvPreset
+        {
+            get
+            {
+                return this.Task.QsvPreset;
+            }
+            set
+            {
+                if (!object.Equals(this.QsvPreset, value))
+                {
+                    this.Task.QsvPreset = value;
+                    this.NotifyOfPropertyChange(() => this.QsvPreset);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the x 264 preset value.
+        /// </summary>
+        public int QsvPresetValue
+        {
+            get
+            {
+                return this.qsvPresetValue;
+            }
+            set
+            {
+                if (!object.Equals(this.QsvPresetValue, value))
+                {
+                    this.qsvPresetValue = value;
+                    this.QsvPreset = this.QsvPresets[value];
+                    this.NotifyOfPropertyChange(() => this.QsvPresetValue);
                 }
             }
         }
@@ -667,6 +736,11 @@ namespace HandBrakeWPF.ViewModels
         /// Gets or sets X264Presets.
         /// </summary>
         public BindingList<x264Preset> X264Presets { get; set; }
+
+        /// <summary>
+        /// Gets or sets QsvPreset.
+        /// </summary>
+        public BindingList<QsvPreset> QsvPresets { get; set; }
 
         /// <summary>
         /// Gets or sets X264Profiles.
@@ -804,6 +878,10 @@ namespace HandBrakeWPF.ViewModels
                 this.FastDecode = preset.Task.VideoEncoder == VideoEncoder.X264 && preset.Task.FastDecode;
                 this.ExtraArguments = preset.Task.ExtraAdvancedArguments;
 
+                this.QsvPresetValue = preset.Task.VideoEncoder == VideoEncoder.QuickSync
+                                           ? (int)preset.Task.QsvPreset
+                                           : (int)QsvPreset.Quality;
+
                 this.UseAdvancedTab = !string.IsNullOrEmpty(preset.Task.AdvancedEncoderOptions) && this.ShowAdvancedTab;
             }
         }
@@ -847,6 +925,12 @@ namespace HandBrakeWPF.ViewModels
         {
             this.DisplayH264Options = encoder == VideoEncoder.X264 || encoder == VideoEncoder.QuickSync;
             this.DisplayX264Options = encoder == VideoEncoder.X264;
+            this.DisplayQSVOptions = encoder == VideoEncoder.QuickSync;
+
+            if (encoder == VideoEncoder.QuickSync)
+            {
+                this.UseAdvancedTab = false;
+            }
         }
 
         /// <summary>
@@ -869,6 +953,7 @@ namespace HandBrakeWPF.ViewModels
         {
             this.canClear = false;
             this.X264PresetValue = 5;
+            this.qsvPresetValue = 2;
             this.X264Tune = x264Tune.None;
             this.H264Profile = x264Profile.None;
             this.FastDecode = false;

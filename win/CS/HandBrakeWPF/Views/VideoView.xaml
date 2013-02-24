@@ -160,6 +160,15 @@
                               Visibility="{Binding DisplayX264Options, Converter={StaticResource boolToVisConverter}}"
                               ToolTip="{x:Static Properties:Resources.Video_x264FastDecode}"/>
 
+                    <TextBlock Text="QSV Preset:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"
+                               Visibility="{Binding DisplayQSVOptions, Converter={StaticResource boolToVisConverter}}" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal"
+                                Visibility="{Binding DisplayQSVOptions, Converter={StaticResource boolToVisConverter}}" >
+                        <Slider Minimum="0" Maximum="2" Width="150" Value="{Binding QsvPresetValue, Mode=Default, UpdateSourceTrigger=PropertyChanged}" 
+                            IsSnapToTickEnabled="True" TickFrequency="1" TickPlacement="BottomRight" />
+                        <TextBlock Text="{Binding QsvPreset, Converter={StaticResource enumComboConverter}}" Margin="5,0,0,0" />
+                    </StackPanel>
+
 
                     <!-- Row 2-->
                     <TextBlock Text="H.264 Profile:" Grid.Row="3" Grid.Column="0" Margin="0,10,0,0" VerticalAlignment="Center" />

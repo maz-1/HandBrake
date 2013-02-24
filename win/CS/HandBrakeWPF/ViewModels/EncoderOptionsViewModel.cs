@@ -9,6 +9,8 @@
 
 namespace HandBrakeWPF.ViewModels
 {
+    using System.Collections.Generic;
+
     using HandBrake.ApplicationServices.Model;
     using HandBrake.ApplicationServices.Parsing;
     using HandBrake.Interop.Model.Encoding;
@@ -18,20 +20,36 @@ namespace HandBrakeWPF.ViewModels
     /// <summary>
     /// The Simple Encoder options screen
     /// </summary>
-    public class EncoderOptionsViewModel : ViewModelBase, IEncoderOptionsViewModel, ITabInterface
+    public class EncoderOptionsViewModel : ViewModelBase, IEncoderOptionsViewModel
     {
+        /// <summary>
+        /// The cached options.
+        /// </summary>
+        private readonly Dictionary<VideoEncoder, string> cachedOptions = new Dictionary<VideoEncoder, string>();
+
         /// <summary>
         /// Initializes a new instance of the <see cref="EncoderOptionsViewModel"/> class.
         /// </summary>
         public EncoderOptionsViewModel()
         {
             this.Task = new EncodeTask();
+            cachedOptions.Add(VideoEncoder.QuickSync, "qsv-num-ref-frame=3:qsv-gop-ref-dist=5:qsv-gop-pic-size=5:qsv-async-depth=4");
         }
 
         /// <summary>
         /// Gets or sets the task.
         /// </summary>
         public EncodeTask Task { get; set; }
+
+        /// <summary>
+        /// Gets or sets the preset.
+        /// </summary>
+        public Preset Preset { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current video encoder.
+        /// </summary>
+        public VideoEncoder CurrentVideoEncoder { get; set; }
 
         /// <summary>
         /// Gets or sets the options string.
@@ -64,6 +82,7 @@ namespace HandBrakeWPF.ViewModels
         public void SetSource(Title selectedTitle, Preset currentPreset, EncodeTask task)
         {
             this.Task = task;
+            this.Preset = currentPreset;
             this.NotifyOfPropertyChange(() => this.AdvancedOptionsString);
         }
 
@@ -79,6 +98,7 @@ namespace HandBrakeWPF.ViewModels
         public void SetPreset(Preset preset, EncodeTask task)
         {
             this.Task = task;
+            this.Preset = preset;
             this.AdvancedOptionsString = preset.Task.AdvancedEncoderOptions;
         }
 
@@ -102,6 +122,26 @@ namespace HandBrakeWPF.ViewModels
         /// </param>
         public void SetEncoder(VideoEncoder encoder)
         {
+            // Cache the existing string so it can be reused if the user changes the encoder back.
+            if (!string.IsNullOrEmpty(this.AdvancedOptionsString))
+            {
+                this.cachedOptions[CurrentVideoEncoder] = this.AdvancedOptionsString;
+            }
+
+            // Set the option from the cached version if we have one.
+            string advacnedOptionsString;
+            if (cachedOptions.TryGetValue(encoder, out advacnedOptionsString)
+                && !string.IsNullOrEmpty(advacnedOptionsString))
+            {
+                this.AdvancedOptionsString = advacnedOptionsString;
+            }
+            else
+            {
+                this.AdvancedOptionsString = this.Preset != null && this.Preset.Task != null
+                                             && !string.IsNullOrEmpty(this.Preset.Task.AdvancedEncoderOptions)
+                                                 ? this.Preset.Task.AdvancedEncoderOptions
+                                                 : string.Empty;
+            }
         }
 
         /// <summary>

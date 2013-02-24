@@ -110,6 +110,10 @@ namespace HandBrakeWPF.Converters
             {
                 return EnumHelper<Mixdown>.GetDisplay((Mixdown)value);
             }
+            if (targetType == typeof(QsvPreset) || value.GetType() == typeof(QsvPreset))
+            {
+                return EnumHelper<QsvPreset>.GetDisplay((QsvPreset)value);
+            }
   
             if (targetType == typeof(PresetPictureSettingsMode) || value.GetType() == typeof(PresetPictureSettingsMode))
             {
@@ -181,6 +185,10 @@ namespace HandBrakeWPF.Converters
             if (targetType == typeof(Mixdown) || value.GetType() == typeof(Mixdown))
             {
                 return EnumHelper<Mixdown>.GetValue(value.ToString());
+            }
+            if (targetType == typeof(QsvPreset) || value.GetType() == typeof(QsvPreset))
+            {
+                return EnumHelper<QsvPreset>.GetValue(value.ToString());
             }
 
             if (targetType == typeof(PresetPictureSettingsMode) || value.GetType() == typeof(PresetPictureSettingsMode))
