@@ -128,6 +128,8 @@ namespace HandBrakeWPF.ViewModels
                 this.cachedOptions[CurrentVideoEncoder] = this.AdvancedOptionsString;
             }
 
+            this.CurrentVideoEncoder = encoder;
+
             // Set the option from the cached version if we have one.
             string advacnedOptionsString;
             if (cachedOptions.TryGetValue(encoder, out advacnedOptionsString)
