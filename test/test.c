@@ -3193,17 +3193,17 @@ static void ShowHelp()
 #ifdef USE_QSV
     fprintf( out,
     "### QSV Options, via --encopts=\"option1=value1:option2=value2\" -----------\n\n"
-    "        - qsv_target_usage  A range of numbers that indicate trade-offs between\n"
+    "        - target-usage  A range of numbers that indicate trade-offs between\n"
     "          <number>          quality and speed, from 1 to 7 inclusive.\n"
-    "        - qsv_num_ref_frame Number of reference frames; if equal to 0, this parameter is\n"
+    "        - num-ref-frame Number of reference frames; if equal to 0, this parameter is\n"
     "          <number>          not specified.\n"
-    "        - qsv_gop_pic_size  Number of pictures within the current GOP (Group of Pictures);\n"
+    "        - gop-pic-size  Number of pictures within the current GOP (Group of Pictures);\n"
     "          <number>          if equal to 0, then the GOP size is unspecified.\n"
     "                            If equal to 1, only I-frames are used.\n"
-    "        - qsv_gop_ref_dist  Distance between I- or P- key frames; if it is zero,\n"
+    "        - gop-ref-dist  Distance between I- or P- key frames; if it is zero,\n"
     "          <number>          the GOP structure is unspecified.\n"
     "                            Note: If GopRefDist = 1, there are no B-frames used.\n"
-    "        - qsv_async_depth   Specifies how many asynchronous operations an application performs\n"
+    "        - async-depth   Specifies how many asynchronous operations an application performs\n"
     "          <number>          before the application explicitly synchronizes the result.\n"
     "                            If zero, the value is not specified. Default is 4\n"
     "\n"
@@ -3351,7 +3351,7 @@ static int ParseOptions( int argc, char ** argv )
     #define H264_LEVEL          286
     #define NORMALIZE_MIX       287
     #define AUDIO_DITHER        288
-    
+
     for( ;; )
     {
         static struct option long_options[] =

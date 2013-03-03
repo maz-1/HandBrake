@@ -79,7 +79,7 @@ diff -Naur ../../libav-v9.1/libavcodec/Makefile ./libavcodec/Makefile
  OBJS-$(CONFIG_H264_VDA_HWACCEL)        += vda_h264.o
 diff -Naur ../../libav-v9.1/libavcodec/qsv.c ./libavcodec/qsv.c
 --- ../../libav-v9.1/libavcodec/qsv.c	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv.c	2013-02-11 23:16:03.676295911 +0100
++++ ./libavcodec/qsv.c	2013-03-03 19:02:31.462798667 +0100
 @@ -0,0 +1,556 @@
 +/* ********************************************************************* *\
 +
@@ -113,6 +113,33 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv.c ./libavcodec/qsv.c
 +
 +#include "avcodec.h"
 +#include "internal.h"
++
++#ifdef HAVE_AV_CONFIG_H
++#include "config.h"
++#endif
++
++#if HAVE_THREADS
++#if defined (__GNUC__)
++#include <pthread.h>
++#define ff_qsv_atomic_inc(ptr) __sync_add_and_fetch(ptr,1)
++#define ff_qsv_atomic_dec(ptr) __sync_sub_and_fetch (ptr,1)
++#elif HAVE_WINDOWS_H            // MSVC case
++#include <windows.h>
++#if HAVE_PTHREADS
++#include <pthread.h>
++#elif HAVE_W32THREADS
++#include "w32pthreads.h"
++#endif
++#define ff_qsv_atomic_inc(ptr) InterlockedIncrement(ptr)
++#define ff_qsv_atomic_dec(ptr) InterlockedDecrement (ptr)
++#else
++// targeting only for MinGW or MSVC
++#endif
++
++#else
++#define ff_qsv_atomic_inc(ptr) ((*ptr)++)
++#define ff_qsv_atomic_dec(ptr) ((*ptr)--)
++#endif
 +
 +int av_qsv_get_free_encode_task(av_qsv_list * tasks)
 +{
@@ -386,33 +413,6 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv.c ./libavcodec/qsv.c
 +    av_qsv_list_close(item);
 +}
 +
-+av_qsv_stage *av_qsv_get_by_mask(av_qsv_list * list, int mask, av_qsv_stage ** prev,
-+                           av_qsv_list ** this_pipe)
-+{
-+    av_qsv_list *item = 0;
-+    av_qsv_stage *stage = 0;
-+    av_qsv_stage *prev_stage = 0;
-+    int i = 0;
-+    int a = 0;
-+    *this_pipe = 0;
-+    *prev = 0;
-+    for (i = 0; i < av_qsv_list_count(list); i++) {
-+        item = av_qsv_list_item(list, i);
-+        for (a = 0; a < av_qsv_list_count(item); a++) {
-+            stage = av_qsv_list_item(item, a);
-+            if (!stage)
-+                return stage;
-+            if (stage->type & mask) {
-+                *prev = prev_stage;
-+                *this_pipe = item;
-+                return stage;
-+            }
-+            prev_stage = stage;
-+        }
-+    }
-+    return 0;
-+}
-+
 +av_qsv_list *av_qsv_pipe_by_stage(av_qsv_list * list, av_qsv_stage * stage)
 +{
 +    av_qsv_list *item = 0;
@@ -639,8 +639,8 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv.c ./libavcodec/qsv.c
 +}
 diff -Naur ../../libav-v9.1/libavcodec/qsv.h ./libavcodec/qsv.h
 --- ../../libav-v9.1/libavcodec/qsv.h	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv.h	2013-02-11 23:16:03.680296403 +0100
-@@ -0,0 +1,469 @@
++++ ./libavcodec/qsv.h	2013-03-03 19:02:31.477800512 +0100
+@@ -0,0 +1,440 @@
 +/* ********************************************************************* *\
 +
 +Copyright (C) 2013 Intel Corporation.  All rights reserved.
@@ -759,34 +759,6 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv.h ./libavcodec/qsv.h
 +
 +#include <stdint.h>
 +#include <string.h>
-+
-+#ifdef HAVE_AV_CONFIG_H
-+#include "config.h"
-+#endif
-+
-+#if HAVE_THREADS
-+#if defined (__GNUC__)
-+#include <pthread.h>
-+#define ff_qsv_atomic_inc(ptr) __sync_add_and_fetch(ptr,1)
-+#define ff_qsv_atomic_dec(ptr) __sync_sub_and_fetch (ptr,1)
-+#elif HAVE_WINDOWS_H            // MSVC case
-+#include <windows.h>
-+#if HAVE_PTHREADS
-+#include <pthread.h>
-+#elif HAVE_W32THREADS
-+#include "w32pthreads.h"
-+#endif
-+#define ff_qsv_atomic_inc(ptr) InterlockedIncrement(ptr)
-+#define ff_qsv_atomic_dec(ptr) InterlockedDecrement (ptr)
-+#else
-+// targeting only for MinGW or MSVC
-+#endif
-+
-+#else
-+#define ff_qsv_atomic_inc(ptr) ((*ptr)++)
-+#define ff_qsv_atomic_dec(ptr) ((*ptr)--)
-+#endif
-+
 +#include "msdk/mfxvideo.h"
 +#include "libavutil/mem.h"
 +#include "libavutil/time.h"
@@ -1085,7 +1057,6 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv.h ./libavcodec/qsv.h
 +
 +void av_qsv_add_stagee(av_qsv_list **, av_qsv_stage *, int);
 +av_qsv_stage *av_qsv_get_last_stage(av_qsv_list *);
-+av_qsv_stage *av_qsv_get_by_mask(av_qsv_list *, int, av_qsv_stage **, av_qsv_list **);
 +av_qsv_list *av_qsv_pipe_by_stage(av_qsv_list *, av_qsv_stage *);
 +void av_qsv_flush_stages(av_qsv_list *, av_qsv_list **);
 +
@@ -1112,7 +1083,7 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv.h ./libavcodec/qsv.h
 +#endif                          //AVCODEC_QSV_H
 diff -Naur ../../libav-v9.1/libavcodec/qsv_h264.c ./libavcodec/qsv_h264.c
 --- ../../libav-v9.1/libavcodec/qsv_h264.c	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv_h264.c	2013-02-11 23:16:03.676295911 +0100
++++ ./libavcodec/qsv_h264.c	2013-03-03 19:02:31.475800266 +0100
 @@ -0,0 +1,911 @@
 +/* ********************************************************************* *\
 +
@@ -2027,7 +1998,7 @@ diff -Naur ../../libav-v9.1/libavcodec/qsv_h264.c ./libavcodec/qsv_h264.c
 +};
 diff -Naur ../../libav-v9.1/libavcodec/qsv_h264.h ./libavcodec/qsv_h264.h
 --- ../../libav-v9.1/libavcodec/qsv_h264.h	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv_h264.h	2013-02-11 23:16:03.680296403 +0100
++++ ./libavcodec/qsv_h264.h	2013-03-03 19:02:31.491802234 +0100
 @@ -0,0 +1,64 @@
 +/* ********************************************************************* *\
 +
