@@ -966,8 +966,8 @@ namespace HandBrake.ApplicationServices.Utilities
                     }
 
                     query += string.IsNullOrEmpty(task.AdvancedEncoderOptions)
-                                 ? string.Format(" -x qsv-target-usage={0}", qsvPreset)
-                                 : string.Format(" -x qsv-target-usage={0}:{1}", qsvPreset, task.AdvancedEncoderOptions);
+                                 ? string.Format(" -x target-usage={0}", qsvPreset)
+                                 : string.Format(" -x target-usage={0}:{1}", qsvPreset, task.AdvancedEncoderOptions);
                 }
                 else if (!string.IsNullOrEmpty(task.AdvancedEncoderOptions))
                 {
