@@ -19,6 +19,9 @@ namespace HandBrake.Interop.Model.Encoding
 		[Display(Name = "H.264 (x264)")]
 		X264 = 0,
 
+        [Display(Name = "QuickSync (H.264)")]
+        QuickSync,
+
 		[Display(Name = "MPEG-4 (FFmpeg)")]
 		FFMpeg,
 
@@ -27,8 +30,5 @@ namespace HandBrake.Interop.Model.Encoding
 
 		[Display(Name = "VP3 (Theora)")]
 		Theora,
-
-        [Display(Name = "QuickSync (H.264)")]
-        QuickSync
 	}
 }

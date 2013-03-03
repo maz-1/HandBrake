@@ -24,6 +24,7 @@ namespace HandBrake.ApplicationServices.Services
     using HandBrake.ApplicationServices.Services.Interfaces;
     using HandBrake.ApplicationServices.Model.Encoding;
     using HandBrake.ApplicationServices.Utilities;
+    using HandBrake.Interop.Model.Encoding;
 
     /// <summary>
     /// The preset service manages HandBrake's presets
@@ -444,6 +445,8 @@ namespace HandBrake.ApplicationServices.Services
                             this.presets.Add(preset);
                         }
                     }
+
+                    this.presets.Add(this.QsvDemoPreset()); // TODO remove later.
                 } 
             }
             catch (Exception exc)
@@ -502,6 +505,41 @@ namespace HandBrake.ApplicationServices.Services
             {
                 throw new GeneralApplicationException("Unable to write to the presets file.", "The details section below may indicate why this error has occured.", exc);
             }
+        }
+
+        #endregion
+
+        #region Tempory Hack
+
+        /// <summary>
+        /// The qsv preset temp.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Preset"/>.
+        /// </returns>
+        private Preset QsvDemoPreset()
+        {
+            Preset preset = new Preset();
+            preset.Name = "QuickSync Demo";
+            preset.Category = "Regular";
+            preset.Description = "An example preset for QSV";
+            preset.IsBuildIn = true;
+            preset.PictureSettingsMode = PresetPictureSettingsMode.None;
+            preset.Task = new EncodeTask();
+
+            preset.Task.VideoEncoder = VideoEncoder.QuickSync;
+            preset.Task.Quality = 20;
+            preset.Task.AdvancedEncoderOptions =
+                "qsv-num-ref-frame=3:qsv-gop-ref-dist=5:qsv-gop-pic-size=5:qsv-async-depth=4";
+            preset.Task.AudioTracks = new ObservableCollection<AudioTrack>();
+            preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 160, Encoder = AudioEncoder.Faac, MixDown = Mixdown.DolbyProLogicII});
+            preset.Task.Anamorphic = Anamorphic.Loose;
+            preset.Task.QsvPreset = QsvPreset.Balanced;
+            preset.Task.FramerateMode = FramerateMode.VFR;
+            preset.Task.OutputFormat = OutputFormat.Mp4;
+            preset.Task.VideoEncodeRateType = VideoEncodeRateType.ConstantQuality;
+            
+            return preset;
         }
 
         #endregion

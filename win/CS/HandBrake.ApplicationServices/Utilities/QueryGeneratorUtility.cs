@@ -426,7 +426,6 @@ namespace HandBrake.ApplicationServices.Utilities
                 case VideoEncoder.FFMpeg2:
                     query += " -e ffmpeg2";
                     break;
-
                 case VideoEncoder.QuickSync:
                     query += " -e qsv";
                     break;
@@ -455,6 +454,7 @@ namespace HandBrake.ApplicationServices.Utilities
                         case VideoEncoder.FFMpeg2:
                             query += string.Format(" -q {0}", task.Quality.Value.ToString(CultureInfo.InvariantCulture));
                             break;
+                        case VideoEncoder.QuickSync:
                         case VideoEncoder.X264:
                             query += string.Format(" -q {0}", task.Quality.Value.ToString(CultureInfo.InvariantCulture));
                             break;

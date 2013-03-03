@@ -310,7 +310,7 @@ namespace HandBrakeWPF.ViewModels
         {
             get
             {
-                return 51.Equals(this.RF);
+                return 51.Equals(this.RF) && this.SelectedVideoEncoder == VideoEncoder.X264;
             }
         }
 
@@ -373,6 +373,7 @@ namespace HandBrakeWPF.ViewModels
                     case VideoEncoder.FFMpeg2:
                         this.Task.Quality = (32 - value);
                         break;
+                    case VideoEncoder.QuickSync:
                     case VideoEncoder.X264:
                         double rfValue = 51.0 - value * cqStep;
                         rfValue = Math.Round(rfValue, 2);
@@ -840,6 +841,7 @@ namespace HandBrakeWPF.ViewModels
                         this.RF = 32 - cq;
                     }
                     break;
+                case VideoEncoder.QuickSync:
                 case VideoEncoder.X264:
 
                     double multiplier = 1.0 / cqStep;
@@ -913,6 +915,7 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.H264Profile);
             this.NotifyOfPropertyChange(() => this.FastDecode);
             this.NotifyOfPropertyChange(() => this.ExtraArguments);
+            this.NotifyOfPropertyChange(() => this.QsvPreset);
         }
 
         /// <summary>
@@ -953,7 +956,6 @@ namespace HandBrakeWPF.ViewModels
         {
             this.canClear = false;
             this.X264PresetValue = 5;
-            this.qsvPresetValue = 2;
             this.X264Tune = x264Tune.None;
             this.H264Profile = x264Profile.None;
             this.FastDecode = false;
@@ -979,6 +981,7 @@ namespace HandBrakeWPF.ViewModels
                     this.QualityMax = 31;
                     break;
                 case VideoEncoder.X264:
+                case VideoEncoder.QuickSync:
                     this.QualityMin = 0;
                     this.QualityMax = (int)(51 / userSettingService.GetUserSetting<double>(UserSettingConstants.X264Step));
                     break;
