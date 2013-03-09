@@ -1,6 +1,6 @@
 /* decavcodec.c
 
-   Copyright (c) 2003-2012 HandBrake Team
+   Copyright (c) 2003-2013 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -1010,14 +1010,6 @@ static hb_buffer_t *link_buf_list( hb_work_private_t *pv )
     return head;
 }
 
-static void init_video_avcodec_context( hb_work_private_t *pv )
-{
-    /* we have to wrap ffmpeg's get_buffer to be able to set the pts (?!) */
-    pv->context->opaque = pv;
-    pv->context->get_buffer = get_frame_buf;
-    pv->context->reget_buffer = reget_frame_buf;
-}
-
 static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
 {
 
@@ -1296,7 +1288,6 @@ static int decavcodecvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         // it to preserve any existing priv_data because they test the pointer
         // before allocating new memory, but the memset has already cleared it.
         avcodec_get_context_defaults3( pv->context, codec );
-        init_video_avcodec_context( pv );
         if ( setup_extradata( w, in ) )
         {
             // we didn't find the headers needed to set up extradata.
