@@ -191,7 +191,7 @@ namespace HandBrake.ApplicationServices.Services
 
                 if (this.ScanCompleted != null)
                 {
-                    this.ScanCompleted(this, new ScanCompletedEventArgs(true, null, string.Empty));
+                    this.ScanCompleted(this, new ScanCompletedEventArgs(false, null, string.Empty));
                 }
             }
             catch (Exception e)
@@ -335,7 +335,10 @@ namespace HandBrake.ApplicationServices.Services
                 {
                     if (this.ScanCompleted != null)
                     {
-                        this.ScanCompleted(this, new ScanCompletedEventArgs(!this.cancelScan, null, string.Empty));
+                        if (logBuffer.ToString().Contains("scan: unrecognized file type"))
+                            this.ScanCompleted(this, new ScanCompletedEventArgs(false, null, "Unrecognized file type."));
+                        else
+                            this.ScanCompleted(this, new ScanCompletedEventArgs(this.cancelScan, null, string.Empty));
                     }
                 }
             }
@@ -367,12 +370,14 @@ namespace HandBrake.ApplicationServices.Services
         /// <param name="sender">the sender</param>
         /// <param name="currentTitle">the current title being scanned</param>
         /// <param name="titleCount">the total number of titles</param>
-        private void OnScanProgress(object sender, int currentTitle, int titleCount)
+        /// <param name="percentage">The Percentage</param>
+        private void OnScanProgress(object sender, int currentTitle, int titleCount, decimal percentage)
         {
             ScanProgressEventArgs eventArgs = new ScanProgressEventArgs
             {
                 CurrentTitle = currentTitle,
-                Titles = titleCount
+                Titles = titleCount,
+                Percentage = percentage
             };
 
             if (this.ScanStatusChanged != null)
