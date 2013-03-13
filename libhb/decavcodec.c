@@ -609,16 +609,6 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv, AVFrame *frame )
     return buf;
 }
 
-static int get_frame_buf( AVCodecContext *context, AVFrame *frame )
-{
-    return avcodec_default_get_buffer( context, frame );
-}
-
-static int reget_frame_buf( AVCodecContext *context, AVFrame *frame )
-{
-    return avcodec_default_reget_buffer( context, frame );
-}
-
 static void log_chapter( hb_work_private_t *pv, int chap_num, int64_t pts )
 {
     hb_chapter_t *c;
@@ -1135,8 +1125,6 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             pv->qsv_config.impl_requested         = MFX_IMPL_AUTO;
         }
 #endif
-
-        init_video_avcodec_context( pv );
     }
 #ifdef USE_QSV
     if(pv->job && pv->video_codec_opened && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 ){
