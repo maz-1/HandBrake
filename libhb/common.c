@@ -115,10 +115,10 @@ hb_encoder_t hb_video_encoders[] =
 #ifdef USE_QSV
     { "H.264 (Intel QSV)",   "QSV",    HB_VCODEC_QSV_H264,           HB_MUX_MP4|HB_MUX_MKV },
 #endif
-    { "H.264 (x264)",       "x264",    HB_VCODEC_X264,          HB_MUX_MP4|HB_MUX_MKV },
-    { "MPEG-4 (FFmpeg)", "ffmpeg4", HB_VCODEC_FFMPEG_MPEG4,     HB_MUX_MP4|HB_MUX_MKV },
-    { "MPEG-2 (FFmpeg)", "ffmpeg2", HB_VCODEC_FFMPEG_MPEG2,     HB_MUX_MP4|HB_MUX_MKV },
-    { "VP3 (Theora)",     "theora",  HB_VCODEC_THEORA,          HB_MUX_MKV },
+    { "H.264 (x264)",    "x264",    HB_VCODEC_X264,         HB_MUX_MP4|HB_MUX_MKV },
+    { "MPEG-4 (FFmpeg)", "ffmpeg4", HB_VCODEC_FFMPEG_MPEG4, HB_MUX_MP4|HB_MUX_MKV },
+    { "MPEG-2 (FFmpeg)", "ffmpeg2", HB_VCODEC_FFMPEG_MPEG2, HB_MUX_MP4|HB_MUX_MKV },
+    { "VP3 (Theora)",    "theora",  HB_VCODEC_THEORA,                  HB_MUX_MKV },
 };
 int hb_video_encoders_count = sizeof(hb_video_encoders) / sizeof(hb_encoder_t);
 
