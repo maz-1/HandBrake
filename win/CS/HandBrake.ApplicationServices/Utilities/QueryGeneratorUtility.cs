@@ -427,7 +427,7 @@ namespace HandBrake.ApplicationServices.Utilities
                     query += " -e ffmpeg2";
                     break;
                 case VideoEncoder.QuickSync:
-                    query += " -e qsv";
+                    query += " -e qsv_h264";
                     break;
                 case VideoEncoder.X264:
                     query += " -e x264";
