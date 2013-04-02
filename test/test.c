@@ -242,16 +242,6 @@ int main( int argc, char ** argv )
     fprintf( stderr, "%d CPU%s detected\n", hb_get_cpu_count(),
              hb_get_cpu_count( h ) > 1 ? "s" : "" );
 
-#ifdef USE_QSV
-    mfxIMPL impl = MFX_IMPL_HARDWARE;
-
-    //ver.Major = AV_QSV_MSDK_VERSION_MAJOR;
-    //ver.Minor = AV_QSV_MSDK_VERSION_MINOR;
-    mfxVersion ver = {{AV_QSV_MSDK_VERSION_MINOR, AV_QSV_MSDK_VERSION_MAJOR}};
-
-    fprintf( stderr,"HW/Intel QSV acceleration availability %sdetected\n", av_is_qsv_available(impl,&ver) < 0? "is NOT ":"" );
-#endif
-
     /* Exit ASAP on Ctrl-C */
     signal( SIGINT, SigHandler );
 
@@ -679,6 +669,36 @@ static int HandleEvents( hb_handle_t * h )
             } else {
                 title = hb_list_item( title_set->list_title, 0 );
             }
+
+#ifdef USE_QSV
+            // this is where WinGUI parsing begins
+            hb_qsv_info_t *qsv_info = hb_qsv_info_get(h);
+            // show users (including the WinGUI) whether Quick Sync can be used
+            fprintf(stderr,"+ intel quick sync video support: %s\n",
+                    qsv_info->qsv_available ? "yes": "no");
+            // if we have Quick Sync support, also print the details
+            if (qsv_info->qsv_available)
+            {
+                if (qsv_info->hardware_available)
+                {
+                    fprintf(stderr,
+                            "  + hardware version: %d.%d (minimum: %d.%d)\n",
+                            qsv_info->hardware_version.Major,
+                            qsv_info->hardware_version.Minor,
+                            qsv_info->minimum_version.Major,
+                            qsv_info->minimum_version.Minor);
+                }
+                if (qsv_info->software_available)
+                {
+                    fprintf(stderr,
+                            "  + software version: %d.%d (minimum: %d.%d)\n",
+                            qsv_info->software_version.Major,
+                            qsv_info->software_version.Minor,
+                            qsv_info->minimum_version.Major,
+                            qsv_info->minimum_version.Minor);
+                }
+            }
+#endif
 
             if( !titleindex || titlescan )
             {

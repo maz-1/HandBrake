@@ -18,6 +18,10 @@ extern "C" {
 #include "common.h"
 #include "hb_dict.h"
 
+#ifdef USE_QSV
+#include "msdk/mfxvideo.h"
+#endif
+
 /* hb_init()
    Initializes a libhb session (launches his own thread, detects CPUs,
    etc) */
@@ -130,6 +134,33 @@ void          hb_global_close();
 /* hb_get_instance_id()
    Return the unique instance id of an libhb instance created by hb_init. */
 int hb_get_instance_id( hb_handle_t * h );
+
+#ifdef USE_QSV
+/*
+ * Get & store all available Intel Quick Sync information:
+ *
+ * - general availability
+ * - available implementations (hardware-accelerated, software fallback, etc.)
+ * - available codecs, filters, etc. for direct access (convenience)
+ * - supported API version
+ * - supported resolutions
+ */
+typedef struct hb_qsv_info_s
+{
+    // availability
+    int qsv_available; // if this is 0, the rest must be ignored
+    int hardware_available, software_available;
+
+    // version information
+    mfxVersion minimum_version, hardware_version, software_version;
+
+    // TODO: add available decoders, filters, encoders,
+    //       maximum decode and encode resolution, etc.
+} hb_qsv_info_t;
+
+/* Get Intel QSV information from the handle, outside of hb.c */
+hb_qsv_info_t* hb_qsv_info_get(hb_handle_t*);
+#endif
 
 #ifdef __cplusplus
 }

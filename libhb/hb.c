@@ -67,6 +67,11 @@ struct hb_handle_s
     // Power Management opaque pointer
     // For OSX, it's an IOPMAssertionID*
     void          * hb_system_sleep_opaque;
+
+#ifdef USE_QSV
+    // detailed information about Intel QSV availability
+    hb_qsv_info_t qsv_info;
+#endif
 } ;
 
 hb_work_object_t * hb_objects = NULL;
@@ -338,6 +343,60 @@ void hb_ff_set_sample_fmt(AVCodecContext *context, AVCodec *codec,
     }
 }
 
+/* Intel Quick Sync Video utilities */
+#ifdef USE_QSV
+hb_qsv_info_t* hb_qsv_info_get(hb_handle_t *h)
+{
+    return &h->qsv_info;
+}
+
+// TODO: move usage of this outside of handle and into global init when possible
+static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
+{
+    mfxSession session;
+    qsv_info->software_available = qsv_info->hardware_available = 0;
+
+    // minimum supported version (currently 1.3)
+    // let's keep this independent of what Libav can do for decode
+    qsv_info->minimum_version.Major = 1;
+    qsv_info->minimum_version.Minor = 3;
+
+    // check for software fallback
+    if (MFXInit(MFX_IMPL_SOFTWARE, &qsv_info->minimum_version, &session) ==
+        MFX_ERR_NONE)
+    {
+        qsv_info->software_available = 1;
+        // our minimum is supported, but query the actual version
+        MFXQueryVersion(session , &qsv_info->software_version);
+        MFXClose(session);
+    }
+
+    // check for actual hardware support
+    if (MFXInit(MFX_IMPL_HARDWARE, &qsv_info->minimum_version, &session) ==
+        MFX_ERR_NONE)
+    {
+        qsv_info->hardware_available = 1;
+        // our minimum is supported, but query the actual version
+        MFXQueryVersion(session , &qsv_info->hardware_version);
+        MFXClose(session);
+    }
+
+    // support either implementation (at least for now)
+    qsv_info->qsv_available = (qsv_info->hardware_available ||
+                               qsv_info->software_available);
+
+    // note: we pass a pointer to MFXInit but it never gets modified
+    //       let's make sure of it just to be safe though
+    if (qsv_info->minimum_version.Major != 1 ||
+        qsv_info->minimum_version.Minor != 3)
+    {
+        hb_error("hb_qsv_info_init: minimum version (%d.%d) was modified",
+                 qsv_info->minimum_version.Major,
+                 qsv_info->minimum_version.Minor);
+    }
+}
+#endif
+
 /**
  * Registers work objects, by adding the work object to a liked list.
  * @param w Handle to hb_work_object_t to register.
@@ -476,7 +535,8 @@ hb_handle_t * hb_init( int verbose, int update_check )
 	hb_register( &hb_encavcodec );
 	hb_register( &hb_encx264 );
 #ifdef USE_QSV
-    hb_register( &hb_encqsv );
+    hb_register(&hb_encqsv);
+    hb_qsv_info_init(&h->qsv_info);
 #endif
     hb_register( &hb_enctheora );
 	hb_register( &hb_deca52 );
@@ -580,7 +640,8 @@ hb_handle_t * hb_init_dl( int verbose, int update_check )
 	hb_register( &hb_encavcodec );
 	hb_register( &hb_encx264 );
 #ifdef USE_QSV
-    hb_register( &hb_encqsv );
+    hb_register(&hb_encqsv);
+    hb_qsv_info_init(&h->qsv_info);
 #endif
     hb_register( &hb_enctheora );
 	hb_register( &hb_deca52 );
