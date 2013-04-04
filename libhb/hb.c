@@ -356,10 +356,10 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
     mfxSession session;
     qsv_info->software_available = qsv_info->hardware_available = 0;
 
-    // minimum supported version (currently 1.3)
+    // minimum supported version (currently 1.4, for Sandy Bridge support)
     // let's keep this independent of what Libav can do for decode
     qsv_info->minimum_version.Major = 1;
-    qsv_info->minimum_version.Minor = 3;
+    qsv_info->minimum_version.Minor = 4;
 
     // check for software fallback
     if (MFXInit(MFX_IMPL_SOFTWARE, &qsv_info->minimum_version, &session) ==
