@@ -154,6 +154,10 @@ typedef struct hb_qsv_info_s
     // version information
     mfxVersion minimum_version, hardware_version, software_version;
 
+    // supported version-dependent features
+    int features;
+#define HB_QSV_FEATURE_DECODE_TIMESTAMPS 0x0000001
+
     // TODO: add available decoders, filters, encoders,
     //       maximum decode and encode resolution, etc.
 } hb_qsv_info_t;

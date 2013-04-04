@@ -354,6 +354,7 @@ hb_qsv_info_t* hb_qsv_info_get(hb_handle_t *h)
 static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
 {
     mfxSession session;
+    qsv_info->features           = 0;
     qsv_info->software_available = qsv_info->hardware_available = 0;
 
     // minimum supported version (currently 1.4, for Sandy Bridge support)
@@ -384,6 +385,22 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
     // support either implementation (at least for now)
     qsv_info->qsv_available = (qsv_info->hardware_available ||
                                qsv_info->software_available);
+
+#define HB_QSV_MIN_HARDWARE(MAJOR, MINOR)           \
+    ((qsv_info->hardware_version.Major >  MAJOR) || \
+     (qsv_info->hardware_version.Major == MAJOR  && qsv_info->hardware_version.Minor >= MINOR))
+#define HB_QSV_MIN_SOFTWARE(MAJOR, MINOR)           \
+    ((qsv_info->hardware_version.Major >  MAJOR) || \
+     (qsv_info->hardware_version.Major == MAJOR  && qsv_info->hardware_version.Minor >= MINOR))
+
+    // check for version-dependent features
+    if (HB_QSV_MIN_SOFTWARE(1, 6) || HB_QSV_MIN_HARDWARE(1, 6))
+    {
+        qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
+    }
+
+#undef HB_QSV_MIN_HARDWARE
+#undef HB_QSV_MIN_SOFTWARE
 
     // note: we pass a pointer to MFXInit but it never gets modified
     //       let's make sure of it just to be safe though
