@@ -376,6 +376,7 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_MASK  0x00000F0
 #define HB_VCODEC_QSV_H264     0x0000100
 #define HB_VCODEC_QSV_MASK     0x0000F00
+#define HB_VCODEC_H264_MASK    (HB_VCODEC_X264|HB_VCODEC_QSV_H264)
 
     int             vcodec;
     float           vquality;
