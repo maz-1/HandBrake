@@ -345,6 +345,19 @@ void hb_ff_set_sample_fmt(AVCodecContext *context, AVCodec *codec,
 
 /* Intel Quick Sync Video utilities */
 #ifdef USE_QSV
+// minimum supported version (currently 1.4, for Sandy Bridge support)
+// let's keep this independent of what Libav can do for decode
+#define HB_QSV_MINVERSION_MAJOR 1
+#define HB_QSV_MINVERSION_MINOR 4
+
+// check available hardware & software versions against a minimum
+#define HB_QSV_MIN_HARDWARE(MAJOR, MINOR)           \
+    ((qsv_info->hardware_version.Major >  MAJOR) || \
+     (qsv_info->hardware_version.Major == MAJOR  && qsv_info->hardware_version.Minor >= MINOR))
+#define HB_QSV_MIN_SOFTWARE(MAJOR, MINOR)           \
+    ((qsv_info->software_version.Major >  MAJOR) || \
+     (qsv_info->software_version.Major == MAJOR  && qsv_info->software_version.Minor >= MINOR))
+
 hb_qsv_info_t* hb_qsv_info_get(hb_handle_t *h)
 {
     return &h->qsv_info;
@@ -354,13 +367,10 @@ hb_qsv_info_t* hb_qsv_info_get(hb_handle_t *h)
 static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
 {
     mfxSession session;
-    qsv_info->features           = 0;
-    qsv_info->software_available = qsv_info->hardware_available = 0;
-
-    // minimum supported version (currently 1.4, for Sandy Bridge support)
-    // let's keep this independent of what Libav can do for decode
-    qsv_info->minimum_version.Major = 1;
-    qsv_info->minimum_version.Minor = 4;
+    qsv_info->features              = 0;
+    qsv_info->minimum_version.Major = HB_QSV_MINVERSION_MAJOR;
+    qsv_info->minimum_version.Minor = HB_QSV_MINVERSION_MINOR;
+    qsv_info->software_available    = qsv_info->hardware_available = 0;
 
     // check for software fallback
     if (MFXInit(MFX_IMPL_SOFTWARE, &qsv_info->minimum_version, &session) ==
@@ -386,33 +396,29 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
     qsv_info->qsv_available = (qsv_info->hardware_available ||
                                qsv_info->software_available);
 
-#define HB_QSV_MIN_HARDWARE(MAJOR, MINOR)           \
-    ((qsv_info->hardware_version.Major >  MAJOR) || \
-     (qsv_info->hardware_version.Major == MAJOR  && qsv_info->hardware_version.Minor >= MINOR))
-#define HB_QSV_MIN_SOFTWARE(MAJOR, MINOR)           \
-    ((qsv_info->hardware_version.Major >  MAJOR) || \
-     (qsv_info->hardware_version.Major == MAJOR  && qsv_info->hardware_version.Minor >= MINOR))
-
     // check for version-dependent features
     if (HB_QSV_MIN_SOFTWARE(1, 6) || HB_QSV_MIN_HARDWARE(1, 6))
     {
         qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
     }
 
-#undef HB_QSV_MIN_HARDWARE
-#undef HB_QSV_MIN_SOFTWARE
-
     // note: we pass a pointer to MFXInit but it never gets modified
     //       let's make sure of it just to be safe though
-    if (qsv_info->minimum_version.Major != 1 ||
-        qsv_info->minimum_version.Minor != 3)
+    if (qsv_info->minimum_version.Major != HB_QSV_MINVERSION_MAJOR ||
+        qsv_info->minimum_version.Minor != HB_QSV_MINVERSION_MINOR)
     {
         hb_error("hb_qsv_info_init: minimum version (%d.%d) was modified",
                  qsv_info->minimum_version.Major,
                  qsv_info->minimum_version.Minor);
     }
 }
-#endif
+
+// we don't need those beyond this point
+#undef HB_QSV_MINVERSION_MAJOR
+#undef HB_QSV_MINVERSION_MINOR
+#undef HB_QSV_MIN_HARDWARE
+#undef HB_QSV_MIN_SOFTWARE
+#endif // USE_QSV
 
 /**
  * Registers work objects, by adding the work object to a liked list.
