@@ -44,7 +44,7 @@ struct hb_filter_private_s
     int                 width_out;
     int                 height_out;
     int                 crop[4];
-    int                 is_deinterlace;
+    int                 deinterlace;
 
     av_qsv_space           *vpp_space;
     av_qsv_config qsv_config;
@@ -66,7 +66,7 @@ hb_filter_object_t hb_filter_qsv =
 {
     .id            = HB_FILTER_QSV,
     .enforce_order = 1,
-    .name          = "QSV multi purpose filter",
+    .name          = "Intel Quick Sync VPP Filter",
     .settings      = NULL,
     .init          = hb_qsv_filter_init,
     .work          = hb_qsv_filter_work,
@@ -261,11 +261,12 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
         qsv_vpp->m_mfxVideoParam.ExtParam   = &qsv_vpp->p_ext_params;
         qsv_vpp->m_mfxVideoParam.NumExtParam = 1;
 
-        if(pv->is_deinterlace){
-            qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct   = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
-            qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct  = MFX_PICSTRUCT_PROGRESSIVE;
+        if (pv->deinterlace)
+        {
+            qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct  = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
+            qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct = MFX_PICSTRUCT_PROGRESSIVE;
         }
-        sts = MFXVideoVPP_Init(qsv->mfx_session,&qsv_vpp->m_mfxVideoParam);
+        sts = MFXVideoVPP_Init(qsv->mfx_session, &qsv_vpp->m_mfxVideoParam);
 
         AV_QSV_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
         AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -290,13 +291,15 @@ static int hb_qsv_filter_init( hb_filter_object_t * filter,
     pv->height_out = init->height;
     memcpy( pv->crop, init->crop, sizeof( int[4] ) );
 
-    if( filter->settings ){
-        sscanf( filter->settings, "%d:%d:%d:%d:%d:%d_dei:%d",
-            &pv->width_out, &pv->height_out,
-            &pv->crop[0], &pv->crop[1], &pv->crop[2], &pv->crop[3], &pv->is_deinterlace );
+    if (filter->settings != NULL)
+    {
+        sscanf(filter->settings, "%d:%d:%d:%d:%d:%d_dei:%d",
+               &pv->width_out, &pv->height_out,
+               &pv->crop[0], &pv->crop[1], &pv->crop[2], &pv->crop[3],
+               &pv->deinterlace);
     }
 
-    pv->is_deinterlace &= 32;
+    pv->deinterlace &= 32;
 
     pv->job = init->job;
 
@@ -318,12 +321,23 @@ static int hb_qsv_filter_info( hb_filter_object_t * filter,
                                hb_filter_info_t * info )
 {
 
-    hb_filter_private_t * pv = filter->private_data;
-    if( !pv )
-        return 0;
+    hb_filter_private_t *pv = filter->private_data;
+    if (pv == NULL)
+        return -1;
 
-    sprintf( info->human_readable_desc,
-        "QSV VPP filter.%s", ( pv->is_deinterlace ? " Deinterlace is On" : "" ) );
+    sprintf(info->human_readable_desc,
+            "source: %d * %d, crop (%d/%d/%d/%d): %d * %d, scale: %d * %d",
+            pv->width_in, pv->height_in,
+            pv->crop[0], pv->crop[1], pv->crop[2], pv->crop[3],
+            pv->width_in  - pv->crop[2] - pv->crop[3],
+            pv->height_in - pv->crop[0] - pv->crop[1],
+            pv->width_out, pv->height_out);
+
+    if (pv->deinterlace)
+    {
+        sprintf(info->human_readable_desc + strlen(info->human_readable_desc),
+                ", deinterlace");
+    }
 
     return 0;
 }
