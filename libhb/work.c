@@ -730,7 +730,7 @@ static void do_job( hb_job_t * job )
                     if( job->width  != job->title->width ||
                         job->height != job->title->height ||
                         job->crop[0] != 0 ||  job->crop[1] != 0 ||
-                        job->crop[2] != 0 ||  job->crop[3] != 0){
+                        job->crop[2] != 0 ||  job->crop[3] != 0 || (job->cfr == 1 && job->vrate > 0)){
                         is_actual_crop_resize = 1;
                     }
                 }

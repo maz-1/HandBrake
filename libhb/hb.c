@@ -382,8 +382,8 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
         MFXClose(session);
     }
 
-    // check for actual hardware support
-    if (MFXInit(MFX_IMPL_HARDWARE, &qsv_info->minimum_version, &session) ==
+    // check for actual hardware support, Hardware acceleration via any supported OS infrastructure
+    if (MFXInit(MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_ANY, &qsv_info->minimum_version, &session) ==
         MFX_ERR_NONE)
     {
         qsv_info->hardware_available = 1;
@@ -400,6 +400,7 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
     if (HB_QSV_MIN_SOFTWARE(1, 6) || HB_QSV_MIN_HARDWARE(1, 6))
     {
         qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
+        qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
     }
 
     // note: we pass a pointer to MFXInit but it never gets modified

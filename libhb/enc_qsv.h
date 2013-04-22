@@ -45,6 +45,8 @@ void parse_nalus( uint8_t *nal_inits, size_t length, hb_buffer_t *buf, uint32_t 
 #define QSV_NAME_vbv_bufsize    "vbv-bufsize"
 #define QSV_NAME_vbv_maxrate    "vbv-maxrate"
 #define QSV_NAME_vbv_init       "vbv-init"
+#define QSV_NAME_mbbrc          "mbbrc"
+#define QSV_NAME_extbrc         "extbrc"
 
 typedef enum {
     QSV_PARAM_OK            = 0,

@@ -157,6 +157,7 @@ typedef struct hb_qsv_info_s
     // supported version-dependent features
     int features;
 #define HB_QSV_FEATURE_DECODE_TIMESTAMPS 0x0000001
+#define HB_QSV_FEATURE_CODEC_OPTIONS_2   0x0000002 // see mfxExtCodingOption2
 
     // TODO: add available decoders, filters, encoders,
     //       maximum decode and encode resolution, etc.

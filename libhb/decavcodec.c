@@ -283,6 +283,8 @@ static void closePrivData( hb_work_private_t ** ppv )
         }
         if ( pv->context && pv->context->codec )
         {
+            if(!(pv->context->priv_data != NULL && pv->job &&
+                pv->job->vcodec == HB_VCODEC_QSV_H264))
             hb_avcodec_close( pv->context );
         }
         if ( pv->context )
@@ -743,6 +745,9 @@ static int decodeFrame( hb_work_object_t *w, uint8_t *data, int size, int sequen
     int got_picture, oldlevel = 0;
     AVFrame frame = { { 0 } };
     AVPacket avp;
+#ifdef USE_QSV
+    int qsv_from_first_frame = 0;
+#endif
 
     if ( global_verbosity_level <= 1 )
     {
@@ -763,11 +768,32 @@ static int decodeFrame( hb_work_object_t *w, uint8_t *data, int size, int sequen
     {
         avp.flags |= AV_PKT_FLAG_KEY;
     }
+#ifdef USE_QSV
+        if( pv->context->hwaccel_context == NULL && pv->job &&
+            pv->job->vcodec == HB_VCODEC_QSV_H264 && pv->job->title->video_codec_param == AV_CODEC_ID_H264 ){
+            pv->context->hwaccel_context          = &pv->qsv_config;
+            pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
+            pv->qsv_config.additional_buffers     = 64; // FIFO_LARGE for now
+            // decode is async, sync only at encode
+            pv->qsv_config.sync_need              = 0;
+            pv->qsv_config.usage_threaded         = 1;
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO | MFX_IMPL_VIA_ANY; // practically means : Hardware acceleration via any supported OS supported OS infrastructure
+            qsv_from_first_frame = 1;
+        }
+#endif
 
     if ( avcodec_decode_video2( pv->context, &frame, &got_picture, &avp ) < 0 )
     {
         ++pv->decode_errors;
     }
+
+#ifdef USE_QSV
+    if( qsv_from_first_frame &&
+        pv->job && pv->video_codec_opened > 0 && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 ){
+        pv->job->qsv = pv->context->priv_data;
+    }
+#endif
+
     if ( global_verbosity_level <= 1 )
     {
         av_log_set_level( oldlevel );
@@ -969,8 +995,19 @@ static void decodeVideo( hb_work_object_t *w, uint8_t *data, int size, int seque
     /* the stuff above flushed the parser, now flush the decoder */
     if ( size <= 0 )
     {
+        int zero_allowed = 1;
+#ifdef USE_QSV
+        if(pv->job !=NULL && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 ){
+            zero_allowed = 2;
+        }
+#endif
+        for(;;)
+        {
         while ( decodeFrame( w, NULL, 0, sequence, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0 ) )
         {
+        }
+            if( (--zero_allowed) == NULL )
+                break;
         }
         flushDelayQueue( pv );
     }
@@ -1072,11 +1109,10 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         if(job && job->vcodec == HB_VCODEC_QSV_H264 ){
             pv->context->hwaccel_context          = &pv->qsv_config;
             pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
-            pv->qsv_config.additional_buffers     = 32; // FIFO_LARGE for now
-            // decode is async, sync only at encode
+            pv->qsv_config.additional_buffers     = 64;
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO;
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO | MFX_IMPL_VIA_ANY;
         }
 #endif
 
@@ -1118,18 +1154,16 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         if(job && job->vcodec == HB_VCODEC_QSV_H264 ){
             pv->context->hwaccel_context              = &pv->qsv_config;
             pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
-            pv->qsv_config.additional_buffers     = 32; // FIFO_LARGE for now
-            // decode is async, sync only at encode
+            pv->qsv_config.additional_buffers     = 64;
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO;
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO | MFX_IMPL_VIA_ANY;
         }
 #endif
     }
 #ifdef USE_QSV
-    if(pv->job && pv->video_codec_opened && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 ){
+    if(pv->job && pv->video_codec_opened > 0 && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 )
         pv->job->qsv = pv->context->priv_data;
-    }
 #endif
     return 0;
 }
@@ -1253,9 +1287,8 @@ static int decavcodecvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     {
 
         AVCodec *codec = NULL;
-
 #ifdef USE_QSV
-        if(pv->job->vcodec == HB_VCODEC_QSV_H264 )
+        if(pv->job !=NULL && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 )
             codec = avcodec_find_decoder_by_name( "h264_qsv" );
         else
 #endif
@@ -1292,9 +1325,8 @@ static int decavcodecvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
             return HB_WORK_DONE;
         }
 #ifdef USE_QSV
-        if(pv->job && pv->job->vcodec == HB_VCODEC_QSV_H264 ){
+        if(pv->job && pv->job->vcodec == HB_VCODEC_QSV_H264 && w->codec_param == AV_CODEC_ID_H264 )
             pv->job->qsv = pv->context->priv_data;
-        }
 #endif
         pv->video_codec_opened = 1;
     }
@@ -1626,3 +1658,13 @@ static void decodeAudio(hb_audio_t *audio, hb_work_private_t *pv, uint8_t *data,
         }
     }
 }
+
+#ifdef USE_QSV
+char* get_codec_id(hb_work_private_t *pv){
+    char *ret = "";
+    if( pv && pv->video_codec_opened > 0 && pv->context && pv->context->codec )
+        ret = pv->context->codec->name;
+
+    return ret;
+}
+#endif

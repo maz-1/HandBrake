@@ -674,7 +674,7 @@ static int HandleEvents( hb_handle_t * h )
             // this is where WinGUI parsing begins
             hb_qsv_info_t *qsv_info = hb_qsv_info_get(h);
             // show users (including the WinGUI) whether Quick Sync can be used
-            fprintf(stderr,"+ intel quick sync video support: %s\n",
+            fprintf(stderr,"- intel quick sync video support: %s\n",
                     qsv_info->qsv_available ? "yes": "no");
             // if we have Quick Sync support, also print the details
             if (qsv_info->qsv_available)
@@ -682,7 +682,7 @@ static int HandleEvents( hb_handle_t * h )
                 if (qsv_info->hardware_available)
                 {
                     fprintf(stderr,
-                            "  + hardware version: %d.%d (minimum: %d.%d)\n",
+                            "  - hardware version: %d.%d (minimum: %d.%d)\n",
                             qsv_info->hardware_version.Major,
                             qsv_info->hardware_version.Minor,
                             qsv_info->minimum_version.Major,
@@ -691,7 +691,7 @@ static int HandleEvents( hb_handle_t * h )
                 if (qsv_info->software_available)
                 {
                     fprintf(stderr,
-                            "  + software version: %d.%d (minimum: %d.%d)\n",
+                            "  - software version: %d.%d (minimum: %d.%d)\n",
                             qsv_info->software_version.Major,
                             qsv_info->software_version.Minor,
                             qsv_info->minimum_version.Major,

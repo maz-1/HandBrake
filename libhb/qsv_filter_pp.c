@@ -205,14 +205,23 @@ static int filter_pre_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
 
     qsv_vpp->sync_num = FFMIN(prev_vpp? prev_vpp->sync_num : qsv->dec_space->sync_num/2, AV_QSV_SYNC_NUM );
     for (i = 0; i < qsv_vpp->sync_num; i++){
-        qsv_vpp->p_sync[i] = av_mallocz( sizeof(mfxSyncPoint) );
-        AV_QSV_CHECK_POINTER(qsv_vpp->p_sync[i], MFX_ERR_MEMORY_ALLOC);
+        qsv_vpp->p_syncp[i] = av_mallocz(sizeof(av_qsv_sync));
+        AV_QSV_CHECK_POINTER(qsv_vpp->p_syncp[i], MFX_ERR_MEMORY_ALLOC);
+        qsv_vpp->p_syncp[i]->p_sync = av_mallocz(sizeof(mfxSyncPoint));
+        AV_QSV_CHECK_POINTER(qsv_vpp->p_syncp[i]->p_sync, MFX_ERR_MEMORY_ALLOC);
     }
 
     memset(&qsv_vpp->ext_opaque_alloc, 0, sizeof(mfxExtOpaqueSurfaceAlloc));
+    qsv_vpp->m_mfxVideoParam.NumExtParam        = qsv_vpp->p_ext_param_num = 1;
+
+    qsv_vpp->p_ext_params = av_mallocz(sizeof(mfxExtBuffer *)*qsv_vpp->p_ext_param_num);
+    AV_QSV_CHECK_POINTER(qsv_vpp->p_ext_params, MFX_ERR_MEMORY_ALLOC);
+
+    qsv_vpp->m_mfxVideoParam.ExtParam           = qsv_vpp->p_ext_params;
+
     qsv_vpp->ext_opaque_alloc.Header.BufferId   = MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION;
     qsv_vpp->ext_opaque_alloc.Header.BufferSz   = sizeof(mfxExtOpaqueSurfaceAlloc);
-    qsv_vpp->p_ext_params                       = (mfxExtBuffer*)&qsv_vpp->ext_opaque_alloc;
+    qsv_vpp->p_ext_params[0]                    = (mfxExtBuffer*)&qsv_vpp->ext_opaque_alloc;
 
     if(prev_vpp){
         qsv_vpp->ext_opaque_alloc.In.Surfaces       = prev_vpp->p_surfaces;
@@ -227,8 +236,6 @@ static int filter_pre_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
     qsv_vpp->ext_opaque_alloc.Out.Surfaces      = qsv_vpp->p_surfaces;
     qsv_vpp->ext_opaque_alloc.Out.NumSurface    = qsv_vpp->surface_num;
     qsv_vpp->ext_opaque_alloc.Out.Type          = qsv->dec_space->request[0].Type;
-    qsv_vpp->m_mfxVideoParam.ExtParam   = &qsv_vpp->p_ext_params;
-    qsv_vpp->m_mfxVideoParam.NumExtParam = 1;
 
     pv->qsv_user = hb_list_init();
 
@@ -319,16 +326,40 @@ int pre_process_frame(hb_buffer_t *in, av_qsv_context* qsv, hb_filter_private_t 
     }
 
     int sync_idx = av_qsv_get_free_sync(qsv_vpp, qsv);
-    int surface_idx = av_qsv_get_free_surface(qsv_vpp, qsv,  &(qsv_vpp->m_mfxVideoParam.vpp.Out), QSV_PART_ANY);
+    int surface_idx = -1;
 
     for (;;)
     {
-
-            sts = MFXVideoUSER_ProcessFrameAsync(qsv->mfx_session, &work_surface, 1, &qsv_vpp->p_surfaces[surface_idx] , 1, qsv_vpp->p_sync[sync_idx]);
-
-            if( MFX_ERR_MORE_DATA == sts ){
+            if( sts == MFX_ERR_MORE_SURFACE || sts == MFX_ERR_NONE )
+               surface_idx = av_qsv_get_free_surface(qsv_vpp, qsv,  &(qsv_vpp->m_mfxVideoParam.vpp.Out), QSV_PART_ANY);
+            if (surface_idx == -1) {
+                hb_log("qsv: Not enough resources allocated for the filter");
                 ret = 0;
                 break;
+            }
+
+            sts = MFXVideoUSER_ProcessFrameAsync(qsv->mfx_session, &work_surface, 1, &qsv_vpp->p_surfaces[surface_idx] , 1, qsv_vpp->p_syncp[sync_idx]->p_sync);
+
+            if( MFX_ERR_MORE_DATA == sts ){
+                if(!qsv_vpp->pending){
+                    qsv_vpp->pending = av_qsv_list_init(0);
+                }
+
+                // if we have no results, we should not miss resource(s)
+                av_qsv_list_add( qsv_vpp->pending, received_item);
+
+                ff_qsv_atomic_dec(&qsv_vpp->p_syncp[sync_idx]->in_use);
+
+                ret = 0;
+                break;
+            }
+
+            if( MFX_ERR_MORE_SURFACE == sts || MFX_ERR_NONE <= sts){
+                if( MFX_ERR_MORE_SURFACE == sts )
+                    continue;
+
+                if (qsv_vpp->p_surfaces[surface_idx] && MFX_WRN_DEVICE_BUSY != sts )
+                   ff_qsv_atomic_inc(&qsv_vpp->p_surfaces[surface_idx]->Data.Locked);
             }
 
             AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -355,10 +386,12 @@ int pre_process_frame(hb_buffer_t *in, av_qsv_context* qsv, hb_filter_private_t 
                 }
                 pv->pre.frame_go = 0;
                 hb_unlock(pv->pre.frame_completed_lock);
-                // now have details prepared
 
-                //memcpy(in->plane,pv->pre.out->plane,sizeof(in->plane)*4);
                 in = pv->pre.out;
+
+                if (work_surface){
+                   ff_qsv_atomic_dec(&work_surface->Data.Locked);
+                }
 
                 // inserting for the future, will be locked until very ready
                 if(stage){
@@ -367,12 +400,33 @@ int pre_process_frame(hb_buffer_t *in, av_qsv_context* qsv, hb_filter_private_t 
                         new_stage->type = AV_QSV_VPP_USER;
                         new_stage->in.p_surface  =  work_surface;
                         new_stage->out.p_surface = qsv_vpp->p_surfaces[surface_idx];
-                        new_stage->out.p_sync = qsv_vpp->p_sync[sync_idx];
+                        new_stage->out.sync = qsv_vpp->p_syncp[sync_idx];
                         av_qsv_add_stagee( &received_item, new_stage,HAVE_THREADS );
+
+                        // add pending resources for the proper reclaim later
+                        if( qsv_vpp->pending ){
+                            if( av_qsv_list_count(qsv_vpp->pending)>0 ){
+                                new_stage->pending = qsv_vpp->pending;
+                }
+                            qsv_vpp->pending = 0;
+
+                            // making free via decrement for all pending
+                            int i = 0;
+                            for (i = av_qsv_list_count(new_stage->pending); i > 0; i--){
+                                av_qsv_list *atom_list = av_qsv_list_item(new_stage->pending, i-1);
+                                av_qsv_stage *stage = av_qsv_get_last_stage( atom_list );
+                                mfxFrameSurface1 *work_surface = stage->out.p_surface;
+                                if (work_surface)
+                                   ff_qsv_atomic_dec(&work_surface->Data.Locked);
+                            }
+                        }
                 }
 
                 break;
             }
+
+            ff_qsv_atomic_dec(&qsv_vpp->p_syncp[sync_idx]->in_use);
+
             if (MFX_ERR_NOT_ENOUGH_BUFFER == sts)
                 DEBUG_ASSERT( 1,"The bitstream buffer size is insufficient." );
 
