@@ -755,8 +755,8 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         fSrcChapterEndPopUp, fSrcDuration1Field, fSrcDuration2Field,
         fDstFormatField, fDstFormatPopUp, fDstFile1Field, fDstFile2Field,
         fDstBrowseButton, fVidRateField, fVidRatePopUp, fVidEncoderField,
-        fVidEncoderPopUp, fVidQualityField, fPictureSizeField,
-        fPictureCroppingField, fVideoFiltersField, fVidQualityMatrix,
+        fVidEncoderPopUp, fVidQualityField, fVidQualityMatrix,
+        fPictureSettingsField, fPictureFiltersField,
         fSubField, fSubPopUp, fPresetsAdd, fPresetsDelete, fSrcAngleLabel,
         fSrcAnglePopUp, fCreateChapterMarkers, fVidTurboPassCheck,
         fDstMp4LargeFileCheck, fSubForcedCheck, fPresetsOutlineView,
@@ -1330,7 +1330,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Toggle Presets"];
         [item setPaletteLabel: @"Toggler Presets"];
         [item setToolTip: @"Open/Close Preset Drawer"];
-        [item setImage: [NSImage imageNamed: @"Drawer"]];
+        [item setImage: [NSImage imageNamed: @"presets"]];
         [item setTarget: self];
         [item setAction: @selector(toggleDrawer:)];
         [item setAutovalidates: NO];
@@ -1340,7 +1340,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Start"];
         [item setPaletteLabel: @"Start Encoding"];
         [item setToolTip: @"Start Encoding"];
-        [item setImage: [NSImage imageNamed: @"Play"]];
+        [item setImage: [NSImage imageNamed: @"encode"]];
         [item setTarget: self];
         [item setAction: @selector(Rip:)];
     }
@@ -1349,7 +1349,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Show Queue"];
         [item setPaletteLabel: @"Show Queue"];
         [item setToolTip: @"Show Queue"];
-        [item setImage: [NSImage imageNamed: @"Queue"]];
+        [item setImage: [NSImage imageNamed: @"showqueue"]];
         [item setTarget: self];
         [item setAction: @selector(showQueueWindow:)];
         [item setAutovalidates: NO];
@@ -1359,7 +1359,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Add to Queue"];
         [item setPaletteLabel: @"Add to Queue"];
         [item setToolTip: @"Add to Queue"];
-        [item setImage: [NSImage imageNamed: @"AddToQueue"]];
+        [item setImage: [NSImage imageNamed: @"addqueue"]];
         [item setTarget: self];
         [item setAction: @selector(addToQueue:)];
     }
@@ -1368,7 +1368,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Pause"];
         [item setPaletteLabel: @"Pause Encoding"];
         [item setToolTip: @"Pause Encoding"];
-        [item setImage: [NSImage imageNamed: @"Pause"]];
+        [item setImage: [NSImage imageNamed: @"pauseencode"]];
         [item setTarget: self];
         [item setAction: @selector(Pause:)];
     }
@@ -1377,7 +1377,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Picture Settings"];
         [item setPaletteLabel: @"Show Picture Settings"];
         [item setToolTip: @"Show Picture Settings"];
-        [item setImage: [NSImage imageNamed: @"pref-picture"]];
+        [item setImage: [NSImage imageNamed: @"picturesettings"]];
         [item setTarget: self];
         [item setAction: @selector(showPicturePanel:)];
     }
@@ -1387,7 +1387,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setPaletteLabel: @"Show Preview"];
         [item setToolTip: @"Show Preview"];
         //[item setImage: [NSImage imageNamed: @"pref-picture"]];
-        [item setImage: [NSImage imageNamed: @"Brushed_Window"]];
+        [item setImage: [NSImage imageNamed: @"preview"]];
         [item setTarget: self];
         [item setAction: @selector(showPreviewWindow:)];
     }
@@ -1396,7 +1396,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Activity Window"];
         [item setPaletteLabel: @"Show Activity Window"];
         [item setToolTip: @"Show Activity Window"];
-        [item setImage: [NSImage imageNamed: @"ActivityWindow"]];
+        [item setImage: [NSImage imageNamed: @"activity"]];
         [item setTarget: self];
         [item setAction: @selector(showDebugOutputPanel:)];
         [item setAutovalidates: NO];
@@ -1406,7 +1406,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         [item setLabel: @"Source"];
         [item setPaletteLabel: @"Source"];
         [item setToolTip: @"Choose Video Source"];
-        [item setImage: [NSImage imageNamed: @"Source"]];
+        [item setImage: [NSImage imageNamed: @"source"]];
         [item setTarget: self];
         [item setAction: @selector(browseSources:)];
     }
@@ -1447,7 +1447,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
             
             if ([ident isEqualToString: ChooseSourceIdentifier])
             {
-                [toolbarItem setImage: [NSImage imageNamed: @"Stop"]];
+                [toolbarItem setImage: [NSImage imageNamed: @"stopencode"]];
                 [toolbarItem setLabel: @"Cancel Scan"];
                 [toolbarItem setPaletteLabel: @"Cancel Scanning"];
                 [toolbarItem setToolTip: @"Cancel Scanning Source"];
@@ -1461,7 +1461,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         {
             if ([ident isEqualToString: ChooseSourceIdentifier])
             {
-                [toolbarItem setImage: [NSImage imageNamed: @"Source"]];
+                [toolbarItem setImage: [NSImage imageNamed: @"source"]];
                 [toolbarItem setLabel: @"Source"];
                 [toolbarItem setPaletteLabel: @"Source"];
                 [toolbarItem setToolTip: @"Choose Video Source"];
@@ -1475,7 +1475,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         {
             if ([ident isEqualToString: StartEncodingIdentifier])
             {
-                [toolbarItem setImage: [NSImage imageNamed: @"Stop"]];
+                [toolbarItem setImage: [NSImage imageNamed: @"stopencode"]];
                 [toolbarItem setLabel: @"Stop"];
                 [toolbarItem setPaletteLabel: @"Stop"];
                 [toolbarItem setToolTip: @"Stop Encoding"];
@@ -1483,7 +1483,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
             }
             if ([ident isEqualToString: PauseEncodingIdentifier])
             {
-                [toolbarItem setImage: [NSImage imageNamed: @"Pause"]];
+                [toolbarItem setImage: [NSImage imageNamed: @"pauseencode"]];
                 [toolbarItem setLabel: @"Pause"];
                 [toolbarItem setPaletteLabel: @"Pause Encoding"];
                 [toolbarItem setToolTip: @"Pause Encoding"];
@@ -1503,7 +1503,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         {
             if ([ident isEqualToString: PauseEncodingIdentifier])
             {
-                [toolbarItem setImage: [NSImage imageNamed: @"Play"]];
+                [toolbarItem setImage: [NSImage imageNamed: @"encode"]];
                 [toolbarItem setLabel: @"Resume"];
                 [toolbarItem setPaletteLabel: @"Resume Encoding"];
                 [toolbarItem setToolTip: @"Resume Encoding"];
@@ -1524,7 +1524,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
         {
             if ([ident isEqualToString: StartEncodingIdentifier])
             {
-                [toolbarItem setImage: [NSImage imageNamed: @"Play"]];
+                [toolbarItem setImage: [NSImage imageNamed: @"encode"]];
                 if (hb_count(fHandle) > 0)
                     [toolbarItem setLabel: @"Start Queue"];
                 else
@@ -2026,7 +2026,11 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
             // it doesn't apply to batch scan either, but we can't tell it apart from DVD & BD folders here
             [self writeToActivityLog: "scanning titles with a duration of %d seconds or more", min_title_duration_seconds];
         }
-        hb_scan( fHandle, [path UTF8String], scanTitleNum, hb_num_previews, 1 , min_title_duration_ticks );
+        
+        hb_system_sleep_prevent(fHandle);
+        hb_scan(fHandle, [path UTF8String], scanTitleNum, hb_num_previews, 1 ,
+                min_title_duration_ticks);
+        
         [fSrcDVD2Field setStringValue:@"Scanning new source…"];
 
         // After the scan process, we signal to enableUI loop that this scan process is now finished
@@ -2038,6 +2042,7 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
 - (IBAction) cancelScanning:(id)sender
 {
     hb_scan_stop(fHandle);
+    hb_system_sleep_allow(fHandle);
 }
 
 - (IBAction) showNewScan:(id)sender
@@ -2200,10 +2205,10 @@ static NSString *        ChooseSourceIdentifier             = @"Choose Source It
                 [self applyQueueSettingsToMainWindow:nil];
                 
             }
-
-            
         }
-
+    
+    /* Done scanning, allow system sleep for the scan handle */
+    hb_system_sleep_allow(fHandle);
 }
 
 
@@ -2587,7 +2592,7 @@ fWorkingCount = 0;
 	[queueFileJob setObject:[fVidEncoderPopUp titleOfSelectedItem] forKey:@"VideoEncoder"];
 	
     /* x264 advanced options */
-    if ([fx264UseAdvancedOptionsCheck state])
+    if ([fX264UseAdvancedOptionsCheck state])
     {
         // we are using the advanced panel
         [queueFileJob setObject:[NSNumber numberWithInt:1]       forKey: @"x264UseAdvancedOptions"];
@@ -2595,7 +2600,7 @@ fWorkingCount = 0;
     }
     else
     {
-        // we are using the x264 system
+        // we are using the x264 preset system
         [queueFileJob setObject:[NSNumber numberWithInt:0] forKey: @"x264UseAdvancedOptions"];
         [queueFileJob setObject:[self x264Preset]          forKey: @"x264Preset"];
         [queueFileJob setObject:[self x264Tune]            forKey: @"x264Tune"];
@@ -2659,9 +2664,15 @@ fWorkingCount = 0;
         [queueFileJob setObject:[NSNumber numberWithFloat:fTitle->job->anamorphic.dar_height] forKey:@"PicturePARDisplayHeight"];
 
     }
-    NSString * pictureSummary;
-    pictureSummary = [fPictureSizeField stringValue];
-    [queueFileJob setObject:pictureSummary forKey:@"PictureSizingSummary"];                 
+
+    /* Text summaries of various settings */
+    [queueFileJob setObject:[NSString stringWithString:[self pictureSettingsSummary]]
+                     forKey:@"PictureSettingsSummary"];
+    [queueFileJob setObject:[NSString stringWithString:[self pictureFiltersSummary]]
+                     forKey:@"PictureFiltersSummary"];
+    [queueFileJob setObject:[NSString stringWithString:[self muxerOptionsSummary]]
+                     forKey:@"MuxerOptionsSummary"];
+    
     /* Set crop settings here */
 	[queueFileJob setObject:[NSNumber numberWithInt:[fPictureController autoCrop]] forKey:@"PictureAutoCrop"];
     [queueFileJob setObject:[NSNumber numberWithInt:job->crop[0]] forKey:@"PictureTopCrop"];
@@ -2815,7 +2826,12 @@ fWorkingCount = 0;
     else
     {
         [self writeToActivityLog: "incrementQueueItemDone there are no more pending encodes"];
-        /*Since there are no more items to encode, go to queueCompletedAlerts for user specified alerts after queue completed*/
+        /* Done encoding, allow system sleep for the encode handle */
+        hb_system_sleep_allow(fQueueEncodeLibhb);
+        /*
+         * Since there are no more items to encode, go to queueCompletedAlerts
+         * for user specified alerts after queue completed
+         */
         [self queueCompletedAlerts];
     }
 }
@@ -2854,9 +2870,13 @@ fWorkingCount = 0;
         {
             [self writeToActivityLog: "scanning specifically for title: %d", scanTitleNum];
         }
-        /* Only scan 10 previews before an encode - additional previews are only useful for autocrop and static previews,
-         * which are already taken care of at this point */
-        hb_scan( fQueueEncodeLibhb, [path UTF8String], scanTitleNum, 10, 0, 0 );
+        /*
+         * Only scan 10 previews before an encode - additional previews are
+         * only useful for autocrop and static previews, which are already taken
+         * care of at this point
+         */
+        hb_system_sleep_prevent(fQueueEncodeLibhb);
+        hb_scan(fQueueEncodeLibhb, [path UTF8String], scanTitleNum, 10, 0, 0);
     }
 }
 
@@ -3003,20 +3023,28 @@ fWorkingCount = 0;
     {
         // we are using the advanced panel
         [fAdvancedOptions setOptions:[queueToApply objectForKey:@"x264Option"]];
+        // preset does not use the x264 preset system, reset the widgets
+        [self setX264Preset:     nil];
+        [self setX264Tune:       nil];
+        [self setX264OptionExtra:[queueToApply objectForKey:@"x264Option"]];
+        [self setH264Profile:    nil];
+        [self setH264Level:      nil];
         // enable the advanced panel and update the widgets
-        [fx264UseAdvancedOptionsCheck setState: NSOnState];
+        [fX264UseAdvancedOptionsCheck setState:NSOnState];
         [self updateX264Widgets:nil];
     }
     else
     {
-        // we are using the x264 system
-        [self setX264Preset:      [queueToApply objectForKey:@"x264Preset"]];
-        [self setX264Tune:        [queueToApply objectForKey:@"x264Tune"]];
-        [self setX264OptionExtra: [queueToApply objectForKey:@"x264OptionExtra"]];
-        [self setH264Profile:     [queueToApply objectForKey:@"h264Profile"]];
-        [self setH264Level:       [queueToApply objectForKey:@"h264Level"]];
+        // we are using the x264 preset system
+        [self setX264Preset:     [queueToApply objectForKey:@"x264Preset"]];
+        [self setX264Tune:       [queueToApply objectForKey:@"x264Tune"]];
+        [self setX264OptionExtra:[queueToApply objectForKey:@"x264OptionExtra"]];
+        [self setH264Profile:    [queueToApply objectForKey:@"h264Profile"]];
+        [self setH264Level:      [queueToApply objectForKey:@"h264Level"]];
+        // preset does not use the advanced panel, reset it
+        [fAdvancedOptions setOptions:@""];
         // disable the advanced panel and update the widgets
-        [fx264UseAdvancedOptionsCheck setState: NSOffState];
+        [fX264UseAdvancedOptionsCheck setState:NSOffState];
         [self updateX264Widgets:nil];
     }
     
@@ -3045,16 +3073,32 @@ fWorkingCount = 0;
     [self videoMatrixChanged:nil];
         
     /* Video framerate */
-    /* For video preset video framerate, we want to make sure that Same as source does not conflict with the
-     detected framerate in the fVidRatePopUp so we use index 0*/
     if ([[queueToApply objectForKey:@"VideoFramerate"] isEqualToString:@"Same as source"])
     {
-        [fVidRatePopUp selectItemAtIndex: 0];
+        /* Now set the Video Frame Rate Mode to either vfr or cfr according to the preset */
+        if ([[queueToApply objectForKey:@"VideoFramerateMode"] isEqualToString:@"vfr"])
+        {
+            [fFramerateMatrix selectCellAtRow:0 column:0]; // we want vfr
+        }
+        else
+        {
+            [fFramerateMatrix selectCellAtRow:1 column:0]; // we want cfr
+        }
     }
     else
     {
-        [fVidRatePopUp selectItemWithTitle:[queueToApply objectForKey:@"VideoFramerate"]];
+        /* Now set the Video Frame Rate Mode to either pfr or cfr according to the preset */
+        if ([[queueToApply objectForKey:@"VideoFramerateMode"] isEqualToString:@"pfr"])
+        {
+            [fFramerateMatrix selectCellAtRow:0 column:0]; // we want pfr
+        }
+        else
+        {
+            [fFramerateMatrix selectCellAtRow:1 column:0]; // we want cfr
+        }
     }
+    [fVidRatePopUp selectItemWithTitle:[queueToApply objectForKey:@"VideoFramerate"]];
+    [self videoFrameRateChanged:nil];
     
     /* 2 Pass Encoding */
     [fVidTwoPassCheck setState:[[queueToApply objectForKey:@"VideoTwoPass"] intValue]];
@@ -3304,7 +3348,7 @@ fWorkingCount = 0;
         const char *advanced_opts = NULL;
         const char *h264_profile  = NULL;
         const char *h264_level    = NULL;
-        if ([fx264UseAdvancedOptionsCheck state])
+        if ([fX264UseAdvancedOptionsCheck state])
         {
             // we are using the advanced panel
             if ([(tmpString = [fAdvancedOptions optionsString]) length])
@@ -3314,8 +3358,7 @@ fWorkingCount = 0;
         }
         else
         {
-            // we are using the x264 system
-            x264_preset = [[self x264Preset] UTF8String];
+            // we are using the x264 preset system
             if ([(tmpString = [self x264Tune]) length])
             {
                 x264_tune = [tmpString UTF8String];
@@ -3332,6 +3375,7 @@ fWorkingCount = 0;
             {
                 h264_level = [tmpString UTF8String];
             }
+            x264_preset = [[self x264Preset] UTF8String];
         }
         hb_job_set_x264_preset  (job, x264_preset);
         hb_job_set_x264_tune    (job, x264_tune);
@@ -3452,7 +3496,7 @@ bool one_burned = FALSE;
             else
             {
                 /* if we are getting the subtitles from an external srt file */
-                if ([[tempObject objectForKey:@"subtitleSourceTrackType"] isEqualToString:@"SRT"])
+                if ([[tempObject objectForKey:@"subtitleSourceTrackType"] intValue] == SRTSUB)
                 {
                     hb_subtitle_config_t sub_config;
                     
@@ -3839,8 +3883,7 @@ bool one_burned = FALSE;
         }
         else
         {
-            // we are using the x264 system
-            x264_preset = [[queueToApply objectForKey:@"x264Preset"] UTF8String];
+            // we are using the x264 preset system
             if ([(tmpString = [queueToApply objectForKey:@"x264Tune"]) length])
             {
                 x264_tune = [tmpString UTF8String];
@@ -3857,6 +3900,7 @@ bool one_burned = FALSE;
             {
                 h264_level = [tmpString UTF8String];
             }
+            x264_preset = [[queueToApply objectForKey:@"x264Preset"] UTF8String];
         }
         hb_job_set_x264_preset  (job, x264_preset);
         hb_job_set_x264_tune    (job, x264_tune);
@@ -4012,7 +4056,7 @@ bool one_burned = FALSE;
             else
             {
                 /* if we are getting the subtitles from an external srt file */
-                if ([[tempObject objectForKey:@"subtitleSourceTrackType"] isEqualToString:@"SRT"])
+                if ([[tempObject objectForKey:@"subtitleSourceTrackType"] intValue] == SRTSUB)
                 {
                     hb_subtitle_config_t sub_config;
                     
@@ -4111,27 +4155,31 @@ bool one_burned = FALSE;
     
     /* Audio tracks and mixdowns */
     /* Now lets add our new tracks to the audio list here */
-	for (unsigned int counter = 0; counter < maximumNumberOfAllowedAudioTracks; counter++) {
-		NSString *prefix = [NSString stringWithFormat: @"Audio%d", counter + 1];
-		if ([[queueToApply objectForKey: [prefix stringByAppendingString: @"Track"]] intValue] > 0) {
-			audio = (hb_audio_config_t *) calloc(1, sizeof(*audio));
-			hb_audio_config_init(audio);
-			audio->in.track = [[queueToApply objectForKey: [prefix stringByAppendingString: @"Track"]] intValue] - 1;
-			/* We go ahead and assign values to our audio->out.<properties> */
-			audio->out.track = audio->in.track;
-			audio->out.dynamic_range_compression = [[queueToApply objectForKey: [prefix stringByAppendingString: @"TrackDRCSlider"]] floatValue];
-            audio->out.gain = [[queueToApply objectForKey: [prefix stringByAppendingString: @"TrackGainSlider"]] floatValue];
-			prefix = [NSString stringWithFormat: @"JobAudio%d", counter + 1];
-			audio->out.codec = [[queueToApply objectForKey: [prefix stringByAppendingString: @"Encoder"]] intValue];
-			audio->out.compression_level = hb_get_default_audio_compression(audio->out.codec);
-			audio->out.mixdown = [[queueToApply objectForKey: [prefix stringByAppendingString: @"Mixdown"]] intValue];
-			audio->out.bitrate = [[queueToApply objectForKey: [prefix stringByAppendingString: @"Bitrate"]] intValue];
-			audio->out.samplerate = [[queueToApply objectForKey: [prefix stringByAppendingString: @"Samplerate"]] intValue];
-			
-			hb_audio_add( job, audio );
-			free(audio);
-		}
-	}
+    for (unsigned int counter = 0; counter < maximumNumberOfAllowedAudioTracks; counter++)
+    {
+        NSString *prefix    = [NSString stringWithFormat:@"Audio%d",    counter + 1];
+        NSString *jobPrefix = [NSString stringWithFormat:@"JobAudio%d", counter + 1];
+        if ([[queueToApply objectForKey:[prefix stringByAppendingString:@"Track"]] intValue] > 0)
+        {
+            audio           = (hb_audio_config_t*)calloc(1, sizeof(*audio));
+            hb_audio_config_init(audio);
+            audio->in.track = [[queueToApply objectForKey:[prefix stringByAppendingString:@"Track"]] intValue] - 1;
+            /* We go ahead and assign values to our audio->out.<properties> */
+            audio->out.track                     = audio->in.track;
+            audio->out.codec                     = [[queueToApply objectForKey:[jobPrefix stringByAppendingString:@"Encoder"]]           intValue];
+            audio->out.compression_level         = hb_get_default_audio_compression(audio->out.codec);
+            audio->out.mixdown                   = [[queueToApply objectForKey:[jobPrefix stringByAppendingString:@"Mixdown"]]           intValue];
+            audio->out.normalize_mix_level       = 0;
+            audio->out.bitrate                   = [[queueToApply objectForKey:[jobPrefix stringByAppendingString:@"Bitrate"]]           intValue];
+            audio->out.samplerate                = [[queueToApply objectForKey:[jobPrefix stringByAppendingString:@"Samplerate"]]        intValue];
+            audio->out.dynamic_range_compression = [[queueToApply objectForKey:[prefix    stringByAppendingString:@"TrackDRCSlider"]]  floatValue];
+            audio->out.gain                      = [[queueToApply objectForKey:[prefix    stringByAppendingString:@"TrackGainSlider"]] floatValue];
+            audio->out.dither_method             = hb_audio_dither_get_default();
+            
+            hb_audio_add(job, audio);
+            free(audio);
+        }
+    }
     
     /* Now lets call the filters if applicable.
      * The order of the filters is critical
@@ -4471,7 +4519,12 @@ bool one_burned = FALSE;
 {
     if (!fQueueController) return;
     
-  hb_pause( fQueueEncodeLibhb );
+    /*
+     * No need to allow system sleep here as we'll either call Cancel:
+     * (which will take care of it) or resume right away
+     */
+    hb_pause(fQueueEncodeLibhb);
+    
     NSString * alertTitle = [NSString stringWithFormat:NSLocalizedString(@"You are currently encoding. What would you like to do ?", nil)];
    
     // Which window to attach the sheet to?
@@ -4495,14 +4548,16 @@ bool one_burned = FALSE;
 
 - (void) didDimissCancel: (NSWindow *)sheet returnCode: (int)returnCode contextInfo: (void *)contextInfo
 {
-   hb_resume( fQueueEncodeLibhb );
-     if (returnCode == NSAlertOtherReturn)
+    /* No need to prevent system sleep here as we didn't allow it in Cancel: */
+    hb_resume(fQueueEncodeLibhb);
+    
+    if (returnCode == NSAlertOtherReturn)
     {
         [self doCancelCurrentJob];  // <- this also stops libhb
     }
-    if (returnCode == NSAlertAlternateReturn)
+    else if (returnCode == NSAlertAlternateReturn)
     {
-    [self doCancelCurrentJobAndStop];
+        [self doCancelCurrentJobAndStop];
     }
 }
 
@@ -4519,7 +4574,8 @@ bool one_burned = FALSE;
     // remaining jobs.
      
     
-    hb_stop( fQueueEncodeLibhb );
+    hb_stop(fQueueEncodeLibhb);
+    hb_system_sleep_allow(fQueueEncodeLibhb);
     
     // Delete all remaining jobs since libhb doesn't do this on its own.
             hb_job_t * job;
@@ -4560,7 +4616,8 @@ bool one_burned = FALSE;
 
 - (void) doCancelCurrentJobAndStop
 {
-    hb_stop( fQueueEncodeLibhb );
+    hb_stop(fQueueEncodeLibhb);
+    hb_system_sleep_allow(fQueueEncodeLibhb);
     
     // Delete all remaining jobs since libhb doesn't do this on its own.
             hb_job_t * job;
@@ -4582,15 +4639,17 @@ bool one_burned = FALSE;
 - (IBAction) Pause: (id) sender
 {
     hb_state_t s;
-    hb_get_state2( fQueueEncodeLibhb, &s );
+    hb_get_state2(fQueueEncodeLibhb, &s);
 
-    if( s.state == HB_STATE_PAUSED )
+    if (s.state == HB_STATE_PAUSED)
     {
-        hb_resume( fQueueEncodeLibhb );
+        hb_system_sleep_prevent(fQueueEncodeLibhb);
+        hb_resume(fQueueEncodeLibhb);
     }
     else
     {
-        hb_pause( fQueueEncodeLibhb );
+        hb_pause(fQueueEncodeLibhb);
+        hb_system_sleep_allow(fQueueEncodeLibhb);
     }
 }
 
@@ -5305,7 +5364,7 @@ the user is using "Custom" settings by determining the sender*/
 {
     NSUInteger i;
     /*
-     * now we populate the x264 system widgets via hb_x264_presets(),
+     * now we populate the x264 preset system widgets via hb_x264_presets(),
      * hb_x264_tunes(), hb_h264_profiles(), hb_h264_levels()
      */
     // store x264 preset names
@@ -5363,7 +5422,7 @@ the user is using "Custom" settings by determining the sender*/
 
 - (void) enableX264Widgets: (bool) enable
 {
-    NSControl * controls[] =
+    NSControl *controls[] =
     {
         fX264PresetsSlider, fX264PresetSliderLabel, fX264PresetSelectedTextField,
         fX264TunePopUp, fX264TunePopUpLabel, fX264FastDecodeCheck,
@@ -5372,11 +5431,16 @@ the user is using "Custom" settings by determining the sender*/
         fX264LevelPopUp, fX264LevelPopUpLabel,
         fDisplayX264PresetsUnparseTextField,
     };
-    // check whether we're using the x264 system
-    bool x264_system = ([fx264UseAdvancedOptionsCheck state] == NSOffState);
-    // enable or disable the "Use x264 Advanced Options Panel" checkbox
-    [fx264UseAdvancedOptionsCheck setEnabled: enable];
-    // enable or disable the x264 system widgets
+    
+    // check whether the x264 preset system and the advanced panel should be enabled
+    BOOL enable_x264_controls  = (enable && [fX264UseAdvancedOptionsCheck state] == NSOffState);
+    BOOL enable_advanced_panel = (enable && [fX264UseAdvancedOptionsCheck state] == NSOnState);
+    
+    // enable/disable the checkbox and advanced panel
+    [fX264UseAdvancedOptionsCheck setEnabled:enable];
+    [fAdvancedOptions enableUI:enable_advanced_panel];
+    
+    // enable/disable the x264 preset system controls
     for (unsigned i = 0; i < (sizeof(controls) / sizeof(NSControl*)); i++)
     {
         if ([[controls[i] className] isEqualToString: @"NSTextField"])
@@ -5384,45 +5448,50 @@ the user is using "Custom" settings by determining the sender*/
             NSTextField *tf = (NSTextField*)controls[i];
             if (![tf isBezeled])
             {
-                [tf setTextColor: (x264_system ?
-                                   [NSColor controlTextColor] :
-                                   [NSColor disabledControlTextColor])];
+                [tf setTextColor:(enable_x264_controls       ?
+                                  [NSColor controlTextColor] :
+                                  [NSColor disabledControlTextColor])];
                 continue;
             }
         }
-        [controls[i] setEnabled: (enable && x264_system)];
+        [controls[i] setEnabled:enable_x264_controls];
     }
-    
-    if (x264_system)
-    {
-        // using x264 system, always disable advanced panel
-        [fAdvancedOptions enableUI:NO];
-        // don't reset x264 system widgets as they may have been set explicitly
-    }
-    else
-    {
-        // using advanced panel, enable if applicable
-        [fAdvancedOptions enableUI:enable];
-        // TODO: set the advanced options string based on the previously
-        //       selected x264 system setting
-        // reset x264 system widgets
-        [fX264PresetsSlider setIntegerValue: fX264MediumPresetIndex];
-        [fX264TunePopUp selectItemAtIndex:0];
-        [fX264FastDecodeCheck setState:NSOffState];
-        [fDisplayX264PresetsAdditonalOptionsTextField setStringValue:@""];
-        [fX264ProfilePopUp selectItemAtIndex:0];
-        [fX264LevelPopUp selectItemAtIndex:0];
-    }
-    [self x264PresetsSliderChanged:nil];
 }
 
 - (IBAction) updateX264Widgets: (id) sender
 {
-    [self enableX264Widgets: YES];
+    if ([fX264UseAdvancedOptionsCheck state] == NSOnState)
+    {
+        /*
+         * we are using or switching to the advanced panel
+         *
+         * if triggered by selectPreset or applyQueueSettingToMainWindow,
+         * the options string will have been specified explicitly - leave it.
+         *
+         * if triggered by the advanced panel on/off checkbox, set the options
+         * string to the value of the unparsed x264 preset system string.
+         */
+        if (sender == fX264UseAdvancedOptionsCheck)
+        {
+            if (fX264PresetsUnparsedUTF8String != NULL)
+            {
+                [fAdvancedOptions setOptions:
+                 [NSString stringWithUTF8String:fX264PresetsUnparsedUTF8String]];
+            }
+            else
+            {
+                [fAdvancedOptions setOptions:@""];
+            }
+        }
+    }
+    // enable/disable, populate and update the various widgets
+    [self             enableX264Widgets:       YES];
+    [self             x264PresetsSliderChanged:nil];
+    [fAdvancedOptions X264AdvancedOptionsSet:  nil];
 }
 
 #pragma mark -
-#pragma mark x264 system
+#pragma mark x264 preset system
 
 - (NSString*) x264Preset
 {
@@ -5671,129 +5740,16 @@ the user is using "Custom" settings by determining the sender*/
 /* Get and Display Current Pic Settings in main window */
 - (IBAction) calculatePictureSizing: (id) sender
 {
-	if (fTitle->job->anamorphic.mode > 0)
-	{
+    if (fTitle->job->anamorphic.mode > 0)
+    {
         fTitle->job->keep_ratio = 0;
-	}
-    
-    if (fTitle->job->anamorphic.mode != 1) // we are not strict so show the modulus
-	{
-        [fPictureSizeField setStringValue: [NSString stringWithFormat:@"Picture Size: %@, Modulus: %d", [fPictureController getPictureSizeInfoString], fTitle->job->modulus]];
-    }
-    else
-    {
-        [fPictureSizeField setStringValue: [NSString stringWithFormat:@"Picture Size: %@", [fPictureController getPictureSizeInfoString]]];
-    }
-    NSString *picCropping;
-    /* Set the display field for crop as per boolean */
-	if (![fPictureController autoCrop])
-	{
-        picCropping =  @"Custom";
-	}
-	else
-	{
-		picCropping =  @"Auto";
-	}
-    picCropping = [picCropping stringByAppendingString:[NSString stringWithFormat:@" %d/%d/%d/%d",fTitle->job->crop[0],fTitle->job->crop[1],fTitle->job->crop[2],fTitle->job->crop[3]]];
-    
-    [fPictureCroppingField setStringValue: [NSString stringWithFormat:@"Picture Cropping: %@",picCropping]];
-    
-    NSString *videoFilters;
-    videoFilters = @"";
-    /* Detelecine */
-    if ([fPictureController detelecine] == 2) 
-    {
-        videoFilters = [videoFilters stringByAppendingString:@" - Detelecine (Default)"];
-    }
-    else if ([fPictureController detelecine] == 1) 
-    {
-        videoFilters = [videoFilters stringByAppendingString:[NSString stringWithFormat:@" - Detelecine (%@)",[fPictureController detelecineCustomString]]];
     }
     
-    if ([fPictureController useDecomb] == 1)
-    {
-        /* Decomb */
-        if ([fPictureController decomb] == 4)
-        {
-            videoFilters = [videoFilters stringByAppendingString:@" - Decomb (Bob)"];
-        }
-        else if ([fPictureController decomb] == 3)
-        {
-            videoFilters = [videoFilters stringByAppendingString:@" - Decomb (Fast)"];
-        }
-        else if ([fPictureController decomb] == 2)
-        {
-            videoFilters = [videoFilters stringByAppendingString:@" - Decomb (Default)"];
-        }
-        else if ([fPictureController decomb] == 1)
-        {
-            videoFilters = [videoFilters stringByAppendingString:[NSString stringWithFormat:@" - Decomb (%@)",[fPictureController decombCustomString]]];
-        }
-    }
-    else
-    {
-        /* Deinterlace */
-        if ([fPictureController deinterlace] == 5)
-        {
-            fTitle->job->deinterlace  = 1;
-            videoFilters = [videoFilters stringByAppendingString:@" - Deinterlace (Bob)"];
-        }
-        else if ([fPictureController deinterlace] == 4)
-        {
-            fTitle->job->deinterlace  = 1;
-            videoFilters = [videoFilters stringByAppendingString:@" - Deinterlace (Slower)"];
-        }
-        else if ([fPictureController deinterlace] == 3)
-        {
-            fTitle->job->deinterlace  = 1;
-            videoFilters = [videoFilters stringByAppendingString:@" - Deinterlace (Slow)"];
-        }
-        else if ([fPictureController deinterlace] == 2)
-        {
-            fTitle->job->deinterlace  = 1;
-            videoFilters = [videoFilters stringByAppendingString:@" - Deinterlace (Fast)"];
-        }
-        else if ([fPictureController deinterlace] == 1)
-        {
-            fTitle->job->deinterlace  = 1;
-            videoFilters = [videoFilters stringByAppendingString:[NSString stringWithFormat:@" - Deinterlace (%@)",[fPictureController deinterlaceCustomString]]];
-        }
-        else
-        {
-            fTitle->job->deinterlace  = 0;
-        }
-	}
-    
-    /* Denoise */
-	if ([fPictureController denoise] == 2)
-	{
-		videoFilters = [videoFilters stringByAppendingString:@" - Denoise (Weak)"];
-    }
-	else if ([fPictureController denoise] == 3)
-	{
-		videoFilters = [videoFilters stringByAppendingString:@" - Denoise (Medium)"];
-    }
-	else if ([fPictureController denoise] == 4)
-	{
-		videoFilters = [videoFilters stringByAppendingString:@" - Denoise (Strong)"];
-	}
-    else if ([fPictureController denoise] == 1)
-	{
-		videoFilters = [videoFilters stringByAppendingString:[NSString stringWithFormat:@" - Denoise (%@)",[fPictureController denoiseCustomString]]];
-	}
-    
-    /* Deblock */
-    if ([fPictureController deblock] > 0) 
-    {
-        videoFilters = [videoFilters stringByAppendingString:[NSString stringWithFormat:@" - Deblock (%d)",[fPictureController deblock]]];
-    }
-	
-    /* Grayscale */
-    if ([fPictureController grayscale]) 
-    {
-        videoFilters = [videoFilters stringByAppendingString:@" - Grayscale"];
-    }
-    [fVideoFiltersField setStringValue: [NSString stringWithFormat:@"Video Filters: %@", videoFilters]];
+    // align picture settings and video filters in the UI using tabs
+    [fPictureSettingsField setStringValue:[NSString stringWithFormat:@"Picture Settings:  \t %@",
+                                           [self pictureSettingsSummary]]];
+    [fPictureFiltersField  setStringValue:[NSString stringWithFormat:@"Picture Filters: \t\t %@",
+                                           [self pictureFiltersSummary]]];
     
     /* Store storage resolution for unparse */
     fX264PresetsWidthForUnparse  = fTitle->job->width;
@@ -5801,9 +5757,180 @@ the user is using "Custom" settings by determining the sender*/
     // width or height may have changed, unparse
     [self x264PresetsChangedDisplayExpandedOptions:nil];
     
+    // reload still previews
+    // note: fTitle->job->deinterlace is set by fPictureController now
     [fPictureController decombDeinterlacePreviewImage];
 }
 
+#pragma mark -
+#pragma mark - Text Summaries
+
+- (NSString*) pictureSettingsSummary
+{
+    NSMutableString *summary = [NSMutableString stringWithString:@""];
+    if (fPictureController && fTitle && fTitle->job)
+    {
+        [summary appendString:[fPictureController getPictureSizeInfoString]];
+        if (fTitle->job->anamorphic.mode != 1)
+        {
+            // anamorphic is not Strict, show the modulus
+            [summary appendFormat:@", Modulus: %d", fTitle->job->modulus];
+        }
+        [summary appendFormat:@", Crop: %s %d/%d/%d/%d",
+         [fPictureController autoCrop] ? "Auto" : "Custom",
+         fTitle->job->crop[0], fTitle->job->crop[1],
+         fTitle->job->crop[2], fTitle->job->crop[3]];
+    }
+    return [NSString stringWithString:summary];
+}
+
+- (NSString*) pictureFiltersSummary
+{
+    NSMutableString *summary = [NSMutableString stringWithString:@""];
+    if (fPictureController)
+    {
+        /* Detelecine */
+        switch ([fPictureController detelecine])
+        {
+            case 1:
+                [summary appendFormat:@" - Detelecine (%@)",
+                 [fPictureController detelecineCustomString]];
+                break;
+                
+            case 2:
+                [summary appendString:@" - Detelecine (Default)"];
+                break;
+                
+            default:
+                break;
+        }
+        
+        if ([fPictureController useDecomb] == 1)
+        {
+            /* Decomb */
+            switch ([fPictureController decomb])
+            {
+                case 1:
+                    [summary appendFormat:@" - Decomb (%@)",
+                     [fPictureController decombCustomString]];
+                    break;
+                    
+                case 2:
+                    [summary appendString:@" - Decomb (Default)"];
+                    break;
+                    
+                case 3:
+                    [summary appendString:@" - Decomb (Fast)"];
+                    break;
+                    
+                case 4:
+                    [summary appendString:@" - Decomb (Bob)"];
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
+        else
+        {
+            /* Deinterlace */
+            switch ([fPictureController deinterlace])
+            {
+                case 1:
+                    [summary appendFormat:@" - Deinterlace (%@)",
+                     [fPictureController deinterlaceCustomString]];
+                    break;
+                    
+                case 2:
+                    [summary appendString:@" - Deinterlace (Fast)"];
+                    break;
+                    
+                case 3:
+                    [summary appendString:@" - Deinterlace (Slow)"];
+                    break;
+                    
+                case 4:
+                    [summary appendString:@" - Deinterlace (Slower)"];
+                    break;
+                    
+                case 5:
+                    [summary appendString:@" - Deinterlace (Bob)"];
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
+        
+        /* Deblock */
+        if ([fPictureController deblock] > 0)
+        {
+            [summary appendFormat:@" - Deblock (%d)",
+             [fPictureController deblock]];
+        }
+        
+        /* Denoise */
+        switch ([fPictureController denoise])
+        {
+            case 1:
+                [summary appendFormat:@" - Denoise (%@)",
+                 [fPictureController denoiseCustomString]];
+                break;
+                
+            case 2:
+                [summary appendString:@" - Denoise (Weak)"];
+                break;
+                
+            case 3:
+                [summary appendString:@" - Denoise (Medium)"];
+                break;
+                
+            case 4:
+                [summary appendString:@" - Denoise (Strong)"];
+                break;
+                
+            default:
+                break;
+        }
+        
+        /* Grayscale */
+        if ([fPictureController grayscale]) 
+        {
+            [summary appendString:@" - Grayscale"];
+        }
+    }
+    if ([summary hasPrefix:@" - "])
+    {
+        [summary deleteCharactersInRange:NSMakeRange(0, 3)];
+    }
+    return [NSString stringWithString:summary];
+}
+
+- (NSString*) muxerOptionsSummary
+{
+    NSMutableString *summary = [NSMutableString stringWithString:@""];
+    if (([fDstFormatPopUp selectedItem]) &&
+        [[fDstFormatPopUp selectedItem] tag] == HB_MUX_MP4)
+    {
+        if ([fDstMp4LargeFileCheck state])
+        {
+            [summary appendString:@" - Large file size"];
+        }
+        if ([fDstMp4HttpOptFileCheck state])
+        {
+            [summary appendString:@" - Web optimized"];
+        }
+        if ([fDstMp4iPodFileCheck state])
+        {
+            [summary appendString:@" - iPod 5G support"];
+        }
+    }
+    if ([summary hasPrefix:@" - "])
+    {
+        [summary deleteCharactersInRange:NSMakeRange(0, 3)];
+    }
+    return [NSString stringWithString:summary];
+}
 
 #pragma mark -
 #pragma mark - Audio and Subtitles
@@ -6325,31 +6452,39 @@ return YES;
                  */
                 if ([chosenPreset objectForKey:@"x264Option"])
                 {
-                    /* we set the advanced opt string here if applicable */
-                    [fAdvancedOptions setOptions:
-                     [chosenPreset objectForKey:@"x264Option"]];
+                    /* we set the advanced options string here if applicable */
+                    [fAdvancedOptions setOptions:        [chosenPreset objectForKey:@"x264Option"]];
+                    [self             setX264OptionExtra:[chosenPreset objectForKey:@"x264Option"]];
                 }
                 else
                 {
-                    [fAdvancedOptions setOptions:@""];
+                    [fAdvancedOptions setOptions:        @""];
+                    [self             setX264OptionExtra:nil];
                 }
+                /* preset does not use the x264 preset system, reset the widgets */
+                [self setX264Preset: nil];
+                [self setX264Tune:   nil];
+                [self setH264Profile:nil];
+                [self setH264Level:  nil];
                 /* we enable the advanced panel and update the widgets */
-                [fx264UseAdvancedOptionsCheck setState: NSOnState];
+                [fX264UseAdvancedOptionsCheck setState:NSOnState];
                 [self updateX264Widgets:nil];
             }
             else
             {
                 /*
                  * x264UseAdvancedOptions is set to 0 (disabled),
-                 * so we use the x264 system
+                 * so we use the x264 preset system
                  */
-                [self setX264Preset:      [chosenPreset objectForKey:@"x264Preset"]];
-                [self setX264Tune:        [chosenPreset objectForKey:@"x264Tune"]];
-                [self setX264OptionExtra: [chosenPreset objectForKey:@"x264OptionExtra"]];
-                [self setH264Profile:     [chosenPreset objectForKey:@"h264Profile"]];
-                [self setH264Level:       [chosenPreset objectForKey:@"h264Level"]];
+                [self setX264Preset:     [chosenPreset objectForKey:@"x264Preset"]];
+                [self setX264Tune:       [chosenPreset objectForKey:@"x264Tune"]];
+                [self setX264OptionExtra:[chosenPreset objectForKey:@"x264OptionExtra"]];
+                [self setH264Profile:    [chosenPreset objectForKey:@"h264Profile"]];
+                [self setH264Level:      [chosenPreset objectForKey:@"h264Level"]];
+                /* preset does not use the advanced panel, reset it */
+                [fAdvancedOptions setOptions:@""];
                 /* we disable the advanced panel and update the widgets */
-                [fx264UseAdvancedOptionsCheck setState: NSOffState];
+                [fX264UseAdvancedOptionsCheck setState:NSOffState];
                 [self updateX264Widgets:nil];
             }
         }
@@ -6399,35 +6534,33 @@ return YES;
         [self videoMatrixChanged:nil];
         
         /* Video framerate */
-        /* For video preset video framerate, we want to make sure that Same as source does not conflict with the
-         detected framerate in the fVidRatePopUp so we use index 0*/
         if ([[chosenPreset objectForKey:@"VideoFramerate"] isEqualToString:@"Same as source"])
         {
-            [fVidRatePopUp selectItemAtIndex: 0];
             /* Now set the Video Frame Rate Mode to either vfr or cfr according to the preset */
-            if (![chosenPreset objectForKey:@"VideoFramerateMode"] || [[chosenPreset objectForKey:@"VideoFramerateMode"] isEqualToString:@"vfr"])
+            if (![chosenPreset objectForKey:@"VideoFramerateMode"] ||
+                [[chosenPreset objectForKey:@"VideoFramerateMode"] isEqualToString:@"vfr"])
             {
-                [fFramerateMatrix selectCellAtRow: 0 column: 0]; // we want vfr
+                [fFramerateMatrix selectCellAtRow:0 column:0]; // we want vfr
             }
             else
             {
-                [fFramerateMatrix selectCellAtRow: 1 column: 0]; // we want cfr
+                [fFramerateMatrix selectCellAtRow:1 column:0]; // we want cfr
             }
         }
         else
         {
-            [fVidRatePopUp selectItemWithTitle:[chosenPreset objectForKey:@"VideoFramerate"]];
             /* Now set the Video Frame Rate Mode to either pfr or cfr according to the preset */
-            if ([[chosenPreset objectForKey:@"VideoFramerateMode"] isEqualToString:@"pfr"] || [[chosenPreset objectForKey:@"VideoFrameratePFR"] intValue] == 1)
+            if ([[chosenPreset objectForKey:@"VideoFramerateMode"] isEqualToString:@"pfr"] ||
+                [[chosenPreset objectForKey:@"VideoFrameratePFR"]  intValue] == 1)
             {
-                [fFramerateMatrix selectCellAtRow: 0 column: 0]; // we want pfr
+                [fFramerateMatrix selectCellAtRow:0 column:0]; // we want pfr
             }
             else
             {
-                [fFramerateMatrix selectCellAtRow: 1 column: 0]; // we want cfr
+                [fFramerateMatrix selectCellAtRow:1 column:0]; // we want cfr
             }
         }
-        
+        [fVidRatePopUp selectItemWithTitle:[chosenPreset objectForKey:@"VideoFramerate"]];
         [self videoFrameRateChanged:nil];
         
         /* 2 Pass Encoding */
@@ -6969,7 +7102,7 @@ return YES;
         [preset setObject:[fVidEncoderPopUp titleOfSelectedItem] forKey:@"VideoEncoder"];
         /* x264 Options, this will either be advanced panel or the video tabs x264 presets panel with modded option string */
         
-        if ([fx264UseAdvancedOptionsCheck state] == NSOnState)
+        if ([fX264UseAdvancedOptionsCheck state] == NSOnState)
         {
             /* use the old advanced panel */
             [preset setObject:[NSNumber numberWithInt:1]       forKey:@"x264UseAdvancedOptions"];
@@ -6977,7 +7110,7 @@ return YES;
         }
         else
         {
-            /* use the x264 system */
+            /* use the x264 preset system */
             [preset setObject:[NSNumber numberWithInt:0] forKey:@"x264UseAdvancedOptions"];
             [preset setObject:[self x264Preset]          forKey:@"x264Preset"];
             [preset setObject:[self x264Tune]            forKey:@"x264Tune"];
@@ -6988,8 +7121,15 @@ return YES;
              * bonus: set the unparsed options to make the preset compatible
              * with old HB versions
              */
-            [preset setObject:[NSString stringWithUTF8String:fX264PresetsUnparsedUTF8String]
-                       forKey:@"x264Option"];
+            if (fX264PresetsUnparsedUTF8String != NULL)
+            {
+                [preset setObject:[NSString stringWithUTF8String:fX264PresetsUnparsedUTF8String]
+                           forKey:@"x264Option"];
+            }
+            else
+            {
+                [preset setObject:@"" forKey:@"x264Option"];
+            }
         }
 
         /* FFmpeg (lavc) Option String */

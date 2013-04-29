@@ -1000,6 +1000,7 @@ static void LookForAudio( hb_title_t * title, hb_buffer_t * b )
     }
 
     hb_work_info_t info;
+    w->title = title;
     w->audio = audio;
     w->codec_param = audio->config.in.codec_param;
     b = hb_fifo_see( audio->priv.scan_cache );
@@ -1119,9 +1120,9 @@ static void UpdateState2(hb_scan_t *scan, int title)
     p.preview_cur = 1;
     p.preview_count = scan->preview_count;
     if (scan->title_index)
-        p.progress = (float)p.title_cur / p.title_count;
+        p.progress = (float)(p.title_cur - 1) / p.title_count;
     else
-        p.progress = 0.5 + 0.5 * (float)p.title_cur / p.title_count;
+        p.progress = 0.5 + 0.5 * (float)(p.title_cur - 1) / p.title_count;
 #undef p
 
     hb_set_state(scan->h, &state);

@@ -1,8 +1,11 @@
-/* $Id: test.c,v 1.82 2005/11/19 08:25:54 titer Exp $
+/* test.c
 
-   This file is part of the HandBrake source code.
+   Copyright (c) 2003-2013 HandBrake Team
+   This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
-   It may be used under the terms of the GNU General Public License. */
+   It may be used under the terms of the GNU General Public License v2.
+   For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
+ */
 
 #include <signal.h>
 #include <getopt.h>
@@ -255,7 +258,9 @@ int main( int argc, char ** argv )
         titleindex = 0;
     }
 
-    hb_scan( h, input, titleindex, preview_count, store_previews, min_title_duration * 90000LL );
+    hb_system_sleep_prevent(h);
+    hb_scan(h, input, titleindex, preview_count, store_previews,
+            min_title_duration * 90000LL);
 
     /* Wait... */
     while( !die )
@@ -270,11 +275,14 @@ int main( int argc, char ** argv )
                     die = 1;
                     break;
                 case 'p':
-                    fprintf( stdout, "\nEncoding Paused by user command, 'r' to resume\n" );
-                    hb_pause( h );
+                    fprintf(stdout,
+                            "\nEncoding Paused by user command, 'r' to resume\n");
+                    hb_pause(h);
+                    hb_system_sleep_allow(h);
                     break;
                 case 'r':
-                    hb_resume( h );
+                    hb_system_sleep_prevent(h);
+                    hb_resume(h);
                     break;
                 case 'h':
                     ShowCommands();
@@ -318,11 +326,14 @@ int main( int argc, char ** argv )
                         die = 1;
                         break;
                     case 'p':
-                        fprintf( stdout, "\nEncoding Paused by user command, 'r' to resume\n" );
-                        hb_pause( h );
+                        fprintf(stdout,
+                                "\nEncoding Paused by user command, 'r' to resume\n");
+                        hb_pause(h);
+                        hb_system_sleep_allow(h);
                         break;
                     case 'r':
-                        hb_resume( h );
+                        hb_system_sleep_prevent(h);
+                        hb_resume(h);
                         break;
                     case 'h':
                         ShowCommands();
@@ -1882,7 +1893,9 @@ static int HandleEvents( hb_handle_t * h )
                         int i = atoi( token ) - 1;
                         if( hb_list_item( title->list_audio, i ) == NULL )
                         {
-                            fprintf( stderr, "Warning: could not find audio track %d, skipped\n", i + 1 );
+                            fprintf(stderr,
+                                    "Warning: Could not find audio track '%s', skipped\n",
+                                    token);
                             continue;
                         }
                         audio = calloc( 1, sizeof( *audio ) );
@@ -2542,7 +2555,9 @@ static int HandleEvents( hb_handle_t * h )
                         subtitle = hb_list_item(title->list_subtitle, track);
                         if( subtitle == NULL )
                         {
-                            fprintf( stderr, "Warning: Could not find subtitle track %d, skipped\n", track+1 );
+                            fprintf(stderr,
+                                    "Warning: Could not find subtitle track '%s', skipped\n",
+                                    token);
                             continue;
                         }
                         sub_config = subtitle->config;
@@ -3287,7 +3302,11 @@ static void ShowHelp()
     "### Filters---------------------------------------------------------\n\n"
 
      "    -d, --deinterlace       Deinterlace video with yadif/mcdeint filter\n"
+     "          <fast/slow/slower/bob> or omitted (default settings)\n"
+     "           or\n"
      "          <YM:FD:MM:QP>     (default 0:-1:-1:1)\n"
+     "    -5, --decomb            Selectively deinterlaces when it detects combing\n"
+     "          <fast/bob> or omitted (default settings)\n"
      "           or\n"
      "          <fast/slow/slower");
 #ifdef USE_QSV
@@ -3303,9 +3322,9 @@ static void ShowHelp()
      "                            specify a constant framerate (--rate 29.97)\n"
      "          <L:R:T:B:SB:MP:FD>   (default 1:1:4:4:0:0:-1)\n"
      "    -8, --denoise           Denoise video with hqdn3d filter\n"
-     "          <SL:SC:TL:TC>     (default 4:3:6:4.5)\n"
+     "          <weak/medium/strong> or omitted (default settings)\n"
      "           or\n"
-     "          <weak/medium/strong>\n"
+     "          <SL:SC:TL:TC>     (default 4:3:6:4.5)\n"
      "    -7, --deblock           Deblock video with pp7 filter\n"
      "          <QP:M>            (default 5:2)\n"
      "        --rotate            Flips images axes\n"

@@ -307,7 +307,7 @@ namespace HandBrake.ApplicationServices.Services
                                 {
                                     Category = category,
                                     Name = presetName[0].Replace("+", string.Empty).Trim(),
-                                    Version = this.userSettingService.GetUserSetting<string>(ASUserSettingConstants.HandBrakeVersion),
+                                    Version = VersionHelper.GetVersion(),
                                     Description = string.Empty, // Maybe one day we will populate this.
                                     IsBuildIn = true,
                                     UsePictureFilters = true,
@@ -355,7 +355,7 @@ namespace HandBrake.ApplicationServices.Services
                 List<Preset> preset = this.presets.Where(p => p.IsBuildIn).ToList();
                 if (preset.Count > 0)
                 {
-                    if (preset[0].Version != this.userSettingService.GetUserSetting<string>(ASUserSettingConstants.HandBrakeVersion))
+                    if (preset[0].Version != VersionHelper.GetVersion())
                     {
                         this.UpdateBuiltInPresets();
                         return true;

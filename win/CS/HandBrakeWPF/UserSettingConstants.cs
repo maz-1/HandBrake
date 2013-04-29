@@ -22,16 +22,6 @@ namespace HandBrakeWPF
         public const string AddOnlyOneAudioPerLanguage = "addOnlyOneAudioPerLanguage";
 
         /// <summary>
-        /// Appcast i686
-        /// </summary>
-        public const string Appcast_i686 = "appcast_i686";
-
-        /// <summary>
-        /// Appcast 64
-        /// </summary>
-        public const string Appcast_x64 = "appcast_x64";
-
-        /// <summary>
         /// Auto name format
         /// </summary>
         public const string AutoNameFormat = "autoNameFormat";
@@ -197,11 +187,6 @@ namespace HandBrakeWPF
         public const string X264Step = "X264Step";
 
         /// <summary>
-        /// HandBrakes build
-        /// </summary>
-        public const string HandBrakePlatform = "HandBrakePlatform";
-
-        /// <summary>
         /// The show advanced tab.
         /// </summary>
         public const string ShowAdvancedTab = "ShowAdvancedTab";
@@ -210,6 +195,11 @@ namespace HandBrakeWPF
         /// The last preview duration
         /// </summary>
         public const string LastPreviewDuration = "LastPreviewDuration";
+
+        /// <summary>
+        /// Disable LibHb Features
+        /// </summary>
+        public const string DisableLibHbFeatures = "DisableLibHbFeatures";
 
         #endregion
     }

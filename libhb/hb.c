@@ -64,9 +64,8 @@ struct hb_handle_s
        on multi-pass encodes where frames get dropped.     */
     hb_interjob_t * interjob;
 
-    // Power Management opaque pointer
-    // For OSX, it's an IOPMAssertionID*
-    void          * hb_system_sleep_opaque;
+    // power management opaque pointer
+    void *system_sleep_opaque;
 
 #ifdef USE_QSV
     // detailed information about Intel QSV availability
@@ -108,8 +107,16 @@ static int ff_lockmgr_cb(void **mutex, enum AVLockOp op)
 
 void hb_avcodec_init()
 {
-    av_lockmgr_register( ff_lockmgr_cb );
+    av_lockmgr_register(ff_lockmgr_cb);
     av_register_all();
+#ifdef _WIN64
+    // avresample's assembly optimizations can cause crashes under Win x86_64
+    // (see http://bugzilla.libav.org/show_bug.cgi?id=496)
+    // disable AVX and FMA4 as a workaround
+    hb_deep_log(2, "hb_avcodec_init: Windows x86_64, disabling AVX and FMA4");
+    int cpu_flags = av_get_cpu_flags() & ~AV_CPU_FLAG_AVX & ~AV_CPU_FLAG_FMA4;
+    av_set_cpu_flags_mask(cpu_flags);
+#endif
 }
 
 int hb_avcodec_open(AVCodecContext *avctx, AVCodec *codec,
@@ -494,7 +501,7 @@ hb_handle_t * hb_init( int verbose, int update_check )
     h->build = -1;
 
     /* Initialize opaque for PowerManagement purposes */
-    h->hb_system_sleep_opaque = hb_system_sleep_opaque_init();
+    h->system_sleep_opaque = hb_system_sleep_opaque_init();
 
     if( update_check )
     {
@@ -605,7 +612,7 @@ hb_handle_t * hb_init_dl( int verbose, int update_check )
     h->build = -1;
 
     /* Initialize opaque for PowerManagement purposes */
-    h->hb_system_sleep_opaque = hb_system_sleep_opaque_init();
+    h->system_sleep_opaque = hb_system_sleep_opaque_init();
 
     if( update_check )
     {
@@ -1642,7 +1649,7 @@ void hb_start( hb_handle_t * h )
     h->paused = 0;
 
     h->work_die    = 0;
-    h->work_thread = hb_work_init( h, h->jobs, &h->work_die, &h->work_error, &h->current_job );
+    h->work_thread = hb_work_init( h->jobs, &h->work_die, &h->work_error, &h->current_job );
 }
 
 /**
@@ -1661,8 +1668,6 @@ void hb_pause( hb_handle_t * h )
         hb_lock( h->state_lock );
         h->state.state = HB_STATE_PAUSED;
         hb_unlock( h->state_lock );
-
-        hb_allow_sleep( h );
     }
 }
 
@@ -1674,8 +1679,6 @@ void hb_resume( hb_handle_t * h )
 {
     if( h->paused )
     {
-        hb_prevent_sleep( h );
-
 #define job hb_current_job( h )
         if( job->st_pause_date != -1 )
         {
@@ -1773,6 +1776,8 @@ void hb_close( hb_handle_t ** _h )
     hb_list_close( &h->jobs );
     hb_lock_close( &h->state_lock );
     hb_lock_close( &h->pause_lock );
+
+    hb_system_sleep_opaque_close(&h->system_sleep_opaque);
 
     free( h->interjob );
 
@@ -1981,14 +1986,14 @@ void hb_set_state( hb_handle_t * h, hb_state_t * s )
     hb_unlock( h->pause_lock );
 }
 
-void hb_prevent_sleep( hb_handle_t * h )
+void hb_system_sleep_allow(hb_handle_t *h)
 {
-    hb_system_sleep_prevent( h->hb_system_sleep_opaque );
+    hb_system_sleep_private_enable(h->system_sleep_opaque);
 }
 
-void hb_allow_sleep( hb_handle_t * h )
+void hb_system_sleep_prevent(hb_handle_t *h)
 {
-    hb_system_sleep_allow( h->hb_system_sleep_opaque );
+    hb_system_sleep_private_disable(h->system_sleep_opaque);
 }
 
 /* Passes a pointer to persistent data */
