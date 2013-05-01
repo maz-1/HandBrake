@@ -708,25 +708,32 @@ static void do_job( hb_job_t * job )
 
         int is_vpp_interlace = 0;
         int is_actual_crop_resize = 0;
-        if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264){
-            for( i = 0; i < hb_list_count( job->list_filter ); i++){
+        if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264 )
+        {
+            for( i = 0; i < hb_list_count( job->list_filter ); i++ )
+            {
                 hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
-                if(filter->id == HB_FILTER_DEINTERLACE){
-                    if(filter->settings){
-                        if(!(strcmp( filter->settings, "32" )))
+                if( filter->id == HB_FILTER_DEINTERLACE )
+                {
+                    if( filter->settings )
+                    {
+                        if( !(strcmp( filter->settings, "32" )) )
                             is_vpp_interlace = 1;
                     }
-                    else{
+                    else
+                    {
                       // for QSV path - deinterlace from QSV is default, if not param(s) set
                       is_vpp_interlace = 2;
                     }
                 }
                 else
-                if( filter->id == HB_FILTER_QSV ){
+                if( filter->id == HB_FILTER_QSV )
+                {
                     if( job->width  != job->title->width ||
                         job->height != job->title->height ||
                         job->crop[0] != 0 ||  job->crop[1] != 0 ||
-                        job->crop[2] != 0 ||  job->crop[3] != 0 /*|| (job->cfr == 1 && job->vrate > 0)*/){
+                        job->crop[2] != 0 ||  job->crop[3] != 0 )
+                    {
                         is_actual_crop_resize = 1;
                     }
                 }
@@ -743,18 +750,20 @@ static void do_job( hb_job_t * job )
             // to do not use QSV related if not handled from its decode
             if( job->vcodec == HB_VCODEC_QSV_H264 )
              // for now, only h.264 related stuff
-             if(title->video_codec_param != AV_CODEC_ID_H264){
+             if( title->video_codec_param != AV_CODEC_ID_H264 )
+             {
                 if( filter->id == HB_FILTER_QSV_PRE  ||
                     filter->id == HB_FILTER_QSV_POST ||
-                    filter->id == HB_FILTER_QSV ){
+                    filter->id == HB_FILTER_QSV )
+                {
                         hb_list_rem( job->list_filter, filter );
                         hb_filter_close( &filter );
                         continue;
                 }
              }
              else
-             if(title->video_codec_param == AV_CODEC_ID_H264){
-
+             if( title->video_codec_param == AV_CODEC_ID_H264 )
+             {
                 // for QSV crop and scale taken as HW VPP
                 if( filter->id == HB_FILTER_CROP_SCALE  ||
                     filter->id == HB_FILTER_VFR
@@ -775,21 +784,24 @@ static void do_job( hb_job_t * job )
 
                 // only use if some filters are in between
                 if( filter->id == HB_FILTER_QSV_PRE  ||
-                    filter->id == HB_FILTER_QSV_POST){
+                    filter->id == HB_FILTER_QSV_POST )
+                {
                     int to_use = 0;
                     int x = 0;
-                    for(;x < hb_list_count( job->list_filter );x++){
+                    for( ;x < hb_list_count( job->list_filter );x++ )
+                    {
                         hb_filter_object_t * check_filter = hb_list_item( job->list_filter, x );
-                        if(check_filter->id > HB_FILTER_QSV_PRE && check_filter->id < HB_FILTER_QSV_POST &&
+                        if( check_filter->id > HB_FILTER_QSV_PRE && check_filter->id < HB_FILTER_QSV_POST &&
                             // if original filter used - we need to wrap them into QSV pipeline
                            ((check_filter->id == HB_FILTER_DEINTERLACE && !is_vpp_interlace) ||
-                             check_filter->id == HB_FILTER_ROTATE )){
+                             check_filter->id == HB_FILTER_ROTATE ) )
+                        {
                             to_use = 1;
                             break;
                         }
                     }
 
-                    if(!to_use)
+                    if( !to_use )
                     {
                         hb_list_rem( job->list_filter, filter );
                         hb_filter_close( &filter );
