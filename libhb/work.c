@@ -708,7 +708,7 @@ static void do_job( hb_job_t * job )
 
         int is_vpp_interlace = 0;
         int is_actual_crop_resize = 0;
-        if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264)
+        if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264){
             for( i = 0; i < hb_list_count( job->list_filter ); i++){
                 hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
                 if(filter->id == HB_FILTER_DEINTERLACE){
@@ -726,12 +726,15 @@ static void do_job( hb_job_t * job )
                     if( job->width  != job->title->width ||
                         job->height != job->title->height ||
                         job->crop[0] != 0 ||  job->crop[1] != 0 ||
-                        job->crop[2] != 0 ||  job->crop[3] != 0 || (job->cfr == 1 && job->vrate > 0)){
+                        job->crop[2] != 0 ||  job->crop[3] != 0 /*|| (job->cfr == 1 && job->vrate > 0)*/){
                         is_actual_crop_resize = 1;
                     }
                 }
             }
-         int is_additional_vpp_function = is_actual_crop_resize;
+            // as per MSDK/QSV support
+            init.cfr = 1;
+        }
+        int is_additional_vpp_function = is_actual_crop_resize;
 
         for( i = 0; i < hb_list_count( job->list_filter ); )
         {
