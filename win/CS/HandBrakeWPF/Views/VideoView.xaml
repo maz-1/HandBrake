@@ -74,11 +74,14 @@
                     <TextBlock Text="Framerate (FPS):" VerticalAlignment="Top" Margin="0,5,0,0" Width="100"/>
                     <StackPanel Orientation="Vertical">
                         <ComboBox Width="120" ItemsSource="{Binding Framerates}" SelectedItem="{Binding SelectedFramerate}" />
-                        <RadioButton Content="Constant Framerate" IsChecked="{Binding IsConstantFramerate}" Margin="0,10,0,0" />
-                        <RadioButton Content="Variable Framerate" IsChecked="{Binding IsVariableFramerate}" Margin="0,5,0,0" 
+
+                        <StackPanel Orientation="Vertical" Visibility="{Binding DisplayFramerateControls, Converter={StaticResource boolToVisConverter}}">
+                            <RadioButton Content="Constant Framerate" IsChecked="{Binding IsConstantFramerate}" Margin="0,10,0,0" />
+                            <RadioButton Content="Variable Framerate" IsChecked="{Binding IsVariableFramerate}" Margin="0,5,0,0" 
                                      Visibility="{Binding ShowPeakFramerate, Converter={StaticResource boolToVisConverter}, ConverterParameter=true}" />
-                        <RadioButton Content="Peak Framerate" IsChecked="{Binding IsPeakFramerate}" Margin="0,5,0,0"
+                            <RadioButton Content="Peak Framerate" IsChecked="{Binding IsPeakFramerate}" Margin="0,5,0,0"
                                      Visibility="{Binding ShowPeakFramerate, Converter={StaticResource boolToVisConverter}, ConverterParameter=false}" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>

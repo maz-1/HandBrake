@@ -116,6 +116,11 @@ namespace HandBrakeWPF.ViewModels
         /// </summary>
         private bool useAdvancedTab;
 
+        /// <summary>
+        /// The display framerate controls.
+        /// </summary>
+        private bool displayFramerateControls;
+
         #endregion
 
         #region Constructors and Destructors
@@ -480,9 +485,15 @@ namespace HandBrakeWPF.ViewModels
                 this.DisplayQSVOptions = value == VideoEncoder.QuickSync;
                 this.DisplayH264Options = value == VideoEncoder.X264 || value == VideoEncoder.QuickSync;
                 this.UseAdvancedTab = value != VideoEncoder.QuickSync && this.UseAdvancedTab;
+                this.DisplayFramerateControls = value != VideoEncoder.QuickSync;
 
                 this.NotifyOfPropertyChange(() => this.Rfqp);
                 this.NotifyOfPropertyChange(() => this.ShowAdvancedTab);
+
+                if (value == VideoEncoder.QuickSync)
+                {
+                    this.IsConstantFramerate = true;
+                }
             }
         }
 
@@ -573,6 +584,23 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.displayQSVOptions = value;
                 this.NotifyOfPropertyChange(() => this.DisplayQSVOptions);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether display framerate controls.
+        /// </summary>
+        public bool DisplayFramerateControls
+        {
+            get
+            {
+                return this.displayFramerateControls;
+            }
+
+            set
+            {
+                this.displayFramerateControls = value;
+                this.NotifyOfPropertyChange(() => this.DisplayFramerateControls);
             }
         }
 
