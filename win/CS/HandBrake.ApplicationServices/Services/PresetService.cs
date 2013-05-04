@@ -535,7 +535,7 @@ namespace HandBrake.ApplicationServices.Services
             preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 160, Encoder = AudioEncoder.Faac, MixDown = Mixdown.DolbyProLogicII});
             preset.Task.Anamorphic = Anamorphic.Loose;
             preset.Task.QsvPreset = QsvPreset.Balanced;
-            preset.Task.FramerateMode = FramerateMode.VFR;
+            preset.Task.FramerateMode = FramerateMode.CFR;
             preset.Task.OutputFormat = OutputFormat.Mp4;
             preset.Task.VideoEncodeRateType = VideoEncodeRateType.ConstantQuality;
             
