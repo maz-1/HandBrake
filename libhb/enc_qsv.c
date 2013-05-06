@@ -263,10 +263,37 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     if (job->vquality >= 0)
     {
+        int cqp_offset_i,cqp_offset_p,cqp_offset_b;
+        int is_enforcing = 0;
+
+        if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_cqp_offset_i)) != NULL && entry->value != NULL)
+        {
+            cqp_offset_i = atoi(entry->value);
+        }
+        else
+            cqp_offset_i = 0;
+         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_cqp_offset_p)) != NULL && entry->value != NULL)
+        {
+            cqp_offset_p = atoi(entry->value);
+        }
+        else
+            cqp_offset_p = 2;
+        if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_cqp_offset_b)) != NULL && entry->value != NULL)
+        {
+            cqp_offset_b = atoi(entry->value);
+            is_enforcing = 1;
+        }
+        else
+            cqp_offset_b = 4;
+
+        if( pv->qsv_config.gop_ref_dist == 4 && !is_enforcing )
+        {
+            cqp_offset_b = cqp_offset_p;
+        }
         qsv_encode->m_mfxVideoParam.mfx.RateControlMethod   = MFX_RATECONTROL_CQP;
-        qsv_encode->m_mfxVideoParam.mfx.QPI                 = job->vquality;
-        qsv_encode->m_mfxVideoParam.mfx.QPP                 = job->vquality;
-        qsv_encode->m_mfxVideoParam.mfx.QPB                 = job->vquality;
+        qsv_encode->m_mfxVideoParam.mfx.QPI                 = job->vquality + cqp_offset_i;
+        qsv_encode->m_mfxVideoParam.mfx.QPP                 = job->vquality + cqp_offset_p;
+        qsv_encode->m_mfxVideoParam.mfx.QPB                 = job->vquality + cqp_offset_b;
     }
     else if (job->vbitrate > 0)
     {
@@ -326,10 +353,15 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         {
             pv->mbbrc =atoi(entry->value);
         }
+        else
+            pv->mbbrc = 1; // MFX_CODINGOPTION_ON
+
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_extbrc)) != NULL && entry->value != NULL)
         {
             pv->extbrc =atoi(entry->value);
         }
+        else
+            pv->extbrc = 0; //MFX_CODINGOPTION_OFF
     }
 
     hb_dict_free( &qsv_opts_dict );
@@ -353,7 +385,13 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         default                     : rc_method = "unknown";
     };
 
-    hb_log("qsv: RateControlMethod:%s TargetKbps:%d", rc_method, qsv_encode->m_mfxVideoParam.mfx.TargetKbps);
+    if( qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP )
+        hb_log("qsv: RateControlMethod:%s(I:%d/P:%d/B:%d) TargetKbps:%d",rc_method,
+                                                qsv_encode->m_mfxVideoParam.mfx.QPI, qsv_encode->m_mfxVideoParam.mfx.QPP, qsv_encode->m_mfxVideoParam.mfx.QPB,
+                                                qsv_encode->m_mfxVideoParam.mfx.TargetKbps );
+    else
+        hb_log("qsv: RateControlMethod:%s TargetKbps:%d",rc_method , qsv_encode->m_mfxVideoParam.mfx.TargetKbps );
+
     hb_log("qsv: TargetUsage:%d AsyncDepth:%d", qsv_encode->m_mfxVideoParam.mfx.TargetUsage,qsv_encode->m_mfxVideoParam.AsyncDepth);
     qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN    = job->vrate;
     qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD    = job->vrate_base;
@@ -1026,7 +1064,10 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
        !strcmp(name,QSV_NAME_vbv_maxrate) ||
        !strcmp(name,QSV_NAME_vbv_init)    ||
        !strcmp(name,QSV_NAME_mbbrc)       ||
-       !strcmp(name,QSV_NAME_extbrc)
+       !strcmp(name,QSV_NAME_extbrc)      ||
+       !strcmp(name,QSV_NAME_cqp_offset_i)      ||
+       !strcmp(name,QSV_NAME_cqp_offset_p)      ||
+       !strcmp(name,QSV_NAME_cqp_offset_b)
        )
         ret = QSV_PARAM_OK;
     else
@@ -1039,6 +1080,8 @@ void qsv_param_set_defaults( av_qsv_config* config){
     if(!config)
         return;
 
-    config->async_depth = AV_QSV_ASYNC_DEPTH_DEFAULT;
-    config->target_usage = MFX_TARGETUSAGE_BALANCED;
+    config->async_depth     = AV_QSV_ASYNC_DEPTH_DEFAULT;
+    config->target_usage    = MFX_TARGETUSAGE_BEST_QUALITY + 1;
+    config->gop_ref_dist    = 4;
+    config->gop_pic_size    = 32;
 }
