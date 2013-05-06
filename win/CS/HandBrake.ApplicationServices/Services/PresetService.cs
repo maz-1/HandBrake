@@ -530,12 +530,14 @@ namespace HandBrake.ApplicationServices.Services
             preset.Task.VideoEncoder = VideoEncoder.QuickSync;
             preset.Task.Quality = 20;
             preset.Task.AdvancedEncoderOptions =
-                "num-ref-frame=3:gop-ref-dist=5:gop-pic-size=5:async-depth=4";
+                "gop-ref-dist=4:gop-pic-size=32:async-depth=4";
             preset.Task.AudioTracks = new ObservableCollection<AudioTrack>();
             preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 160, Encoder = AudioEncoder.Faac, MixDown = Mixdown.DolbyProLogicII});
             preset.Task.Anamorphic = Anamorphic.Loose;
-            preset.Task.QsvPreset = QsvPreset.Balanced;
+            preset.Task.QsvPreset = QsvPreset.Quality;
             preset.Task.FramerateMode = FramerateMode.CFR;
+            preset.Task.TwoPass = false;
+            preset.Task.TurboFirstPass = false;
             preset.Task.OutputFormat = OutputFormat.Mp4;
             preset.Task.VideoEncodeRateType = VideoEncodeRateType.ConstantQuality;
             

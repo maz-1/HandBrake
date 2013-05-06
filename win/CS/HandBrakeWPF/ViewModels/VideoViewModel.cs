@@ -119,7 +119,7 @@ namespace HandBrakeWPF.ViewModels
         /// <summary>
         /// The display framerate controls.
         /// </summary>
-        private bool displayFramerateControls;
+        private bool displayNonQSVControls;
 
         #endregion
 
@@ -408,6 +408,40 @@ namespace HandBrakeWPF.ViewModels
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether two pass.
+        /// </summary>
+        public bool TwoPass
+        {
+            get
+            {
+                return this.Task.TwoPass;
+            }
+
+            set
+            {
+                this.Task.TwoPass = value;
+                this.NotifyOfPropertyChange(() => this.TwoPass);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether turbo first pass.
+        /// </summary>
+        public bool TurboFirstPass
+        {
+            get
+            {
+                return this.Task.TurboFirstPass;
+            }
+
+            set
+            {
+                this.Task.TurboFirstPass = value;
+                this.NotifyOfPropertyChange(() => this.TurboFirstPass);
+            }
+        }
+
+        /// <summary>
         /// Gets the rfqp.
         /// </summary>
         public string Rfqp
@@ -485,7 +519,7 @@ namespace HandBrakeWPF.ViewModels
                 this.DisplayQSVOptions = value == VideoEncoder.QuickSync;
                 this.DisplayH264Options = value == VideoEncoder.X264 || value == VideoEncoder.QuickSync;
                 this.UseAdvancedTab = value != VideoEncoder.QuickSync && this.UseAdvancedTab;
-                this.DisplayFramerateControls = value != VideoEncoder.QuickSync;
+                this.DisplayNonQSVControls = value != VideoEncoder.QuickSync;
 
                 this.NotifyOfPropertyChange(() => this.Rfqp);
                 this.NotifyOfPropertyChange(() => this.ShowAdvancedTab);
@@ -493,6 +527,8 @@ namespace HandBrakeWPF.ViewModels
                 if (value == VideoEncoder.QuickSync)
                 {
                     this.IsConstantFramerate = true;
+                    this.TwoPass = false;
+                    this.TurboFirstPass = false;
                 }
             }
         }
@@ -590,17 +626,17 @@ namespace HandBrakeWPF.ViewModels
         /// <summary>
         /// Gets or sets a value indicating whether display framerate controls.
         /// </summary>
-        public bool DisplayFramerateControls
+        public bool DisplayNonQSVControls
         {
             get
             {
-                return this.displayFramerateControls;
+                return this.displayNonQSVControls;
             }
 
             set
             {
-                this.displayFramerateControls = value;
-                this.NotifyOfPropertyChange(() => this.DisplayFramerateControls);
+                this.displayNonQSVControls = value;
+                this.NotifyOfPropertyChange(() => this.DisplayNonQSVControls);
             }
         }
 
