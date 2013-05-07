@@ -432,9 +432,9 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     qsv_encode->p_buf_max_size = AV_QSV_BUF_SIZE_DEFAULT;
 
     for (i = 0; i < tasks_amount; i++){
-            av_qsv_task* task = av_malloc(sizeof(av_qsv_task));
-            task->bs = av_malloc(sizeof(mfxBitstream));
-            task->bs->Data  = av_malloc(qsv_encode->p_buf_max_size*sizeof(uint8_t));
+            av_qsv_task* task = av_mallocz(sizeof(av_qsv_task));
+            task->bs = av_mallocz(sizeof(mfxBitstream));
+            task->bs->Data  = av_mallocz(qsv_encode->p_buf_max_size*sizeof(uint8_t));
             task->bs->DataLength    = 0;
             task->bs->DataOffset = 0;
             task->bs->MaxLength = qsv_encode->p_buf_max_size;
