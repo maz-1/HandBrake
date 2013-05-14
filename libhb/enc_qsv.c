@@ -759,8 +759,8 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
 
                 if(!work_surface->Data.Y){
                     // if nv12 and 422 12bits per pixel
-                    work_surface->Data.Y = calloc( 1, in->plane[0].width *  in->plane[0].height );
-                    work_surface->Data.VU = calloc( 1, in->plane[0].width *  in->plane[0].height / 2 );
+                    work_surface->Data.Y = calloc( 1, qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width *  qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Height );
+                    work_surface->Data.VU = calloc( 1, qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width *  qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Height /2);
                     work_surface->Data.Pitch = qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width;
                 }
                 work_surface->Data.TimeStamp = in->s.start;
