@@ -982,8 +982,7 @@ int nal_find_start_code(uint8_t** pb, size_t* size){
     while ((4 <= *size) &&
         ((0 != (*pb)[0]) ||
          (0 != (*pb)[1]) ||
-         (0 != (*pb)[2]) ||
-         (1 != (*pb)[3]) ))
+         (1 != (*pb)[2]) ))
     {
         *pb += 1;
         *size -= 1;
