@@ -529,6 +529,8 @@ namespace HandBrakeWPF.ViewModels
                     this.IsConstantFramerate = true;
                     this.TwoPass = false;
                     this.TurboFirstPass = false;
+                    this.Task.Framerate = null;
+                    this.NotifyOfPropertyChange(() => SelectedFramerate);
                 }
             }
         }

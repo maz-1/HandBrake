@@ -954,14 +954,14 @@ namespace HandBrake.ApplicationServices.Utilities
                     string qsvPreset;
                     switch (task.QsvPreset)
                     {
-                        case QsvPreset.Quality:
-                            qsvPreset = "1";
+                        case QsvPreset.Speed:
+                            qsvPreset = "7";
                             break;
                         case QsvPreset.Balanced:
                             qsvPreset = "4";
                             break;
                         default:
-                            qsvPreset = "7";
+                            qsvPreset = "2";
                             break;
                     }
 
