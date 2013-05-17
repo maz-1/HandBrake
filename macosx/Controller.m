@@ -2566,19 +2566,7 @@ fWorkingCount = 0;
      * in our queue, so they can be reapplied in prepareJob when this queue
      * item comes up if Chapter Markers is set to on.
      */
-     int i;
-     NSMutableArray *ChapterNamesArray = [[NSMutableArray alloc] init];
-     int chaptercount = hb_list_count( fTitle->job->list_chapter );
-     for( i = 0; i < chaptercount; i++ )
-    {
-        hb_chapter_t *chapter = (hb_chapter_t *) hb_list_item( fTitle->job->list_chapter, i );
-        if( chapter != NULL )
-        {
-          [ChapterNamesArray addObject:[NSString stringWithUTF8String:chapter->title]];
-        }
-    }
-    [queueFileJob setObject:[NSMutableArray arrayWithArray: ChapterNamesArray] forKey:@"ChapterNames"];
-    [ChapterNamesArray autorelease];
+    [queueFileJob setObject:[fChapterTitlesDelegate chapterTitlesArray] forKey:@"ChapterNames"];
     
     /* Allow Mpeg4 64 bit formatting +4GB file sizes */
 	[queueFileJob setObject:[NSNumber numberWithInt:[fDstMp4LargeFileCheck state]] forKey:@"Mp4LargeFile"];
@@ -4958,14 +4946,17 @@ bool one_burned = FALSE;
         }
     }
     
-    /* if we have a previously selected vid encoder tag, then try to select it */
+    /*
+     * item 0 will be selected by default
+     * deselect it so that we can detect whether the video encoder has changed
+     */
+    [fVidEncoderPopUp selectItem:nil];
     if (selectedVidEncoderTag)
     {
-        [fVidEncoderPopUp selectItemWithTag: selectedVidEncoderTag];
-    }
-    else
-    {
-        [fVidEncoderPopUp selectItemAtIndex: 0];
+        // if we have a tag for previously selected encoder, try to select it
+        // if this fails, [fVidEncoderPopUp selectedItem] will be nil
+        // we'll handle that scenario further down
+        [fVidEncoderPopUp selectItemWithTag:selectedVidEncoderTag];
     }
     
     /* Update the Auto Passtgru Fallback Codec Popup */
@@ -5035,22 +5026,16 @@ bool one_burned = FALSE;
     else
         [fDstFile2Field setStringValue: [NSString stringWithFormat:@"%@.%s", [string stringByDeletingPathExtension], ext]];
 
-    if( SuccessfulScan )
+    if (SuccessfulScan)
     {
-        /* Add/replace to the correct extension */
-
-        if( [fVidEncoderPopUp selectedItem] == nil )
+        if ([fVidEncoderPopUp selectedItem] == nil)
         {
-
+            /* this means the above call to selectItemWithTag failed */
             [fVidEncoderPopUp selectItemAtIndex:0];
             [self videoEncoderPopUpChanged:nil];
-
-            /* We call the method to properly enable/disable turbo 2 pass */
-            [self twoPassCheckboxChanged: sender];
-            /* We call method method to change UI to reflect whether a preset is used or not*/
         }
     }
-	[self customSettingUsed: sender];
+	[self customSettingUsed:sender];
 }
 
 - (IBAction) autoSetM4vExtension: (id) sender
