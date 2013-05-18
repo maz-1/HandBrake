@@ -33,7 +33,7 @@ namespace HandBrakeWPF.ViewModels
         public EncoderOptionsViewModel()
         {
             this.Task = new EncodeTask();
-            cachedOptions.Add(VideoEncoder.QuickSync, "num-ref-frame=3:gop-ref-dist=5:gop-pic-size=5:async-depth=4");
+            cachedOptions.Add(VideoEncoder.QuickSync, "gop-ref-dist=4:gop-pic-size=32:async-depth=4");
         }
 
         /// <summary>
