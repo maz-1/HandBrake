@@ -3310,18 +3310,16 @@ static void ShowHelp()
     "### Filters---------------------------------------------------------\n\n"
 
      "    -d, --deinterlace       Deinterlace video with Libav, yadif or mcdeint\n"
-     "          <fast/slow/slower/bob> or omitted (default settings)\n"
+     "          <fast/slow/slower/bob"
+#ifdef USE_QSV
+     fprintf( out,"/qsv");
+#endif
+     fprintf( out, "> or omitted (default settings)\n"
      "           or\n"
      "          <YM:FD:MM:QP>     (default 0:-1:-1:1)\n"
      "    -5, --decomb            Selectively deinterlaces when it detects combing\n"
      "          <fast/bob> or omitted (default settings)\n"
      "           or\n"
-     "          <fast/slow/slower");
-#ifdef USE_QSV
-     fprintf( out,"/qsv");
-#endif
-     fprintf( out, ">\n"
-     "    -5, --decomb            Selectively deinterlaces when it detects combing\n"
      "          <MO:ME:MT:ST:BT:BX:BY:MG:VA:LA:DI:ER:NO:MD:PP:FD>\n"
      "          (default: 7:2:6:9:80:16:16:10:20:20:4:2:50:24:1:-1)\n"
      "    -9, --detelecine        Detelecine (ivtc) video with pullup filter\n"
