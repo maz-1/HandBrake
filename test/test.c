@@ -3310,7 +3310,7 @@ static void ShowHelp()
     "### Filters---------------------------------------------------------\n\n"
 
      "    -d, --deinterlace       Deinterlace video with Libav, yadif or mcdeint\n"
-     "          <fast/slow/slower/bob"
+     "          <fast/slow/slower/bob");
 #ifdef USE_QSV
      fprintf( out,"/qsv");
 #endif
