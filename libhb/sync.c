@@ -343,6 +343,29 @@ int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
             hb_unlock( pv->common->mutex );
 
             UpdateSearchState( w, next_start );
+
+            // as we drop prepared decode, we need to reclaim resources
+            if( job && job->vcodec == HB_VCODEC_QSV_H264 && job->qsv )
+            {
+                hb_buffer_t *buf = next;
+                av_qsv_list* received_item = buf->qsv_details.qsv_atom;
+                av_qsv_context *qsv = job->qsv;
+
+                if( received_item && qsv )
+                {
+                    av_qsv_stage *stage = av_qsv_get_last_stage(received_item);
+                    if( stage )
+                    {
+                        av_qsv_wait_on_sync( qsv,stage );
+
+                        if( stage->out.sync->in_use > 0 )
+                            ff_qsv_atomic_dec(&stage->out.sync->in_use);
+                        if( stage->out.p_surface->Data.Locked > 0 )
+                            ff_qsv_atomic_dec(&stage->out.p_surface->Data.Locked);
+                    }
+                    av_qsv_flush_stages( qsv->pipes, &received_item );
+                }
+            }
             hb_buffer_close( &next );
 
             return HB_WORK_OK;

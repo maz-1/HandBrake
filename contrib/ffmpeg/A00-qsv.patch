@@ -78,8 +78,8 @@ diff -Naur ../../libav-v9.3/libavcodec/Makefile ./libavcodec/Makefile
  OBJS-$(CONFIG_H264_VDA_HWACCEL)        += vda_h264.o
 diff -Naur ../../libav-v9.3/libavcodec/qsv.c ./libavcodec/qsv.c
 --- ../../libav-v9.3/libavcodec/qsv.c	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv.c	2013-05-15 17:13:43.317341393 +0200
-@@ -0,0 +1,621 @@
++++ ./libavcodec/qsv.c	2013-05-19 14:46:43.248504511 +0200
+@@ -0,0 +1,645 @@
 +/* ********************************************************************* *\
 +
 +Copyright (C) 2013 Intel Corporation.  All rights reserved.
@@ -256,6 +256,7 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv.c ./libavcodec/qsv.c
 +{
 +    if ((*stage)->out.sync) {
 +        *(*stage)->out.sync->p_sync = 0;
++        if( (*stage)->out.sync->in_use > 0 )
 +        ff_qsv_atomic_dec(&(*stage)->out.sync->in_use);
 +        (*stage)->out.sync = 0;
 +    }
@@ -701,10 +702,34 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv.c ./libavcodec/qsv.c
 +        MFXClose(mfx_session);
 +    return sts;
 +}
++
++void av_qsv_wait_on_sync(av_qsv_context *qsv, av_qsv_stage *stage)
++{
++    int iter = 0;
++    mfxStatus sts = MFX_ERR_NONE;
++    if( stage )
++        if(*stage->out.sync->p_sync){
++            while(1){
++                iter++;
++                sts = MFXVideoCORE_SyncOperation(qsv->mfx_session,*stage->out.sync->p_sync, AV_QSV_SYNC_TIME_DEFAULT);
++                if(MFX_WRN_IN_EXECUTION == sts){
++
++                    if(iter>20)
++                        AV_QSV_DEBUG_ASSERT(1, "Sync failed");
++
++                    av_qsv_sleep(10);
++                    continue;
++                }
++                AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
++                break;
++            }
++        }
++}
+\ No newline at end of file
 diff -Naur ../../libav-v9.3/libavcodec/qsv.h ./libavcodec/qsv.h
 --- ../../libav-v9.3/libavcodec/qsv.h	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv.h	2013-05-15 17:13:43.321341889 +0200
-@@ -0,0 +1,493 @@
++++ ./libavcodec/qsv.h	2013-05-19 14:46:43.249504634 +0200
+@@ -0,0 +1,494 @@
 +/* ********************************************************************* *\
 +
 +Copyright (C) 2013 Intel Corporation.  All rights reserved.
@@ -1163,6 +1188,7 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv.h ./libavcodec/qsv.h
 +int av_qsv_get_free_encode_task(av_qsv_list *);
 +
 +int av_is_qsv_available(mfxIMPL, mfxVersion *);
++void av_qsv_wait_on_sync(av_qsv_context *, av_qsv_stage *);
 +
 +void av_qsv_add_context_usage(av_qsv_context *, int);
 +
@@ -1200,7 +1226,7 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv.h ./libavcodec/qsv.h
 +#endif                          //AVCODEC_QSV_H
 diff -Naur ../../libav-v9.3/libavcodec/qsv_h264.c ./libavcodec/qsv_h264.c
 --- ../../libav-v9.3/libavcodec/qsv_h264.c	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv_h264.c	2013-05-15 17:13:43.320341765 +0200
++++ ./libavcodec/qsv_h264.c	2013-05-19 14:46:43.248504511 +0200
 @@ -0,0 +1,959 @@
 +/* ********************************************************************* *\
 +
@@ -2163,7 +2189,7 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv_h264.c ./libavcodec/qsv_h264.c
 +};
 diff -Naur ../../libav-v9.3/libavcodec/qsv_h264.h ./libavcodec/qsv_h264.h
 --- ../../libav-v9.3/libavcodec/qsv_h264.h	1970-01-01 01:00:00.000000000 +0100
-+++ ./libavcodec/qsv_h264.h	2013-05-15 17:13:43.335343623 +0200
++++ ./libavcodec/qsv_h264.h	2013-05-19 14:46:43.261506110 +0200
 @@ -0,0 +1,64 @@
 +/* ********************************************************************* *\
 +

@@ -865,23 +865,7 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
 
         // only here we need to wait on operation been completed, therefore SyncOperation is used,
         // after this step - we continue to work with bitstream, muxing ...
-        if(*stage->out.sync->p_sync){
-            int iter = 0;
-            while(1){
-                iter++;
-                sts = MFXVideoCORE_SyncOperation(qsv->mfx_session,*stage->out.sync->p_sync, AV_QSV_SYNC_TIME_DEFAULT); // Synchronize. Wait until frame processing is ready, also care about MFX_WRN_IN_EXECUTION
-                if(MFX_WRN_IN_EXECUTION == sts){
-
-                    //normally, should be here
-                    if(iter>20)
-                        DEBUG_ASSERT(1, "Sync failed within encode.");
-
-                    av_qsv_sleep(10);
-                    continue;
-                }
-                AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-                break;
-            }
+        av_qsv_wait_on_sync( qsv,stage );
 
         if(task->bs->DataLength>0){
                 av_qsv_flush_stages( qsv->pipes, &this_pipe );
@@ -943,7 +927,6 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 pv->frames_out++;
             }
         }
-    }
     }while(is_end);
 
 

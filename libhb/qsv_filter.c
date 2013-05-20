@@ -605,24 +605,8 @@ static int hb_qsv_filter_work( hb_filter_object_t * filter,
                     av_qsv_stage* stage = av_qsv_get_last_stage( out->qsv_details.qsv_atom );
                     mfxFrameSurface1 *work_surface = stage->out.p_surface;
 
-                    if(stage->out.sync && *stage->out.sync->p_sync){
-                        int iter = 0;
-                        while(1){
-                            iter++;
-                            sts = MFXVideoCORE_SyncOperation(qsv->mfx_session,*stage->out.sync->p_sync, AV_QSV_SYNC_TIME_DEFAULT);
-                            if(MFX_WRN_IN_EXECUTION == sts){
+                    av_qsv_wait_on_sync( qsv,stage );
 
-                                //normally, should be here
-                                if(iter>20)
-                                    DEBUG_ASSERT(1, "Sync failed within encode.");
-
-                                av_qsv_sleep(10);
-                                continue;
-                            }
-                            AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-                            break;
-                        }
-                    }
                     av_qsv_space *qsv_vpp = pv->vpp_space;
                     int64_t duration  = ((double)qsv_vpp->m_mfxVideoParam.vpp.Out.FrameRateExtD/(double)qsv_vpp->m_mfxVideoParam.vpp.Out.FrameRateExtN ) * 90000.;
                     out->s.start = work_surface->Data.TimeStamp;
