@@ -343,7 +343,7 @@ int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
             hb_unlock( pv->common->mutex );
 
             UpdateSearchState( w, next_start );
-
+#ifdef USE_QSV
             // as we drop prepared decode, we need to reclaim resources
             if( job && job->vcodec == HB_VCODEC_QSV_H264 && job->qsv )
             {
@@ -366,6 +366,7 @@ int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                     av_qsv_flush_stages( qsv->pipes, &received_item );
                 }
             }
+#endif
             hb_buffer_close( &next );
 
             return HB_WORK_OK;
