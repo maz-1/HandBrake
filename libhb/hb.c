@@ -411,13 +411,11 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
         qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
     }
 
-    // if running IA
     if( av_get_cpu_flags() & AV_CPU_FLAG_SSE )
     {
         int eax, ebx, ecx, edx;
         int family = 0, model = 0;
 
-        // cpu fma check
         ff_cpu_cpuid(1, &eax, &ebx, &ecx, &edx);
         family = ((eax >> 8) & 0xf) + ((eax >> 20) & 0xff);
         model  = ((eax >> 4) & 0xf) + ((eax >> 12) & 0xf0);
@@ -433,6 +431,8 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
             ff_cpu_cpuid(0x80000004, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
         }
 
+        // Intel 64 and IA-32 Architectures Software Developer’s Manual
+        // Table 35-1. CPUID Signature Values of DisplayFamily_DisplayModel
         if( family == 0x06 )
             if( model == 0x3C ||
                 model == 0x45 )
