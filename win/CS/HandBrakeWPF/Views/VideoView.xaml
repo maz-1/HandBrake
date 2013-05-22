@@ -180,7 +180,7 @@
                                Visibility="{Binding DisplayQSVOptions, Converter={StaticResource boolToVisConverter}}" />
                     <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal"
                                 Visibility="{Binding DisplayQSVOptions, Converter={StaticResource boolToVisConverter}}" >
-                        <Slider Minimum="0" Maximum="2" Width="150" Value="{Binding QsvPresetValue, Mode=Default, UpdateSourceTrigger=PropertyChanged}" 
+                        <Slider Minimum="0" Maximum="{Binding QsvSliderMax}" Width="150" Value="{Binding QsvPresetValue, Mode=Default, UpdateSourceTrigger=PropertyChanged}" 
                             IsSnapToTickEnabled="True" TickFrequency="1" TickPlacement="BottomRight" />
                         <TextBlock Text="{Binding QsvPreset, Converter={StaticResource enumComboConverter}}" Margin="5,0,0,0" />
                     </StackPanel>

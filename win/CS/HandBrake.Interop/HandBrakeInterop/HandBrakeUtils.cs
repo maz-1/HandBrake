@@ -197,20 +197,20 @@ namespace HandBrake.Interop
 				throw new ArgumentException("height must be positive.");
 			}
 
-		    HBFunctions.hb_init(0, 0);
-            IntPtr ptr = HBFunctions.hb_x264_param_unparse(
-				preset,
-				string.Join(",", tunes),
-				extraOptions,
-				profile,
-				level,
-				width,
-				height);
+            //HBFunctions.hb_init(0, 0);
+            //IntPtr ptr = HBFunctions.hb_x264_param_unparse(
+            //    preset,
+            //    string.Join(",", tunes),
+            //    extraOptions,
+            //    profile,
+            //    level,
+            //    width,
+            //    height);
 
-		    string x264Settings = Marshal.PtrToStringAnsi(ptr);
+            //string x264Settings = Marshal.PtrToStringAnsi(ptr);
 
 
-            return x264Settings;
+            return "";
 		}
 
 		/// <summary>

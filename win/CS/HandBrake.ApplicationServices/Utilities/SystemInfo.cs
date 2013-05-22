@@ -9,6 +9,7 @@
 
 namespace HandBrake.ApplicationServices.Utilities
 {
+    using System.Text.RegularExpressions;
     using System.Windows.Forms;
 
     using Microsoft.Win32;
@@ -45,6 +46,35 @@ namespace HandBrake.ApplicationServices.Utilities
                 RegistryKey regKey = Registry.LocalMachine;
                 regKey = regKey.OpenSubKey("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0");
                 return regKey == null ? 0 : regKey.GetValue("ProcessorNameString");
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether is hsw or newer.
+        /// </summary>
+        public static bool IsHswOrNewer
+        {
+            get
+            {
+                string cpu = GetCpuCount.ToString();
+                if (cpu.Contains("Intel"))
+                {
+                    Match match = Regex.Match(cpu, "([0-9]{4})");
+                    if (match.Success)
+                    {
+                        string cpuId = match.Groups[0].ToString();
+                        int cpuNumber;
+                        if (int.TryParse(cpuId, out cpuNumber))
+                        {
+                            if (cpuNumber > 4000)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
             }
         }
 

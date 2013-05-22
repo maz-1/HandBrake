@@ -844,6 +844,17 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        /// <summary>
+        /// Gets the qsv slider max.
+        /// </summary>
+        public int QsvSliderMax
+        {
+            get
+            {
+                return SystemInfo.IsHswOrNewer ? 2 : 1;
+            }
+        }
+
         #endregion
 
         #region Public Methods
@@ -957,7 +968,7 @@ namespace HandBrakeWPF.ViewModels
 
                 this.QsvPresetValue = preset.Task.VideoEncoder == VideoEncoder.QuickSync
                                            ? (int)preset.Task.QsvPreset
-                                           : (int)QsvPreset.Quality;
+                                           : SystemInfo.IsHswOrNewer ? (int)QsvPreset.Quality : (int)QsvPreset.Balanced;
 
                 this.UseAdvancedTab = !string.IsNullOrEmpty(preset.Task.AdvancedEncoderOptions) && this.ShowAdvancedTab;
             }
