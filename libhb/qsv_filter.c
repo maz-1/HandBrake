@@ -111,7 +111,7 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
     av_qsv_add_context_usage(qsv,HAVE_THREADS);
 
 
-    qsv_param_set_defaults(&pv->qsv_config);
+    qsv_param_set_defaults(&pv->qsv_config,hb_qsv_info_get(pv->job->h));
     hb_dict_t * qsv_opts = NULL;
     if( pv->job->advanced_opts != NULL && *pv->job->advanced_opts != '\0' )
         qsv_opts = hb_encopts_to_dict( pv->job->advanced_opts, pv->job->vcodec );

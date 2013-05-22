@@ -59,6 +59,6 @@ typedef enum {
 } qsv_param_errors;
 
 int qsv_param_parse( av_qsv_config* config, const char *name, const char *value);
-void qsv_param_set_defaults( av_qsv_config* config);
+void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info );
 
 #endif //ENC_QSV_H

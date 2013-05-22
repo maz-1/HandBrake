@@ -232,7 +232,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam);
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam.mfx);
 
-    qsv_param_set_defaults(&pv->qsv_config);
+    qsv_param_set_defaults(&pv->qsv_config,hb_qsv_info_get(job->h));
 
     hb_dict_t *qsv_opts_dict = NULL;
     if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )
@@ -1059,7 +1059,7 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
     return ret;
 }
 
-void qsv_param_set_defaults( av_qsv_config* config){
+void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info ){
     if(!config)
         return;
 

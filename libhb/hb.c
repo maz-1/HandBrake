@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include "libavutil/cpu.h"
 
 #if defined( SYS_MINGW )
 #include <io.h>
@@ -408,6 +409,44 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
     {
         qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
         qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
+    }
+
+    // if running IA
+    if( av_get_cpu_flags() & AV_CPU_FLAG_SSE )
+    {
+        int eax, ebx, ecx, edx;
+        int family = 0, model = 0;
+
+        // cpu fma check
+        ff_cpu_cpuid(1, &eax, &ebx, &ecx, &edx);
+        family = ((eax >> 8) & 0xf) + ((eax >> 20) & 0xff);
+        model  = ((eax >> 4) & 0xf) + ((eax >> 12) & 0xf0);
+
+        ff_cpu_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
+        if( (eax & 0x80000004) < 0x80000004 )
+        {
+            int offset = 0;
+            ff_cpu_cpuid(0x80000002, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
+            offset += 16;
+            ff_cpu_cpuid(0x80000003, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
+            offset += 16;
+            ff_cpu_cpuid(0x80000004, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
+        }
+
+        if( family == 0x06 )
+            if( model == 0x3C ||
+                model == 0x45 )
+                qsv_info->cpu_details = HB_CPU_PLATFORM_INTEL_HSW;
+
+        if( family == 0x06 )
+            if( model == 0x3A ||
+                model == 0x3E )
+                qsv_info->cpu_details = HB_CPU_PLATFORM_INTEL_IVB;
+
+        if( family == 0x06 )
+            if( model == 0x2A ||
+                model == 0x2D )
+                qsv_info->cpu_details = HB_CPU_PLATFORM_INTEL_SNB;
     }
 
     // note: we pass a pointer to MFXInit but it never gets modified
