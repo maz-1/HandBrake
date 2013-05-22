@@ -361,7 +361,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
             pv->extbrc =atoi(entry->value);
         }
         else
-            pv->extbrc = 0; //MFX_CODINGOPTION_OFF
+            pv->extbrc = 2; //MFX_CODINGOPTION_OFF
     }
 
     hb_dict_free( &qsv_opts_dict );
