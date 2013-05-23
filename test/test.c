@@ -710,7 +710,7 @@ static int HandleEvents( hb_handle_t * h )
 
                 fprintf(stderr,
                         "  - hardware details: %s%s\n", qsv_info->cpu_name,
-                                                qsv_info->cpu_details & HB_CPU_PLATFORM_INTEL_HSW ?
+                                                qsv_info->cpu_details == HB_CPU_PLATFORM_INTEL_HSW ?
                                                 "/Fourth Generation Intel Core Processor":
                                                 "" );
             }
