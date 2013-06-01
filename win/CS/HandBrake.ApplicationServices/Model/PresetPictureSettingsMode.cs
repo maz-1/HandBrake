@@ -20,7 +20,7 @@ namespace HandBrake.ApplicationServices.Model
         None = 0,
         [Display(Name = "Custom")]
         Custom = 1,
-        [Display(Name = "Source Maximum")]
+        [Display(Name = "Current Source Max Size")]
         SourceMaximum = 2,
     }
 }

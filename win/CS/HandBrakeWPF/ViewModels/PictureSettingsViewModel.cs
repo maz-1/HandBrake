@@ -601,70 +601,58 @@ namespace HandBrakeWPF.ViewModels
         {
             this.Task = task;
 
-            // TODO: These all need to be handled correctly.
-            this.SelectedAnamorphicMode = preset.Task.Anamorphic;
-
-            // Set the limits on the UI Controls.
-            this.MaxWidth = preset.Task.MaxWidth ?? this.sourceResolution.Width;
-            this.MaxHeight = preset.Task.MaxHeight ?? this.sourceResolution.Height;
-            this.Task.MaxWidth = preset.Task.MaxWidth;
-            this.Task.MaxHeight = preset.Task.MaxHeight;
-
-            // Setup the Width
-            if (preset.Task.MaxWidth.HasValue)
+            // Handle built-in presets.
+            if (preset.IsBuildIn)
             {
-                if (this.Width > preset.Task.MaxWidth)
-                {
-                    // Limit the Width to the Max Width
-                    this.Width = preset.Task.MaxWidth.Value; 
-                }
-                else
-                {
-                    // Figure out the best width based on the preset and source
-                    this.Width = preset.Task.Width ?? this.GetModulusValue(this.getRes((this.sourceResolution.Width - this.CropLeft - this.CropRight), preset.Task.MaxWidth.Value));
-                }
-            }
-            else
-            {
-                this.Width = preset.Task.Width ?? this.GetModulusValue((this.sourceResolution.Width - this.CropLeft - this.CropRight));
+                preset.PictureSettingsMode = PresetPictureSettingsMode.Custom;
             }
 
-            // Set the Maintain Aspect ratio. This will calculate Height for us now.
-            this.MaintainAspectRatio = preset.Task.Anamorphic == Anamorphic.None || preset.Task.KeepDisplayAspect;
-
-            // Set Height, but only if necessary.
-            if (preset.Task.MaxHeight.HasValue)
+            // Setup the Picture Sizes
+            switch (preset.PictureSettingsMode)
             {
-                if (this.Height > preset.Task.MaxHeight)
-                {
-                    // Limit the Height to the Max Height of the preset. Setting this will recalculate the width.
-                    this.Height = preset.Task.MaxHeight.Value;
-                }
-                else
-                {
-                    // Only calculate height if Maintain Aspect ratio is off.
-                    if (!this.MaintainAspectRatio)
+                default:
+                case PresetPictureSettingsMode.Custom:
+                case PresetPictureSettingsMode.SourceMaximum:
+
+                    // Anamorphic Mode
+                    this.SelectedAnamorphicMode = preset.Task.Anamorphic;
+
+                    // Modulus
+                    if (preset.Task.Modulus.HasValue)
                     {
-                        this.Height = preset.Task.Height ??
-                                      this.getRes(
-                                          (this.sourceResolution.Height - this.CropTop - this.CropBottom),
-                                          preset.Task.MaxHeight.Value);
+                        this.SelectedModulus = preset.Task.Modulus;
                     }
-                }
+
+                    // Set the Maintain Aspect ratio.
+                    this.MaintainAspectRatio = preset.Task.KeepDisplayAspect;
+
+                    // Set the width, then check the height doesn't breach the max height and correct if necessary.
+                    int width = this.GetModulusValue(this.getRes((this.sourceResolution.Width - this.CropLeft - this.CropRight), preset.Task.MaxWidth));
+                    this.Width = width;
+
+                    // If we have a max height, make sure we havn't breached it.
+                    int height = this.GetModulusValue(this.getRes((this.sourceResolution.Height - this.CropTop - this.CropBottom), preset.Task.MaxHeight));
+                    if (preset.Task.MaxHeight.HasValue && this.Height > preset.Task.MaxHeight.Value)
+                    {
+                        this.Height = height;
+                    }
+
+                    this.MaxWidth = width;
+                    this.MaxHeight = height;
+                    break;
+                case PresetPictureSettingsMode.None:
+                    // Do Nothing except reset the Max Width/Height
+                    this.MaxWidth = this.sourceResolution.Width;
+                    this.MaxHeight = this.sourceResolution.Height;
+                    break;
             }
 
-            // Anamorphic
+            // Custom Anamorphic
             if (preset.Task.Anamorphic == Anamorphic.Custom)
             {
                 this.DisplayWidth = preset.Task.DisplayWidth != null ? int.Parse(preset.Task.DisplayWidth.ToString()) : 0;
                 this.ParWidth = preset.Task.PixelAspectX;
                 this.ParHeight = preset.Task.PixelAspectY;
-            }
-
-            // Modulus
-            if (preset.Task.Modulus.HasValue)
-            {
-                this.SelectedModulus = preset.Task.Modulus;
             }
 
             // Cropping
@@ -721,23 +709,64 @@ namespace HandBrakeWPF.ViewModels
                 this.sourceParValues = title.ParVal;
                 this.sourceResolution = title.Resolution;
 
-                // Set the Max Width / Height available to the user controls
-                if (this.sourceResolution.Width < this.MaxWidth)
+                if (preset.PictureSettingsMode == PresetPictureSettingsMode.None)
                 {
-                    this.MaxWidth = this.sourceResolution.Width;
+                    // We have no instructions, so simply set it to the source.
+                    this.Width = this.GetModulusValue(this.sourceResolution.Width - this.CropLeft - this.CropRight);
+                    this.MaintainAspectRatio = true;
                 }
-                else if (this.sourceResolution.Width > this.MaxWidth)
+                else
                 {
-                    this.MaxWidth = preset.Task.MaxWidth ?? this.sourceResolution.Width;
-                }
+                    // Set the Max Width / Height available to the user controls
+                    if (this.sourceResolution.Width < this.MaxWidth)
+                    {
+                        this.MaxWidth = this.sourceResolution.Width;
+                    }
+                    else if (this.sourceResolution.Width > this.MaxWidth)
+                    {
+                        this.MaxWidth = preset.Task.MaxWidth ?? this.sourceResolution.Width;
+                    }
 
-                if (this.sourceResolution.Height < this.MaxHeight)
-                {
-                    this.MaxHeight = this.sourceResolution.Height;
-                }
-                else if (this.sourceResolution.Height > this.MaxHeight)
-                {
-                    this.MaxHeight = preset.Task.MaxHeight ?? this.sourceResolution.Height;
+                    if (this.sourceResolution.Height < this.MaxHeight)
+                    {
+                        this.MaxHeight = this.sourceResolution.Height;
+                    }
+                    else if (this.sourceResolution.Height > this.MaxHeight)
+                    {
+                        this.MaxHeight = preset.Task.MaxHeight ?? this.sourceResolution.Height;
+                    }
+
+                    // Update the cropping values, preffering those in the presets.
+                    if (!preset.Task.HasCropping)
+                    {
+                        this.CropTop = title.AutoCropDimensions.Top;
+                        this.CropBottom = title.AutoCropDimensions.Bottom;
+                        this.CropLeft = title.AutoCropDimensions.Left;
+                        this.CropRight = title.AutoCropDimensions.Right;
+                        this.IsCustomCrop = false;
+                    }
+                    else
+                    {
+                        this.CropLeft = preset.Task.Cropping.Left;
+                        this.CropRight = preset.Task.Cropping.Right;
+                        this.CropTop = preset.Task.Cropping.Top;
+                        this.CropBottom = preset.Task.Cropping.Bottom;
+                        this.IsCustomCrop = true;
+                    }
+
+                    // Set the Width, and Maintain Aspect ratio. That should calc the Height for us.
+                    this.Width = preset.Task.Width ?? this.MaxWidth;  // Note: This will be auto-corrected in the property if it's too large.
+
+                    // If our height is too large, let it downscale the width for us by setting the height to the lower value.
+                    if (!this.MaintainAspectRatio && this.Height > this.MaxHeight)
+                    {
+                        this.Height = this.MaxHeight;
+                    }
+
+                    if (this.SelectedAnamorphicMode == Anamorphic.Custom)
+                    {
+                        this.AnamorphicAdjust(); // Refresh the values
+                    }
                 }
 
                 // Set Screen Controls
@@ -746,38 +775,6 @@ namespace HandBrakeWPF.ViewModels
                     title.Resolution.Width,
                     title.Resolution.Height,
                     title.AspectRatio);
-
-                if (!preset.Task.HasCropping)
-                {
-                    this.CropTop = title.AutoCropDimensions.Top;
-                    this.CropBottom = title.AutoCropDimensions.Bottom;
-                    this.CropLeft = title.AutoCropDimensions.Left;
-                    this.CropRight = title.AutoCropDimensions.Right;
-                    this.IsCustomCrop = false;
-                }
-                else
-                {
-                    this.CropLeft = preset.Task.Cropping.Left;
-                    this.CropRight = preset.Task.Cropping.Right;
-                    this.CropTop = preset.Task.Cropping.Top;
-                    this.CropBottom = preset.Task.Cropping.Bottom;
-                    this.IsCustomCrop = true;
-                }
-
-                // Set the Width, and Maintain Aspect ratio. That should calc the Height for us.
-                this.Width = this.MaxWidth;
-                this.MaintainAspectRatio = true;
-
-                // If our height is too large, let it downscale the width for us by setting the height to the lower value.
-                if (this.Height > this.MaxHeight)
-                {
-                    this.Height = this.MaxHeight;
-                }
-       
-                if (this.SelectedAnamorphicMode == Anamorphic.Custom)
-                {
-                    this.AnamorphicAdjust(); // Refresh the values
-                }
             }
 
             this.NotifyOfPropertyChange(() => this.Task);
@@ -813,7 +810,16 @@ namespace HandBrakeWPF.ViewModels
                     this.ShowDisplaySize = false;
                     this.ShowKeepAR = true;
                     this.SelectedModulus = 16; // Reset
-                    this.Width = this.sourceResolution.Width;
+                    if (this.Width == 0)
+                    {
+                        this.Width = this.GetModulusValue(this.sourceResolution.Width - this.CropLeft - this.CropRight);
+                    }
+
+                    if (!this.MaintainAspectRatio && this.Height == 0)
+                    {
+                        this.Height = this.GetModulusValue(this.sourceResolution.Height - this.CropTop - this.CropBottom);
+                    }
+
                     this.SetDisplaySize();
                     break;
                 case Anamorphic.Strict:
@@ -834,7 +840,10 @@ namespace HandBrakeWPF.ViewModels
                     this.HeightControlEnabled = false;
                     this.ShowCustomAnamorphicControls = false;
                     this.ShowModulus = true;
-                    this.Width = this.sourceResolution.Width;
+                    if (this.Width == 0)
+                    {
+                        this.Width = this.sourceResolution.Width;
+                    }
                     this.Height = 0;
                     this.ShowKeepAR = false;
 
@@ -1145,9 +1154,9 @@ namespace HandBrakeWPF.ViewModels
         /// <returns>
         /// An Int
         /// </returns>
-        private int getRes(int value, int max)
+        private int getRes(int value, int? max)
         {
-            return value > max ? max : value;
+            return max.HasValue ? (value > max.Value ? max.Value : value) : value;
         }
 
         #endregion

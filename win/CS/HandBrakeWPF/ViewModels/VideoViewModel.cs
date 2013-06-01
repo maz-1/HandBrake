@@ -316,7 +316,7 @@ namespace HandBrakeWPF.ViewModels
         {
             get
             {
-                return 51.Equals(this.RF) && this.SelectedVideoEncoder == VideoEncoder.X264;
+                return 0.0.Equals(this.DisplayRF) && this.SelectedVideoEncoder == VideoEncoder.X264;
             }
         }
 
