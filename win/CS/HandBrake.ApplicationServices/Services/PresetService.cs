@@ -539,7 +539,7 @@ namespace HandBrake.ApplicationServices.Services
             preset.Task.AudioTracks = new ObservableCollection<AudioTrack>();
             preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 160, Encoder = AudioEncoder.Faac, MixDown = Mixdown.DolbyProLogicII});
             preset.Task.Anamorphic = Anamorphic.Loose;
-            preset.Task.QsvPreset = QsvPreset.Quality;
+            preset.Task.QsvPreset = SystemInfo.IsHswOrNewer ? QsvPreset.Quality : QsvPreset.Balanced;
             preset.Task.FramerateMode = FramerateMode.CFR;
             preset.Task.TwoPass = false;
             preset.Task.TurboFirstPass = false;
