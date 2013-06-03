@@ -144,10 +144,10 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
 
         qsv_vpp->m_mfxVideoParam.vpp.In.FourCC          = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FourCC;
         qsv_vpp->m_mfxVideoParam.vpp.In.ChromaFormat    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.ChromaFormat;
-        qsv_vpp->m_mfxVideoParam.vpp.In.CropX           = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.CropX;
-        qsv_vpp->m_mfxVideoParam.vpp.In.CropY           = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.CropY;
-        qsv_vpp->m_mfxVideoParam.vpp.In.CropW           = pv->width_in;
-        qsv_vpp->m_mfxVideoParam.vpp.In.CropH           = pv->height_in;
+        qsv_vpp->m_mfxVideoParam.vpp.In.CropX           = pv->crop[2];
+        qsv_vpp->m_mfxVideoParam.vpp.In.CropY           = pv->crop[0];
+        qsv_vpp->m_mfxVideoParam.vpp.In.CropW           = pv->width_in - pv->crop[3] - pv->crop[2];
+        qsv_vpp->m_mfxVideoParam.vpp.In.CropH           = pv->height_in - pv->crop[1] - pv->crop[0];
         qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct       = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
         qsv_vpp->m_mfxVideoParam.vpp.In.FrameRateExtN   = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN;
         qsv_vpp->m_mfxVideoParam.vpp.In.FrameRateExtD   = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD;
@@ -462,6 +462,12 @@ int process_frame(av_qsv_list* received_item, av_qsv_context* qsv, hb_filter_pri
                 hb_log("qsv: Not enough resources allocated for the filter");
                 ret = 0;
                 break;
+            }
+            if (work_surface) {
+                    work_surface->Info.CropX           = pv->crop[2];
+                    work_surface->Info.CropY           = pv->crop[0];
+                    work_surface->Info.CropW           = pv->width_in - pv->crop[3] - pv->crop[2];
+                    work_surface->Info.CropH           = pv->height_in - pv->crop[1] - pv->crop[0];
             }
 
             sts = MFXVideoVPP_RunFrameVPPAsync(qsv->mfx_session, work_surface, qsv_vpp->p_surfaces[surface_idx] , NULL, qsv_vpp->p_syncp[sync_idx]->p_sync);
