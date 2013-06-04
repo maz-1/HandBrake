@@ -386,9 +386,8 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     };
 
     if( qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP )
-        hb_log("qsv: RateControlMethod:%s(I:%d/P:%d/B:%d) TargetKbps:%d",rc_method,
-                                                qsv_encode->m_mfxVideoParam.mfx.QPI, qsv_encode->m_mfxVideoParam.mfx.QPP, qsv_encode->m_mfxVideoParam.mfx.QPB,
-                                                qsv_encode->m_mfxVideoParam.mfx.TargetKbps );
+        hb_log("qsv: RateControlMethod:%s(I:%d/P:%d/B:%d)",rc_method,
+                                                qsv_encode->m_mfxVideoParam.mfx.QPI, qsv_encode->m_mfxVideoParam.mfx.QPP, qsv_encode->m_mfxVideoParam.mfx.QPB );
     else
         hb_log("qsv: RateControlMethod:%s TargetKbps:%d",rc_method , qsv_encode->m_mfxVideoParam.mfx.TargetKbps );
 
