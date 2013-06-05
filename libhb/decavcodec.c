@@ -1103,29 +1103,6 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         pv->threads = HB_FFMPEG_THREADS_AUTO;
     }
 
-#ifdef USE_QSV
-    if(job){
-        qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info);
-
-        hb_dict_t * qsv_opts = NULL;
-        if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )
-            qsv_opts = hb_encopts_to_dict( job->advanced_opts, job->vcodec );
-
-        int ret;
-        hb_dict_entry_t * entry = NULL;
-        while( ( entry = hb_dict_next( qsv_opts, entry ) ) )
-        {
-            ret = qsv_param_parse( &pv->qsv_config, entry->key, entry->value );
-            if( ret == QSV_PARAM_BAD_NAME )
-                hb_log( "QSV options: Unknown suboption %s", entry->key );
-            else
-            if( ret == QSV_PARAM_BAD_VALUE )
-                hb_log( "QSV options: Bad argument %s=%s", entry->key, entry->value ? entry->value : "(null)" );
-        }
-        hb_dict_free( &qsv_opts );
-    }
-#endif
-
     if ( pv->title->opaque_priv )
     {
         AVFormatContext *ic = (AVFormatContext*)pv->title->opaque_priv;
@@ -1134,12 +1111,35 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
 
 #ifdef USE_QSV
         if (job != NULL && job->vcodec == HB_VCODEC_QSV_H264 &&
-            w->codec_param == AV_CODEC_ID_H264){
+            w->codec_param == AV_CODEC_ID_H264)
+        {
             codec = avcodec_find_decoder_by_name("h264_qsv");
+            // parse QSV options before decoding
+            // FIXME: why do we need this here?
+            // FIXME: job->advanced_opts should not be used for decoder options
+            int ret;
+            hb_dict_t *qsv_opts = NULL;
+            hb_dict_entry_t *entry = NULL;
+            qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info);
+            if (job->advanced_opts != NULL && *job->advanced_opts != '\0')
+            {
+                qsv_opts = hb_encopts_to_dict(job->advanced_opts, job->vcodec);
+            }
+            while ((entry = hb_dict_next(qsv_opts, entry)) != NULL)
+            {
+                ret = qsv_param_parse(&pv->qsv_config, entry->key, entry->value);
+                if (ret == QSV_PARAM_BAD_NAME)
+                    hb_log("QSV options: Unknown suboption %s", entry->key);
+                if (ret == QSV_PARAM_BAD_VALUE)
+                    hb_log("QSV options: Bad argument %s=%s", entry->key, entry->value);
+            }
+            hb_dict_free(&qsv_opts);
         }
         else
 #endif
+        {
             codec = avcodec_find_decoder(w->codec_param);
+        }
 
         if ( codec == NULL )
         {
