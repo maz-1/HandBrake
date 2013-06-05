@@ -165,24 +165,26 @@ typedef struct hb_qsv_info_s
 #define HB_QSV_FEATURE_DECODE_TIMESTAMPS 0x0000001
 #define HB_QSV_FEATURE_CODEC_OPTIONS_2   0x0000002 // see mfxExtCodingOption2
 
-    // if a feature depend on cpu
-    char    cpu_name[48];
-
-enum
-{
-    // list of microarchitecture codenames
-    HB_CPU_PLATFORM_INTEL_SNB = 1,
-    HB_CPU_PLATFORM_INTEL_IVB,
-    HB_CPU_PLATFORM_INTEL_HSW,
-};
-    int     cpu_details;
+    // if a feature depends on the cpu generation
+    enum
+    {
+        // list of microarchitecture codenames
+        HB_CPU_PLATFORM_UNSPECIFIED = 0,
+        HB_CPU_PLATFORM_INTEL_SNB,
+        HB_CPU_PLATFORM_INTEL_IVB,
+        HB_CPU_PLATFORM_INTEL_HSW,
+    }    cpu_platform;
+    char cpu_name[48];
 
     // TODO: add available decoders, filters, encoders,
     //       maximum decode and encode resolution, etc.
 } hb_qsv_info_t;
 
-/* Get Intel QSV information from the handle, outside of hb.c */
-hb_qsv_info_t* hb_qsv_info_get(hb_handle_t*);
+/* Global Intel QSV information for use by the UIs */
+extern hb_qsv_info_t *hb_qsv_info;
+
+/* Whether QSV is available at all */
+int hb_qsv_available();
 #endif
 
 #ifdef __cplusplus

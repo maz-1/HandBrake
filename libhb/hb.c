@@ -67,12 +67,7 @@ struct hb_handle_s
 
     // power management opaque pointer
     void *system_sleep_opaque;
-
-#ifdef USE_QSV
-    // detailed information about Intel QSV availability
-    hb_qsv_info_t qsv_info;
-#endif
-} ;
+};
 
 hb_work_object_t * hb_objects = NULL;
 int hb_instance_counter = 0;
@@ -352,6 +347,9 @@ void hb_ff_set_sample_fmt(AVCodecContext *context, AVCodec *codec,
 
 /* Intel Quick Sync Video utilities */
 #ifdef USE_QSV
+// make the Intel QSV information available to the UIs
+hb_qsv_info_t *hb_qsv_info = NULL;
+
 // minimum supported version (currently 1.4, for Sandy Bridge support)
 // let's keep this independent of what Libav can do for decode
 #define HB_QSV_MINVERSION_MAJOR 1
@@ -359,58 +357,64 @@ void hb_ff_set_sample_fmt(AVCodecContext *context, AVCodec *codec,
 
 // check available hardware & software versions against a minimum
 #define HB_QSV_MIN_HARDWARE(MAJOR, MINOR)           \
-    ((qsv_info->hardware_version.Major >  MAJOR) || \
-     (qsv_info->hardware_version.Major == MAJOR  && qsv_info->hardware_version.Minor >= MINOR))
+    ((hb_qsv_info->hardware_version.Major >  MAJOR) || \
+     (hb_qsv_info->hardware_version.Major == MAJOR  && hb_qsv_info->hardware_version.Minor >= MINOR))
 #define HB_QSV_MIN_SOFTWARE(MAJOR, MINOR)           \
-    ((qsv_info->software_version.Major >  MAJOR) || \
-     (qsv_info->software_version.Major == MAJOR  && qsv_info->software_version.Minor >= MINOR))
+    ((hb_qsv_info->software_version.Major >  MAJOR) || \
+     (hb_qsv_info->software_version.Major == MAJOR  && hb_qsv_info->software_version.Minor >= MINOR))
 
-hb_qsv_info_t* hb_qsv_info_get(hb_handle_t *h)
+static int hb_qsv_info_init()
 {
-    return &h->qsv_info;
-}
+    static int init_done = 0;
+    if (init_done)
+        return (hb_qsv_info == NULL);
+    init_done = 1;
 
-// TODO: move usage of this outside of handle and into global init when possible
-static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
-{
+    hb_qsv_info = malloc(sizeof(*hb_qsv_info));
+    if (hb_qsv_info == NULL)
+    {
+        hb_error("hb_qsv_info_init: malloc failure");
+        return -1;
+    }
+
     mfxSession session;
-    qsv_info->features              = 0;
-    qsv_info->minimum_version.Major = HB_QSV_MINVERSION_MAJOR;
-    qsv_info->minimum_version.Minor = HB_QSV_MINVERSION_MINOR;
-    qsv_info->software_available    = qsv_info->hardware_available = 0;
+    hb_qsv_info->features              = 0;
+    hb_qsv_info->minimum_version.Major = HB_QSV_MINVERSION_MAJOR;
+    hb_qsv_info->minimum_version.Minor = HB_QSV_MINVERSION_MINOR;
+    hb_qsv_info->software_available    = hb_qsv_info->hardware_available = 0;
 
     // check for software fallback
-    if (MFXInit(MFX_IMPL_SOFTWARE, &qsv_info->minimum_version, &session) ==
-        MFX_ERR_NONE)
+    if (MFXInit(MFX_IMPL_SOFTWARE,
+                &hb_qsv_info->minimum_version, &session) == MFX_ERR_NONE)
     {
-        qsv_info->software_available = 1;
+        hb_qsv_info->software_available = 1;
         // our minimum is supported, but query the actual version
-        MFXQueryVersion(session , &qsv_info->software_version);
+        MFXQueryVersion(session, &hb_qsv_info->software_version);
         MFXClose(session);
     }
 
     // check for actual hardware support, Hardware acceleration via any supported OS infrastructure
-    if (MFXInit(MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_ANY, &qsv_info->minimum_version, &session) ==
-        MFX_ERR_NONE)
+    if (MFXInit(MFX_IMPL_HARDWARE_ANY|MFX_IMPL_VIA_ANY,
+                &hb_qsv_info->minimum_version, &session) == MFX_ERR_NONE)
     {
-        qsv_info->hardware_available = 1;
+        hb_qsv_info->hardware_available = 1;
         // our minimum is supported, but query the actual version
-        MFXQueryVersion(session , &qsv_info->hardware_version);
+        MFXQueryVersion(session, &hb_qsv_info->hardware_version);
         MFXClose(session);
     }
 
     // support either implementation (at least for now)
-    qsv_info->qsv_available = (qsv_info->hardware_available ||
-                               qsv_info->software_available);
+    hb_qsv_info->qsv_available = (hb_qsv_info->hardware_available ||
+                                  hb_qsv_info->software_available);
 
     // check for version-dependent features
     if (HB_QSV_MIN_SOFTWARE(1, 6) || HB_QSV_MIN_HARDWARE(1, 6))
     {
-        qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
-        qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
+        hb_qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
+        hb_qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
     }
 
-    if( av_get_cpu_flags() & AV_CPU_FLAG_SSE )
+    if (av_get_cpu_flags() & AV_CPU_FLAG_SSE)
     {
         int eax, ebx, ecx, edx;
         int family = 0, model = 0;
@@ -420,43 +424,68 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
         model  = ((eax >> 4) & 0xf) + ((eax >> 12) & 0xf0);
 
         ff_cpu_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
-        if( (eax & 0x80000004) < 0x80000004 )
+        if ((eax & 0x80000004) < 0x80000004)
         {
             int offset = 0;
-            ff_cpu_cpuid(0x80000002, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
+            ff_cpu_cpuid(0x80000002,
+                         &hb_qsv_info->cpu_name[offset],
+                         &hb_qsv_info->cpu_name[offset+4],
+                         &hb_qsv_info->cpu_name[offset+8],
+                         &hb_qsv_info->cpu_name[offset+12]);
             offset += 16;
-            ff_cpu_cpuid(0x80000003, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
+            ff_cpu_cpuid(0x80000003,
+                         &hb_qsv_info->cpu_name[offset],
+                         &hb_qsv_info->cpu_name[offset+4],
+                         &hb_qsv_info->cpu_name[offset+8],
+                         &hb_qsv_info->cpu_name[offset+12]);
             offset += 16;
-            ff_cpu_cpuid(0x80000004, &qsv_info->cpu_name[offset], &qsv_info->cpu_name[offset+4], &qsv_info->cpu_name[offset+8], &qsv_info->cpu_name[offset+12]);
+            ff_cpu_cpuid(0x80000004,
+                         &hb_qsv_info->cpu_name[offset],
+                         &hb_qsv_info->cpu_name[offset+4],
+                         &hb_qsv_info->cpu_name[offset+8],
+                         &hb_qsv_info->cpu_name[offset+12]);
         }
 
-        // Intel 64 and IA-32 Architectures Software Developer’s Manual
+        // Intel 64 and IA-32 Architectures Software Developer's Manual
         // Table 35-1. CPUID Signature Values of DisplayFamily_DisplayModel
-        if( family == 0x06 )
-            if( model == 0x3C ||
-                model == 0x45 )
-                qsv_info->cpu_details = HB_CPU_PLATFORM_INTEL_HSW;
+        if (family == 0x06)
+        {
+            switch (model)
+            {
+                case 0x2A:
+                case 0x2D:
+                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_SNB;
+                    break;
 
-        if( family == 0x06 )
-            if( model == 0x3A ||
-                model == 0x3E )
-                qsv_info->cpu_details = HB_CPU_PLATFORM_INTEL_IVB;
+                case 0x3A:
+                case 0x3E:
+                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_IVB;
+                    break;
 
-        if( family == 0x06 )
-            if( model == 0x2A ||
-                model == 0x2D )
-                qsv_info->cpu_details = HB_CPU_PLATFORM_INTEL_SNB;
+                case 0x3C:
+                case 0x45:
+                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_HSW;
+                    break;
+
+                default:
+                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_UNSPECIFIED;
+                    break;
+            }
+        }
     }
 
     // note: we pass a pointer to MFXInit but it never gets modified
     //       let's make sure of it just to be safe though
-    if (qsv_info->minimum_version.Major != HB_QSV_MINVERSION_MAJOR ||
-        qsv_info->minimum_version.Minor != HB_QSV_MINVERSION_MINOR)
+    if (hb_qsv_info->minimum_version.Major != HB_QSV_MINVERSION_MAJOR ||
+        hb_qsv_info->minimum_version.Minor != HB_QSV_MINVERSION_MINOR)
     {
         hb_error("hb_qsv_info_init: minimum version (%d.%d) was modified",
-                 qsv_info->minimum_version.Major,
-                 qsv_info->minimum_version.Minor);
+                 hb_qsv_info->minimum_version.Major,
+                 hb_qsv_info->minimum_version.Minor);
     }
+
+    // success
+    return 0;
 }
 
 // we don't need those beyond this point
@@ -464,6 +493,68 @@ static void hb_qsv_info_init(hb_qsv_info_t *qsv_info)
 #undef HB_QSV_MINVERSION_MINOR
 #undef HB_QSV_MIN_HARDWARE
 #undef HB_QSV_MIN_SOFTWARE
+
+static void hb_qsv_info_print()
+{
+    if (hb_qsv_info == NULL)
+        return;
+
+    // is QSV available?
+    hb_log("Intel Quick Sync Video support: %s",
+           hb_qsv_info->qsv_available ? "yes": "no");
+    // print the hardware summary too
+    switch (hb_qsv_info->cpu_platform)
+    {
+        case HB_CPU_PLATFORM_INTEL_SNB:
+            hb_log(" - 2nd gen. Intel Core processor");
+            break;
+
+        case HB_CPU_PLATFORM_INTEL_IVB:
+            hb_log(" - 3rd gen. Intel Core processor");
+            break;
+
+        case HB_CPU_PLATFORM_INTEL_HSW:
+            hb_log(" - 4th gen. Intel Core processor");
+            break;
+
+        default:
+            break;
+    }
+
+    // skip leading whitespace to prettify
+    char *cpu_name = hb_qsv_info->cpu_name;
+    while (isspace(*cpu_name))
+    {
+        cpu_name++;
+    }
+    hb_log(" - hardware name:    %s", cpu_name);
+
+    // if we have Quick Sync Video support, also print the details
+    if (hb_qsv_info->qsv_available)
+    {
+        if (hb_qsv_info->hardware_available)
+        {
+            hb_log(" - hardware version: %d.%d (minimum: %d.%d)",
+                   hb_qsv_info->hardware_version.Major,
+                   hb_qsv_info->hardware_version.Minor,
+                   hb_qsv_info->minimum_version.Major,
+                   hb_qsv_info->minimum_version.Minor);
+        }
+        if (hb_qsv_info->software_available)
+        {
+            hb_log(" - software version: %d.%d (minimum: %d.%d)",
+                   hb_qsv_info->software_version.Major,
+                   hb_qsv_info->software_version.Minor,
+                   hb_qsv_info->minimum_version.Major,
+                   hb_qsv_info->minimum_version.Minor);
+        }
+    }
+}
+
+int hb_qsv_available()
+{
+    return hb_qsv_info != NULL && hb_qsv_info->qsv_available;
+}
 #endif // USE_QSV
 
 /**
@@ -561,6 +652,11 @@ hb_handle_t * hb_init( int verbose, int update_check )
     /* libavcodec */
     hb_avcodec_init();
 
+#ifdef USE_QSV
+    /* Intel Quick Sync Video */
+    hb_qsv_info_print();
+#endif
+
     /* Start library thread */
     hb_log( "hb_init: starting libhb thread" );
     h->die         = 0;
@@ -581,7 +677,6 @@ hb_handle_t * hb_init( int verbose, int update_check )
 	hb_register( &hb_encx264 );
 #ifdef USE_QSV
     hb_register(&hb_encqsv);
-    hb_qsv_info_init(&h->qsv_info);
 #endif
     hb_register( &hb_enctheora );
 	hb_register( &hb_deca52 );
@@ -666,6 +761,11 @@ hb_handle_t * hb_init_dl( int verbose, int update_check )
     /* libavcodec */
     hb_avcodec_init();
 
+#ifdef USE_QSV
+    /* Intel Quick Sync Video */
+    hb_qsv_info_print();
+#endif
+
     /* Start library thread */
     hb_log( "hb_init: starting libhb thread" );
     h->die         = 0;
@@ -686,7 +786,6 @@ hb_handle_t * hb_init_dl( int verbose, int update_check )
 	hb_register( &hb_encx264 );
 #ifdef USE_QSV
     hb_register(&hb_encqsv);
-    hb_qsv_info_init(&h->qsv_info);
 #endif
     hb_register( &hb_enctheora );
 	hb_register( &hb_deca52 );
@@ -1809,7 +1908,16 @@ int hb_global_init()
         hb_error("Platform specific initialization failed!");
         return -1;
     }
-    
+
+#ifdef USE_QSV
+    result = hb_qsv_info_init();
+    if (result < 0)
+    {
+        hb_error("hb_qsv_info_init failed!");
+        return -1;
+    }
+#endif
+
     hb_common_global_init();
 
     return result;

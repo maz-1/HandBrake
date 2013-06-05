@@ -1105,7 +1105,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
 
 #ifdef USE_QSV
     if(job){
-        qsv_param_set_defaults(&pv->qsv_config,hb_qsv_info_get(job->h));
+        qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info);
 
         hb_dict_t * qsv_opts = NULL;
         if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )

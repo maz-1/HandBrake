@@ -670,42 +670,6 @@ static int HandleEvents( hb_handle_t * h )
                 title = hb_list_item( title_set->list_title, 0 );
             }
 
-#ifdef USE_QSV
-            // this is where WinGUI parsing begins
-            hb_qsv_info_t *qsv_info = hb_qsv_info_get(h);
-            // show users (including the WinGUI) whether Quick Sync can be used
-            fprintf(stderr,"- intel quick sync video support: %s\n",
-                    qsv_info->qsv_available ? "yes": "no");
-            // if we have Quick Sync support, also print the details
-            if (qsv_info->qsv_available)
-            {
-                if (qsv_info->hardware_available)
-                {
-                    fprintf(stderr,
-                            "  - hardware version: %d.%d (minimum: %d.%d)\n",
-                            qsv_info->hardware_version.Major,
-                            qsv_info->hardware_version.Minor,
-                            qsv_info->minimum_version.Major,
-                            qsv_info->minimum_version.Minor);
-                }
-                if (qsv_info->software_available)
-                {
-                    fprintf(stderr,
-                            "  - software version: %d.%d (minimum: %d.%d)\n",
-                            qsv_info->software_version.Major,
-                            qsv_info->software_version.Minor,
-                            qsv_info->minimum_version.Major,
-                            qsv_info->minimum_version.Minor);
-                }
-
-                fprintf(stderr,
-                        "  - hardware details: %s%s\n", qsv_info->cpu_name,
-                                                qsv_info->cpu_details == HB_CPU_PLATFORM_INTEL_HSW ?
-                                                "/Fourth Generation Intel Core Processor":
-                                                "" );
-            }
-#endif
-
             if( !titleindex || titlescan )
             {
                 /* Scan-only mode, print infos and exit */
@@ -3076,13 +3040,25 @@ static void ShowHelp()
     }
     if( len )
         fprintf( out, "%s\n", tmp );
-    fprintf( out,
-    "    -x, --encopts <string>  Specify advanced encoder options in the\n"
-    "                            same style as mencoder (x264" );
+    fprintf(out,
+    "    -x, --encopts <string>  Specify advanced encoder options in the\n");
 #ifdef USE_QSV
-        fprintf( out,",QSV");
+if (hb_qsv_available())
+{
+    fprintf(out,
+    "                            same style as mencoder (x264/qsv/ffmpeg only):");
+}
+else
+{
+    fprintf(out,
+    "                            same style as mencoder (x264 and ffmpeg only):");
+}
+#else
+    fprintf(out,
+    "                            same style as mencoder (x264 and ffmpeg only):");
 #endif
-    fprintf( out," and ffmpeg only):\n"
+    
+    fprintf(out,
     "                            option1=value1:option2=value2\n"
     "        --h264-profile      When using x264, ensures compliance with the\n"
     "          <string>          specified H.264 profile:\n"
@@ -3341,7 +3317,10 @@ static void ShowHelp()
      "    -d, --deinterlace       Deinterlace video with Libav, yadif or mcdeint\n"
      "          <fast/slow/slower/bob");
 #ifdef USE_QSV
-     fprintf( out,"/qsv");
+if (hb_qsv_available())
+{
+    fprintf(out, "/qsv");
+}
 #endif
      fprintf( out, "> or omitted (default settings)\n"
      "           or\n"
@@ -3429,6 +3408,8 @@ static void ShowHelp()
     );
 
 #ifdef USE_QSV
+if (hb_qsv_available())
+{
     fprintf( out,
     "### QSV Options, via --encopts=\"option1=value1:option2=value2\" -----------\n\n"
     "        - target-usage  A range of numbers that indicate trade-offs between\n"
@@ -3446,6 +3427,7 @@ static void ShowHelp()
     "                            If zero, the value is not specified. Default is 4\n"
     "\n"
     );
+}
 #endif
 }
 

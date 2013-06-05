@@ -27,6 +27,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \* ********************************************************************* */
 
 #include <stdarg.h>
+#include "hb.h"
 #include "enc_qsv.h"
 #include "h264_common.h"
 
@@ -232,7 +233,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam);
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam.mfx);
 
-    qsv_param_set_defaults(&pv->qsv_config,hb_qsv_info_get(job->h));
+    qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info);
 
     hb_dict_t *qsv_opts_dict = NULL;
     if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )
@@ -347,7 +348,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     }
 
     // version-specific encoder options
-    if( hb_qsv_info_get(job->h)->features & HB_QSV_FEATURE_CODEC_OPTIONS_2 )
+    if (hb_qsv_info->features & HB_QSV_FEATURE_CODEC_OPTIONS_2)
     {
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_mbbrc)) != NULL && entry->value != NULL)
         {
@@ -898,14 +899,14 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
 
                 av_qsv_dts *cur_dts = av_qsv_list_item(qsv->dts_seq,0);
 
-                //start -> PTS
-                //renderOffset -> DTS
+                // start        -> PTS
+                // renderOffset -> DTS
                 buf->s.start = task->bs->TimeStamp;
                 buf->s.stop  = task->bs->TimeStamp + duration;
-                if( hb_qsv_info_get(job->h)->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS )
+                if (hb_qsv_info->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS)
                     buf->s.renderOffset = task->bs->DecodeTimeStamp;
                 else
-                buf->s.renderOffset = cur_dts? cur_dts->dts : 0;
+                    buf->s.renderOffset = cur_dts != NULL ? cur_dts->dts : 0;
 
                 if(pv->qsv_config.gop_ref_dist > 1)
                     pv->qsv_config.gop_ref_dist--;
