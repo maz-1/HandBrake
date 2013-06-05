@@ -628,6 +628,18 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
 
     pv->is_vpp_present = 0;
 
+    // FIXME: please let this be temporary
+    // note: MKV only has PTS so it's unaffected
+    if ((job->mux & HB_MUX_MASK_MP4)  &&
+        (profile != PROFILE_BASELINE) &&
+        (hb_qsv_info->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS) == 0)
+    {
+        hb_error("encqsvInit: MediaSDK < 1.6, unsupported feature B-frames in MP4 container;"
+                 " please update your driver, use the MKV container or Baseline profile");
+        *job->die = 1;
+        return -1;
+    }
+
     return 0;
 }
 
@@ -895,18 +907,15 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 last_buf = buf;
 
                 // simple for now but check on TimeStampCalc from MSDK
-                int64_t duration  = ((double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD/(double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN ) * 90000.;
-
-                av_qsv_dts *cur_dts = av_qsv_list_item(qsv->dts_seq,0);
+                int64_t duration  = ((double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD /
+                                     (double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN) * 90000.;
 
                 // start        -> PTS
                 // renderOffset -> DTS
-                buf->s.start = task->bs->TimeStamp;
-                buf->s.stop  = task->bs->TimeStamp + duration;
+                buf->s.start = buf->s.renderOffset = task->bs->TimeStamp;
+                buf->s.stop  = buf->s.start + duration;
                 if (hb_qsv_info->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS)
                     buf->s.renderOffset = task->bs->DecodeTimeStamp;
-                else
-                    buf->s.renderOffset = cur_dts != NULL ? cur_dts->dts : 0;
 
                 if(pv->qsv_config.gop_ref_dist > 1)
                     pv->qsv_config.gop_ref_dist--;
