@@ -3570,6 +3570,7 @@ static int ParseOptions( int argc, char ** argv )
     #define H264_LEVEL          286
     #define NORMALIZE_MIX       287
     #define AUDIO_DITHER        288
+    #define QSV_BASELINE        289
 
     for( ;; )
     {
@@ -3578,7 +3579,10 @@ static int ParseOptions( int argc, char ** argv )
             { "help",        no_argument,       NULL,    'h' },
             { "update",      no_argument,       NULL,    'u' },
             { "verbose",     optional_argument, NULL,    'v' },
-            { "no-dvdnav",      no_argument,       NULL,    DVDNAV },
+            { "no-dvdnav",   no_argument,       NULL,    DVDNAV },
+#ifdef USE_QSV
+            { "qsv-baseline", no_argument,      NULL,    QSV_BASELINE },
+#endif
 
             { "format",      required_argument, NULL,    'f' },
             { "input",       required_argument, NULL,    'i' },
@@ -4198,6 +4202,30 @@ static int ParseOptions( int argc, char ** argv )
                 } break;
             case MIN_DURATION:
                 min_title_duration = strtol( optarg, NULL, 0 );
+                break;
+            case QSV_BASELINE:
+#ifdef USE_QSV
+                if (hb_qsv_available())
+                {
+                    /* XXX: for testing workarounds */
+                    hb_qsv_info->features     = 0;
+                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_UNSPECIFIED;
+                    if (hb_qsv_info->hardware_available)
+                    {
+                        hb_qsv_info->hardware_version.Major =
+                            hb_qsv_info->minimum_version.Major;
+                        hb_qsv_info->hardware_version.Minor =
+                            hb_qsv_info->minimum_version.Minor;
+                    }
+                    if (hb_qsv_info->software_available)
+                    {
+                        hb_qsv_info->software_version.Major =
+                            hb_qsv_info->minimum_version.Major;
+                        hb_qsv_info->software_version.Minor =
+                            hb_qsv_info->minimum_version.Minor;
+                    }
+                }
+#endif
                 break;
             default:
                 fprintf( stderr, "unknown option (%s)\n", argv[cur_optind] );
