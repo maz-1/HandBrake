@@ -26,6 +26,8 @@ struct hb_mux_object_s
     hb_job_t * job;
 
     mk_Writer * file;
+
+    int wait_for_sps_pps;
 };
 
 struct hb_mux_data_s
@@ -49,6 +51,49 @@ static uint8_t * create_flac_header( uint8_t *data, int size )
     memcpy( out, header, 8 );
     memcpy( out + 8, data, size );
     return out;
+}
+
+static uint8_t* create_h264_header(hb_job_t *job, int *size)
+{
+    /* Taken from x264's muxers.c */
+    int avcC_len  = (5 +
+                     1 + 2 + job->config.h264.sps_length +
+                     1 + 2 + job->config.h264.pps_length);
+#define MAX_AVCC_LEN 5 + 1 + 2 + 1024 + 1 + 2 + 1024 // FIXME
+    if (avcC_len > MAX_AVCC_LEN)
+    {
+        hb_log("create_h264_header: H.264 header too long (%d, max: %d)",
+               avcC_len, MAX_AVCC_LEN);
+        return NULL;
+    }
+    uint8_t *avcC = malloc(avcC_len);
+    if (avcC == NULL)
+    {
+        return NULL;
+    }
+
+    avcC[0] = 1;
+    avcC[1] = job->config.h264.sps[1]; /* AVCProfileIndication */
+    avcC[2] = job->config.h264.sps[2]; /* profile_compat */
+    avcC[3] = job->config.h264.sps[3]; /* AVCLevelIndication */
+    avcC[4] = 0xff; // nalu size length is four bytes
+    avcC[5] = 0xe1; // one sps
+
+    avcC[6] = job->config.h264.sps_length >> 8;
+    avcC[7] = job->config.h264.sps_length;
+    memcpy(avcC + 8, job->config.h264.sps, job->config.h264.sps_length);
+
+    avcC[8  + job->config.h264.sps_length] = 1; // one pps
+    avcC[9  + job->config.h264.sps_length] = job->config.h264.pps_length >> 8;
+    avcC[10 + job->config.h264.sps_length] = job->config.h264.pps_length;
+    memcpy(avcC + 11 + job->config.h264.sps_length,
+           job->config.h264.pps, job->config.h264.pps_length);
+
+    if (size != NULL)
+    {
+        *size = avcC_len;
+    }
+    return avcC;
 }
 
 /**********************************************************************
@@ -92,36 +137,33 @@ static int MKVInit( hb_mux_object_t * m )
     track->flagEnabled = 1;
     switch (job->vcodec)
     {
-        case HB_VCODEC_QSV_H264:
         case HB_VCODEC_X264:
-            track->codecID = MK_VCODEC_MP4AVC;
-            /* Taken from x264 muxers.c */
-            avcC_len = 5 + 1 + 2 + job->config.h264.sps_length + 1 + 2 + job->config.h264.pps_length;
-            avcC = malloc(avcC_len);
-            if (avcC == NULL) {
+            // we already have the SPS/PPS, write it now
+            avcC = create_h264_header(job, &avcC_len);
+            if (avcC == NULL)
+            {
                 free(track);
                 return -1;
             }
-
-            avcC[0] = 1;
-            avcC[1] = job->config.h264.sps[1];      /* AVCProfileIndication */
-            avcC[2] = job->config.h264.sps[2];      /* profile_compat */
-            avcC[3] = job->config.h264.sps[3];      /* AVCLevelIndication */
-            avcC[4] = 0xff; // nalu size length is four bytes
-            avcC[5] = 0xe1; // one sps
-
-            avcC[6] = job->config.h264.sps_length >> 8;
-            avcC[7] = job->config.h264.sps_length;
-
-            memcpy(avcC+8, job->config.h264.sps, job->config.h264.sps_length);
-
-            avcC[8+job->config.h264.sps_length] = 1; // one pps
-            avcC[9+job->config.h264.sps_length] = job->config.h264.pps_length >> 8;
-            avcC[10+job->config.h264.sps_length] = job->config.h264.pps_length;
-
-            memcpy( avcC+11+job->config.h264.sps_length, job->config.h264.pps, job->config.h264.pps_length );
-            track->codecPrivate = avcC;
+            track->codecID          = MK_VCODEC_MP4AVC;
+            track->codecPrivate     = avcC;
             track->codecPrivateSize = avcC_len;
+            if (job->areBframes)
+                track->minCache = 1;
+            break;
+        case HB_VCODEC_QSV_H264:
+            // we don't have the SPS/PPS yet
+            avcC     = calloc(1, MAX_AVCC_LEN); // allocate here, write later
+            avcC_len = MAX_AVCC_LEN;
+            if (avcC == NULL)
+            {
+                free(track);
+                return -1;
+            }
+            track->codecID          = MK_VCODEC_MP4AVC;
+            track->codecPrivate     = avcC;
+            track->codecPrivateSize = avcC_len;
+            m->wait_for_sps_pps     = 1;
             if (job->areBframes)
                 track->minCache = 1;
             break;
@@ -444,6 +486,33 @@ static int MKVMux(hb_mux_object_t *m, hb_mux_data_t *mux_data, hb_buffer_t *buf)
     ogg_packet *op    = NULL;
     hb_job_t *job     = m->job;
 
+    if (m->wait_for_sps_pps && (job->vcodec & HB_VCODEC_H264_MASK))
+    {
+#ifdef USE_QSV
+        if (job->vcodec != HB_VCODEC_QSV_H264 || (job->qsv            != NULL &&
+                                                  job->qsv->enc_space != NULL &&
+                                                  job->qsv->enc_space->is_init_done))
+#endif
+        {
+            // add the SPS/PPS now that we know it
+            int avcC_len;
+            uint8_t *avcC = create_h264_header(job, &avcC_len);
+            if (avcC != NULL)
+            {
+                if (mk_updateTrackPrivateData(m->file, job->mux_data->track,
+                                              avcC, avcC_len) < 0)
+                {
+                    hb_log("MKVMux: failed to update SPS/PPS (H.264)");
+                }
+            }
+            else
+            {
+                hb_log("MKVMux: create_h264_header() failed");
+            }
+            m->wait_for_sps_pps = 0;
+        }
+    }
+
     if (mux_data == job->mux_data)
     {
         /* Video */
@@ -544,12 +613,12 @@ static int MKVMux(hb_mux_object_t *m, hb_mux_data_t *mux_data, hb_buffer_t *buf)
     }
     mk_addFrameData(m->file, mux_data->track, buf->data, buf->size);
     mk_setFrameFlags(m->file, mux_data->track, timecode,
-                     (((job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264 ||
-                        (job->vcodec & HB_VCODEC_FFMPEG_MASK)) &&
-                       mux_data == job->mux_data) ?
-                            (buf->s.frametype == HB_FRAME_IDR) :
-                            ((buf->s.frametype & HB_FRAME_KEY) != 0)), 0 );
-    hb_buffer_close( &buf );
+                     ((mux_data == job->mux_data &&
+                       ((job->vcodec & HB_VCODEC_H264_MASK) ||
+                        (job->vcodec & HB_VCODEC_FFMPEG_MASK))) ?
+                      (buf->s.frametype == HB_FRAME_IDR)        :
+                      (buf->s.frametype  & HB_FRAME_KEY) != 0), 0);
+    hb_buffer_close(&buf);
     return 0;
 }
 
@@ -677,6 +746,11 @@ static int MKVEnd(hb_mux_object_t *m)
         *job->die = 1;
     }
 
+    if (m->wait_for_sps_pps && (job->vcodec & HB_VCODEC_H264_MASK))
+    {
+        hb_log("MKVEnd: warning: we didn't get any SPS/PPS (H.264)");
+    }
+
     // TODO: Free what we alloc'd
 
     return 0;
@@ -689,5 +763,6 @@ hb_mux_object_t * hb_mux_mkv_init( hb_job_t * job )
     m->mux       = MKVMux;
     m->end       = MKVEnd;
     m->job       = job;
+    m->wait_for_sps_pps = 0;
     return m;
 }

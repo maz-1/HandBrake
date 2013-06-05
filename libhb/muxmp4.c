@@ -30,7 +30,7 @@ struct hb_mux_object_s
     int current_chapter;
     uint64_t chapter_duration;
 
-    int qsv_delay;
+    int wait_for_sps_pps;
 };
 
 struct hb_mux_data_s
@@ -129,7 +129,7 @@ static int MP4Init( hb_mux_object_t * m )
         return 0;
     }
 
-    if( job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264  )
+    if (job->vcodec & HB_VCODEC_H264_MASK)
     {
         /* Stolen from mp4creator */
         MP4SetVideoProfileLevel( m->file, 0x7F );
@@ -151,12 +151,21 @@ static int MP4Init( hb_mux_object_t * m )
         {
             return 0;
         }
-		// will be added later, after first encode starts
-		if(job->vcodec != HB_VCODEC_QSV_H264){
-			MP4AddH264SequenceParameterSet( m->file, mux_data->track,
-					job->config.h264.sps, job->config.h264.sps_length );
-			MP4AddH264PictureParameterSet( m->file, mux_data->track,
-					job->config.h264.pps, job->config.h264.pps_length );
+
+        if (job->vcodec == HB_VCODEC_QSV_H264)
+        {
+            // we don't have the SPS/PPS yet
+            m->wait_for_sps_pps = 1;
+        }
+        else
+        {
+            // we already have the SPS/PPS, write it now
+            MP4AddH264SequenceParameterSet(m->file, mux_data->track,
+                                           job->config.h264.sps,
+                                           job->config.h264.sps_length);
+            MP4AddH264PictureParameterSet(m->file, mux_data->track,
+                                          job->config.h264.pps,
+                                          job->config.h264.pps_length);
 		}
 
 		if( job->ipod_atom )
@@ -913,23 +922,31 @@ static int MP4Mux( hb_mux_object_t * m, hb_mux_data_t * mux_data,
     int64_t offset = 0;
     hb_buffer_t *tmp;
 
+    if (m->wait_for_sps_pps && (job->vcodec & HB_VCODEC_H264_MASK))
+    {
+#ifdef USE_QSV
+        if (job->vcodec != HB_VCODEC_QSV_H264 || (job->qsv            != NULL &&
+                                                  job->qsv->enc_space != NULL &&
+                                                  job->qsv->enc_space->is_init_done))
+#endif
+        {
+            // add the SPS/PPS now that we know it
+            MP4AddH264SequenceParameterSet(m->file, job->mux_data->track,
+                                           job->config.h264.sps,
+                                           job->config.h264.sps_length);
+            
+            MP4AddH264PictureParameterSet(m->file, job->mux_data->track,
+                                          job->config.h264.pps,
+                                          job->config.h264.pps_length);
+            m->wait_for_sps_pps = 0;
+        }
+	}
+
     if( mux_data == job->mux_data )
     {
-
-#ifdef USE_QSV
-	if( job->vcodec == HB_VCODEC_QSV_H264 && !m->qsv_delay && job->qsv && job->qsv->enc_space && job->qsv->enc_space->is_init_done ){
-			MP4AddH264SequenceParameterSet( m->file, mux_data->track,
-					job->config.h264.sps, job->config.h264.sps_length );
-
-			MP4AddH264PictureParameterSet( m->file, mux_data->track,
-					job->config.h264.pps, job->config.h264.pps_length );
-			m->qsv_delay = 1;
-	}
-#endif
-
         /* Video */
-        if( job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264 ||
-            ( job->vcodec & HB_VCODEC_FFMPEG_MASK ) )
+        if ((job->vcodec & HB_VCODEC_H264_MASK) ||
+            (job->vcodec & HB_VCODEC_FFMPEG_MASK))
         {
             if ( buf && buf->s.start < buf->s.renderOffset )
             {
@@ -948,8 +965,8 @@ static int MP4Mux( hb_mux_object_t * m, hb_mux_data_t * mux_data,
         if ( !buf )
             return 0;
 
-        if( job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264 ||
-            ( job->vcodec & HB_VCODEC_FFMPEG_MASK ) )
+        if ((job->vcodec & HB_VCODEC_H264_MASK) ||
+            (job->vcodec & HB_VCODEC_FFMPEG_MASK))
         {
             // x264 supplies us with DTS, so offset is PTS - DTS
             offset = buf->s.start - buf->s.renderOffset;
@@ -1064,9 +1081,8 @@ static int MP4Mux( hb_mux_object_t * m, hb_mux_data_t * mux_data,
     }
 
     /* Here's where the sample actually gets muxed. */
-    if( ( job->vcodec == HB_VCODEC_X264 || job->vcodec == HB_VCODEC_QSV_H264 ||
-        ( job->vcodec & HB_VCODEC_FFMPEG_MASK ) )
-        && mux_data == job->mux_data )
+    if (mux_data == job->mux_data && ((job->vcodec & HB_VCODEC_H264_MASK) ||
+                                      (job->vcodec & HB_VCODEC_FFMPEG_MASK)))
     {
         /* Compute dependency flags.
          *
@@ -1405,6 +1421,11 @@ static int MP4End( hb_mux_object_t * m )
 
         MP4Close( m->file );
 
+        if (m->wait_for_sps_pps && (job->vcodec & HB_VCODEC_H264_MASK))
+        {
+            hb_log("MP4End: warning: we didn't get any SPS/PPS (H.264)");
+        }
+
         if ( job->mp4_optimize )
         {
             hb_log( "muxmp4: optimizing file" );
@@ -1426,6 +1447,7 @@ hb_mux_object_t * hb_mux_mp4_init( hb_job_t * job )
     m->mux       = MP4Mux;
     m->end       = MP4End;
     m->job       = job;
+    m->wait_for_sps_pps = 0;
     return m;
 }
 
