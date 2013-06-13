@@ -122,6 +122,7 @@ struct hb_work_private_s
     mfxU16  mbbrc;
     mfxU16  extbrc;
     mfxExtCodingOption2  qsv_coding_option2_config;
+    mfxExtCodingOption   qsv_coding_option_config;
     int     mbbrx_param_idx;
 };
 
@@ -476,6 +477,8 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         qsv_encode->p_ext_param_num++;
     }
 
+    qsv_encode->p_ext_param_num++; // for MFX_EXTBUFF_CODING_OPTION
+
     qsv_encode->m_mfxVideoParam.NumExtParam = qsv_encode->p_ext_param_num;
 
     if(qsv_encode->m_mfxVideoParam.NumExtParam){
@@ -483,23 +486,31 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         qsv_encode->p_ext_params = av_mallocz(sizeof(mfxExtBuffer *)*qsv_encode->p_ext_param_num);
         AV_QSV_CHECK_POINTER(qsv_encode->p_ext_params, MFX_ERR_MEMORY_ALLOC);
 
-    if(!pv->is_sys_mem){
-        memset(&qsv_encode->ext_opaque_alloc, 0, sizeof(mfxExtOpaqueSurfaceAlloc));
-        qsv_encode->ext_opaque_alloc.Header.BufferId    = MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION;
-        qsv_encode->ext_opaque_alloc.Header.BufferSz    = sizeof(mfxExtOpaqueSurfaceAlloc);
-            qsv_encode->p_ext_params[cur_idx++]             = (mfxExtBuffer*)&qsv_encode->ext_opaque_alloc;
+        // MFX_EXTBUFF_CODING_OPTION, supported from MSDK API 1.0 , so no additional check for now
+        pv->qsv_coding_option_config.Header.BufferId  = MFX_EXTBUFF_CODING_OPTION;
+        pv->qsv_coding_option_config.Header.BufferSz  = sizeof(mfxExtCodingOption);
+        pv->qsv_coding_option_config.AUDelimiter      = MFX_CODINGOPTION_OFF;
+        pv->qsv_coding_option_config.PicTimingSEI     = MFX_CODINGOPTION_OFF;
+        qsv_encode->p_ext_params[cur_idx++]            = (mfxExtBuffer*)&pv->qsv_coding_option_config;
 
-        av_qsv_space *in_space = 0;
-        // if we have any VPP , we will use its details , if not - failback to decode's settings
-        if(pv->is_vpp_present)
-            in_space = av_qsv_list_item(qsv->vpp_space, av_qsv_list_count(qsv->vpp_space)-1);
-        else
-            in_space = qsv->dec_space;
+        if(!pv->is_sys_mem){
+            memset(&qsv_encode->ext_opaque_alloc, 0, sizeof(mfxExtOpaqueSurfaceAlloc));
+            qsv_encode->ext_opaque_alloc.Header.BufferId    = MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION;
+            qsv_encode->ext_opaque_alloc.Header.BufferSz    = sizeof(mfxExtOpaqueSurfaceAlloc);
+                qsv_encode->p_ext_params[cur_idx++]             = (mfxExtBuffer*)&qsv_encode->ext_opaque_alloc;
 
-        qsv_encode->ext_opaque_alloc.In.Surfaces    = in_space->p_surfaces;
-        qsv_encode->ext_opaque_alloc.In.NumSurface  = in_space->surface_num;
-        qsv_encode->ext_opaque_alloc.In.Type        = qsv_encode->request[0].Type;
+            av_qsv_space *in_space = 0;
+            // if we have any VPP , we will use its details , if not - failback to decode's settings
+            if(pv->is_vpp_present)
+                in_space = av_qsv_list_item(qsv->vpp_space, av_qsv_list_count(qsv->vpp_space)-1);
+            else
+                in_space = qsv->dec_space;
+
+            qsv_encode->ext_opaque_alloc.In.Surfaces    = in_space->p_surfaces;
+            qsv_encode->ext_opaque_alloc.In.NumSurface  = in_space->surface_num;
+            qsv_encode->ext_opaque_alloc.In.Type        = qsv_encode->request[0].Type;
         }
+
         if(pv->mbbrc || pv->extbrc){
             pv->qsv_coding_option2_config.Header.BufferId  = MFX_EXTBUFF_CODING_OPTION2;
             pv->qsv_coding_option2_config.Header.BufferSz  = sizeof(mfxExtCodingOption2);
@@ -515,7 +526,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
             qsv_encode->p_ext_params[cur_idx++]    = (mfxExtBuffer*)&pv->qsv_coding_option2_config;
             pv->mbbrx_param_idx = cur_idx;
-    }
+        }
     }
     qsv_encode->m_mfxVideoParam.ExtParam           = qsv_encode->p_ext_params;
 
