@@ -525,9 +525,9 @@ namespace HandBrake.ApplicationServices.Services
         private Preset QsvDemoPreset()
         {
             Preset preset = new Preset();
-            preset.Name = "QuickSync Demo";
+            preset.Name = "QuickSync";
             preset.Category = "Regular";
-            preset.Description = "An example preset for QSV";
+            preset.Description = "A Preset to demonstrate QSV features.";
             preset.IsBuildIn = true;
             preset.PictureSettingsMode = PresetPictureSettingsMode.None;
             preset.Task = new EncodeTask();
@@ -537,7 +537,7 @@ namespace HandBrake.ApplicationServices.Services
             preset.Task.AdvancedEncoderOptions =
                 "gop-ref-dist=4:gop-pic-size=32:async-depth=4";
             preset.Task.AudioTracks = new ObservableCollection<AudioTrack>();
-            preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 160, Encoder = AudioEncoder.Faac, MixDown = Mixdown.DolbyProLogicII});
+            preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 224, Encoder = AudioEncoder.ffaac, MixDown = Mixdown.DolbyProLogicII});
             preset.Task.Anamorphic = Anamorphic.Loose;
             preset.Task.QsvPreset = SystemInfo.IsHswOrNewer ? QsvPreset.Quality : QsvPreset.Balanced;
             preset.Task.FramerateMode = FramerateMode.CFR;
@@ -545,6 +545,7 @@ namespace HandBrake.ApplicationServices.Services
             preset.Task.TurboFirstPass = false;
             preset.Task.OutputFormat = OutputFormat.Mp4;
             preset.Task.VideoEncodeRateType = VideoEncodeRateType.ConstantQuality;
+            preset.Task.LargeFile = true;
             
             return preset;
         }
