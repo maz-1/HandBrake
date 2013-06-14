@@ -645,8 +645,17 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
         (profile != PROFILE_BASELINE) &&
         (hb_qsv_info->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS) == 0)
     {
-        hb_error("encqsvInit: MediaSDK < 1.6, unsupported feature B-frames in MP4 container;"
-                 " please update your driver, use the MKV container or Baseline profile");
+        if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_SNB)
+        {
+            // hardware is too old, updating the driver won't help
+            hb_error("encqsvInit: MediaSDK < 1.6, B-frames in MP4 container not supported;"
+                     " please try newer hardware, use the MKV container or Baseline profile");
+        }
+        else
+        {
+            hb_error("encqsvInit: MediaSDK < 1.6, B-frames in MP4 container not supported;"
+                     " please update your driver, use the MKV container or Baseline profile");
+        }
         *job->die = 1;
         return -1;
     }
