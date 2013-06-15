@@ -1771,7 +1771,14 @@ static int HandleEvents( hb_handle_t * h )
 
 
             // Add framerate shaping filter
-            if (vrate)
+            if (vcodec == HB_VCODEC_QSV_H264)
+            {
+                // VFR yet unsupported
+                filter_cfr        = 1;
+                filter_vrate      = title->rate;
+                filter_vrate_base = title->rate_base;
+            }
+            else if (vrate)
             {
                 filter_cfr        = cfr;
                 filter_vrate      = 27000000;
@@ -1790,16 +1797,6 @@ static int HandleEvents( hb_handle_t * h )
                                           filter_vrate_base);
             hb_add_filter(job, filter, filter_str);
             free(filter_str);
-
-            if(vcodec == HB_VCODEC_QSV_H264)
-            {
-                // as per MSDK/QSV support
-                job->cfr = cfr = 1;
-
-                // to be extended
-                job->vrate = title->rate;
-                job->vrate_base = title->rate_base;
-            }
 
             // hb_job_init() will set a default muxer for us
             // only override it if a specific muxer has been set
