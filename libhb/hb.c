@@ -477,12 +477,17 @@ static int hb_qsv_info_init()
         {
             hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_1_6;
         }
+        if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_HSW)
+        {
+            hb_qsv_info->capabilities |= HB_QSV_CAP_BPYRAMID;
+        }
     }
     else
     {
         if (HB_QSV_MIN_SOFTWARE(1, 6))
         {
             hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_1_6;
+            hb_qsv_info->capabilities |= HB_QSV_CAP_BPYRAMID;
         }
     }
 

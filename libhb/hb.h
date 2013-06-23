@@ -163,6 +163,7 @@ typedef struct hb_qsv_info_s
     // supported version-specific or hardware-specific capabilities
     int capabilities;
 #define HB_QSV_CAP_MSDK_1_6 0x0000001
+#define HB_QSV_CAP_BPYRAMID 0x0000010
 
     // if a feature depends on the cpu generation
     enum
