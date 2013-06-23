@@ -387,6 +387,9 @@ static int hb_qsv_info_init()
         family = ((eax >> 8) & 0xf) + ((eax >> 20) & 0xff);
         model  = ((eax >> 4) & 0xf) + ((eax >> 12) & 0xf0);
 
+        // Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 2A
+        // Figure 3-8: Determination of Support for the Processor Brand String
+        // Table 3-17: Information Returned by CPUID Instruction
         ff_cpu_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
         if ((eax & 0x80000004) < 0x80000004)
         {
@@ -409,9 +412,9 @@ static int hb_qsv_info_init()
                          &hb_qsv_info->cpu_name[offset+8],
                          &hb_qsv_info->cpu_name[offset+12]);
         }
-        
-        // Intel 64 and IA-32 Architectures Software Developer's Manual
-        // Table 35-1. CPUID Signature Values of DisplayFamily_DisplayModel
+
+        // Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 3C
+        // Table 35-1: CPUID Signature Values of DisplayFamily_DisplayModel
         if (family == 0x06)
         {
             switch (model)
@@ -426,6 +429,7 @@ static int hb_qsv_info_init()
                     break;
                 case 0x3C:
                 case 0x45:
+                case 0x46:
                     hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_HSW;
                     break;
                 default:
