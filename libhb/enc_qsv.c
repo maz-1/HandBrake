@@ -98,6 +98,13 @@ struct hb_work_private_s
     uint32_t       frames_in;
     uint32_t       frames_out;
 
+#define BFRM_DELAY_MAX 2 // for B-pyramid
+    // for DTS generation (when MSDK < 1.6)
+    int            bfrm_delay;
+    int            bfrm_workaround;
+    int64_t        init_pts[BFRM_DELAY_MAX + 1];
+    hb_list_t     *list_dts;
+
     mfxExtCodingOptionSPSPPS    *sps_pps;
 
     int codec_profile;
@@ -127,6 +134,35 @@ struct hb_work_private_s
 };
 
 extern char* get_codec_id(hb_work_private_t *pv);
+
+// for DTS generation (when MSDK < 1.6)
+static void hb_qsv_add_new_dts(hb_list_t *list, int64_t new_dts)
+{
+    if (list != NULL)
+    {
+        int64_t *item = malloc(sizeof(int64_t));
+        if (item != NULL)
+        {
+            *item = new_dts;
+            hb_list_add(list, item);
+        }
+    }
+}
+static int64_t hb_qsv_pop_next_dts(hb_list_t *list)
+{
+    int64_t next_dts = INT64_MIN;
+    if (list != NULL && hb_list_count(list) > 0)
+    {
+        int64_t *item = hb_list_item(list, 0);
+        if (item != NULL)
+        {
+            next_dts = *item;
+            hb_list_rem(list, item);
+            free(item);
+        }
+    }
+    return next_dts;
+}
 
 int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     mfxStatus sts;
@@ -574,6 +610,26 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     pv->qsv_config.gop_ref_dist = videoParam.mfx.GopRefDist;
 
+    // check whether B-frames are used and compute the delay
+    pv->bfrm_delay  = pv->codec_profile == MFX_PROFILE_AVC_BASELINE ? 0 : 1;
+    pv->bfrm_delay += !!(hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID);
+    if (qsv_encode->m_mfxVideoParam.mfx.GopRefDist > 0)
+    {
+        pv->bfrm_delay = FFMIN(pv->bfrm_delay,
+                               qsv_encode->m_mfxVideoParam.mfx.GopRefDist - 1);
+    }
+    if (qsv_encode->m_mfxVideoParam.mfx.GopPicSize > 0)
+    {
+        pv->bfrm_delay = FFMIN(pv->bfrm_delay,
+                               qsv_encode->m_mfxVideoParam.mfx.GopPicSize - 2);
+    }
+    // sanitize
+    pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
+    pv->bfrm_delay = FFMIN(pv->bfrm_delay, BFRM_DELAY_MAX);
+    // check whether we need to generate DTS ourselves (MSDK < 1.6)
+    pv->bfrm_workaround = pv->bfrm_delay && !(hb_qsv_info->capabilities &
+                                              HB_QSV_CAP_MSDK_1_6);
+
     qsv_encode->is_init_done = 1;
 
     return 0;
@@ -638,27 +694,6 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
     w->config->h264.pps_length = 0;
 
     pv->is_vpp_present = 0;
-
-    // FIXME: please let this be temporary
-    // note: MKV only has PTS so it's unaffected
-    if ((job->mux & HB_MUX_MASK_MP4)  &&
-        (profile != PROFILE_BASELINE) &&
-        (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6) == 0)
-    {
-        if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_SNB)
-        {
-            // hardware is too old, updating the driver won't help
-            hb_error("encqsvInit: MediaSDK < 1.6, B-frames in MP4 container not supported;"
-                     " please try newer hardware, use the MKV container or Baseline profile");
-        }
-        else
-        {
-            hb_error("encqsvInit: MediaSDK < 1.6, B-frames in MP4 container not supported;"
-                     " please update your driver, use the MKV container or Baseline profile");
-        }
-        *job->die = 1;
-        return -1;
-    }
 
     return 0;
 }
@@ -804,6 +839,28 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 stage = av_qsv_get_last_stage( received_item );
                 work_surface = stage->out.p_surface;
             }
+
+            /*
+             * Generate output DTS based on input PTS.
+             *
+             * Depends on the B-frame delay:
+             *
+             * 0 -> ipts0, ipts1, ipts2...
+             * 1 -> ipts0 - ipts1, ipts1 - ipts1, ipts1, ipts2...
+             * 2 -> ipts0 - ipts2, ipts1 - ipts2, ipts2 - ipts2, ipts1, ipts2...
+             */
+            if (pv->bfrm_delay && pv->bfrm_workaround)
+            {
+                if (pv->frames_in <= pv->bfrm_delay)
+                {
+                    pv->init_pts[pv->frames_in] = work_surface->Data.TimeStamp;
+                }
+                if (pv->frames_in)
+                {
+                    hb_qsv_add_new_dts(pv->list_dts,
+                                       work_surface->Data.TimeStamp);
+                }
+            }
         }
         else{
             work_surface = NULL;
@@ -926,16 +983,35 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                     last_buf->next = buf;
                 last_buf = buf;
 
-                // simple for now but check on TimeStampCalc from MSDK
-                int64_t duration  = ((double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD /
-                                     (double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN) * 90000.;
+            // simple for now but check on TimeStampCalc from MSDK
+            int64_t duration  = ((double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD /
+                                 (double)qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN) * 90000.;
 
-                // start        -> PTS
-                // renderOffset -> DTS
-                buf->s.start = buf->s.renderOffset = task->bs->TimeStamp;
-                buf->s.stop  = buf->s.start + duration;
-                if (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6)
+            // start        -> PTS
+            // renderOffset -> DTS
+            buf->s.start    = buf->s.renderOffset = task->bs->TimeStamp;
+            buf->s.stop     = buf->s.start + duration;
+            buf->s.duration = duration;
+            if (pv->bfrm_delay)
+            {
+                if (!pv->bfrm_workaround)
+                {
                     buf->s.renderOffset = task->bs->DecodeTimeStamp;
+                }
+                else
+                {
+                    // MSDK API < 1.6, so generate our own DTS
+                    if (pv->frames_out <= pv->bfrm_delay)
+                    {
+                        buf->s.renderOffset = (pv->init_pts[pv->frames_out] -
+                                               pv->init_pts[pv->bfrm_delay]);
+                    }
+                    else
+                    {
+                        buf->s.renderOffset = hb_qsv_pop_next_dts(pv->list_dts);
+                    }
+                }
+            }
 
                 if(pv->qsv_config.gop_ref_dist > 1)
                     pv->qsv_config.gop_ref_dist--;
