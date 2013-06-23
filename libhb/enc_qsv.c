@@ -611,8 +611,11 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     pv->qsv_config.gop_ref_dist = videoParam.mfx.GopRefDist;
 
     // check whether B-frames are used and compute the delay
-    pv->bfrm_delay  = pv->codec_profile == MFX_PROFILE_AVC_BASELINE ? 0 : 1;
-    pv->bfrm_delay += !!(hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID);
+    pv->bfrm_delay = pv->codec_profile == MFX_PROFILE_AVC_BASELINE ? 0 : 1;
+    if (pv->bfrm_delay)
+    {
+        pv->bfrm_delay += !!(hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID);
+    }
     if (qsv_encode->m_mfxVideoParam.mfx.GopRefDist > 0)
     {
         pv->bfrm_delay = FFMIN(pv->bfrm_delay,
