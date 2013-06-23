@@ -377,55 +377,7 @@ static int hb_qsv_info_init()
         return -1;
     }
 
-    mfxSession session;
-    hb_qsv_info->features              = 0;
-    hb_qsv_info->minimum_version.Major = HB_QSV_MINVERSION_MAJOR;
-    hb_qsv_info->minimum_version.Minor = HB_QSV_MINVERSION_MINOR;
-    hb_qsv_info->software_available    = hb_qsv_info->hardware_available = 0;
-
-    // check for software fallback
-    if (MFXInit(MFX_IMPL_SOFTWARE,
-                &hb_qsv_info->minimum_version, &session) == MFX_ERR_NONE)
-    {
-        hb_qsv_info->software_available = 1;
-        // our minimum is supported, but query the actual version
-        MFXQueryVersion(session, &hb_qsv_info->software_version);
-        MFXClose(session);
-    }
-
-    // check for actual hardware support, Hardware acceleration via any supported OS infrastructure
-    if (MFXInit(MFX_IMPL_HARDWARE_ANY|MFX_IMPL_VIA_ANY,
-                &hb_qsv_info->minimum_version, &session) == MFX_ERR_NONE)
-    {
-        hb_qsv_info->hardware_available = 1;
-        // our minimum is supported, but query the actual version
-        MFXQueryVersion(session, &hb_qsv_info->hardware_version);
-        MFXClose(session);
-    }
-
-    // support either implementation (at least for now)
-    hb_qsv_info->qsv_available = (hb_qsv_info->hardware_available ||
-                                  hb_qsv_info->software_available);
-
-    // check for version-dependent features
-    // we only use software as a fallback, so check hardware first
-    if (hb_qsv_info->hardware_available)
-    {
-        if (HB_QSV_MIN_HARDWARE(1, 6))
-        {
-            hb_qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
-            hb_qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
-        }
-    }
-    else
-    {
-        if (HB_QSV_MIN_SOFTWARE(1, 6))
-        {
-            hb_qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
-            hb_qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
-        }
-    }
-
+    // detect the CPU platform to check for hardware-specific capabilities
     if (av_get_cpu_flags() & AV_CPU_FLAG_SSE)
     {
         int eax, ebx, ecx, edx;
@@ -457,7 +409,7 @@ static int hb_qsv_info_init()
                          &hb_qsv_info->cpu_name[offset+8],
                          &hb_qsv_info->cpu_name[offset+12]);
         }
-
+        
         // Intel 64 and IA-32 Architectures Software Developer's Manual
         // Table 35-1. CPUID Signature Values of DisplayFamily_DisplayModel
         if (family == 0x06)
@@ -468,21 +420,65 @@ static int hb_qsv_info_init()
                 case 0x2D:
                     hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_SNB;
                     break;
-
                 case 0x3A:
                 case 0x3E:
                     hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_IVB;
                     break;
-
                 case 0x3C:
                 case 0x45:
                     hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_HSW;
                     break;
-
                 default:
                     hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_UNSPECIFIED;
                     break;
             }
+        }
+    }
+
+    mfxSession session;
+    hb_qsv_info->capabilities          = 0;
+    hb_qsv_info->minimum_version.Major = HB_QSV_MINVERSION_MAJOR;
+    hb_qsv_info->minimum_version.Minor = HB_QSV_MINVERSION_MINOR;
+    hb_qsv_info->software_available    = hb_qsv_info->hardware_available = 0;
+
+    // check for software fallback
+    if (MFXInit(MFX_IMPL_SOFTWARE,
+                &hb_qsv_info->minimum_version, &session) == MFX_ERR_NONE)
+    {
+        hb_qsv_info->software_available = 1;
+        // our minimum is supported, but query the actual version
+        MFXQueryVersion(session, &hb_qsv_info->software_version);
+        MFXClose(session);
+    }
+
+    // check for actual hardware support, Hardware acceleration via any supported OS infrastructure
+    if (MFXInit(MFX_IMPL_HARDWARE_ANY|MFX_IMPL_VIA_ANY,
+                &hb_qsv_info->minimum_version, &session) == MFX_ERR_NONE)
+    {
+        hb_qsv_info->hardware_available = 1;
+        // our minimum is supported, but query the actual version
+        MFXQueryVersion(session, &hb_qsv_info->hardware_version);
+        MFXClose(session);
+    }
+
+    // support either implementation (at least for now)
+    hb_qsv_info->qsv_available = (hb_qsv_info->hardware_available ||
+                                  hb_qsv_info->software_available);
+
+    // check for version-specific or hardware-specific capabilities
+    // we only use software as a fallback, so check hardware first
+    if (hb_qsv_info->hardware_available)
+    {
+        if (HB_QSV_MIN_HARDWARE(1, 6))
+        {
+            hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_1_6;
+        }
+    }
+    else
+    {
+        if (HB_QSV_MIN_SOFTWARE(1, 6))
+        {
+            hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_1_6;
         }
     }
 

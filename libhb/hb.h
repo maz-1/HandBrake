@@ -160,10 +160,9 @@ typedef struct hb_qsv_info_s
     // version information
     mfxVersion minimum_version, hardware_version, software_version;
 
-    // supported version-dependent features
-    int features;
-#define HB_QSV_FEATURE_DECODE_TIMESTAMPS 0x0000001
-#define HB_QSV_FEATURE_CODEC_OPTIONS_2   0x0000002 // see mfxExtCodingOption2
+    // supported version-specific or hardware-specific capabilities
+    int capabilities;
+#define HB_QSV_CAP_MSDK_1_6 0x0000001
 
     // if a feature depends on the cpu generation
     enum

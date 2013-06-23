@@ -4205,22 +4205,7 @@ static int ParseOptions( int argc, char ** argv )
                 if (hb_qsv_available())
                 {
                     /* XXX: for testing workarounds */
-                    hb_qsv_info->features     = 0;
-                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_UNSPECIFIED;
-                    if (hb_qsv_info->hardware_available)
-                    {
-                        hb_qsv_info->hardware_version.Major =
-                            hb_qsv_info->minimum_version.Major;
-                        hb_qsv_info->hardware_version.Minor =
-                            hb_qsv_info->minimum_version.Minor;
-                    }
-                    if (hb_qsv_info->software_available)
-                    {
-                        hb_qsv_info->software_version.Major =
-                            hb_qsv_info->minimum_version.Major;
-                        hb_qsv_info->software_version.Minor =
-                            hb_qsv_info->minimum_version.Minor;
-                    }
+                    hb_qsv_info->capabilities &= ~HB_QSV_CAP_MSDK_1_6;
                 }
 #endif
                 break;

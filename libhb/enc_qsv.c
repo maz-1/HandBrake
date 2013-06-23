@@ -349,7 +349,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     }
 
     // version-specific encoder options
-    if (hb_qsv_info->features & HB_QSV_FEATURE_CODEC_OPTIONS_2)
+    if (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6)
     {
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_mbbrc)) != NULL && entry->value != NULL)
         {
@@ -643,7 +643,7 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
     // note: MKV only has PTS so it's unaffected
     if ((job->mux & HB_MUX_MASK_MP4)  &&
         (profile != PROFILE_BASELINE) &&
-        (hb_qsv_info->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS) == 0)
+        (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6) == 0)
     {
         if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_SNB)
         {
@@ -934,7 +934,7 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 // renderOffset -> DTS
                 buf->s.start = buf->s.renderOffset = task->bs->TimeStamp;
                 buf->s.stop  = buf->s.start + duration;
-                if (hb_qsv_info->features & HB_QSV_FEATURE_DECODE_TIMESTAMPS)
+                if (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6)
                     buf->s.renderOffset = task->bs->DecodeTimeStamp;
 
                 if(pv->qsv_config.gop_ref_dist > 1)
