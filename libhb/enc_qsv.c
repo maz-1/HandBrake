@@ -686,6 +686,10 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
         }
     }
 
+    // let the muxer know whether to expect B-frames or not
+    // FIXME: we must do this here even though we don't have all the info yet
+    job->areBframes = pv->codec_profile != MFX_PROFILE_AVC_BASELINE;
+
     // tbd make it very properly
     w->config->h264.sps[1] = profile;
     w->config->h264.sps[2] = 0;
