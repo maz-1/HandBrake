@@ -627,8 +627,16 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
     pv->bfrm_delay = FFMIN(pv->bfrm_delay, BFRM_DELAY_MAX);
     // check whether we need to generate DTS ourselves (MSDK < 1.6)
-    pv->bfrm_workaround = pv->bfrm_delay && !(hb_qsv_info->capabilities &
-                                              HB_QSV_CAP_MSDK_1_6);
+    if (pv->bfrm_delay && !(hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6))
+    {
+        pv->bfrm_workaround = 1;
+        pv->list_dts        = hb_list_init();
+    }
+    else
+    {
+        pv->bfrm_workaround = 0;
+        pv->list_dts        = NULL;
+    }
 
     qsv_encode->is_init_done = 1;
 
@@ -779,6 +787,17 @@ void encqsvClose( hb_work_object_t * w )
         av_freep(&pv->sps_pps->SPSBuffer);
         av_freep(&pv->sps_pps->PPSBuffer);
         av_freep(&pv->sps_pps);
+    }
+
+    if (pv != NULL && pv->list_dts != NULL)
+    {
+        while (hb_list_count(pv->list_dts) > 0)
+        {
+            int64_t *item = hb_list_item(pv->list_dts, 0);
+            hb_list_rem(pv->list_dts, item);
+            free(item);
+        }
+        hb_list_close(&pv->list_dts);
     }
 
     free( pv );
