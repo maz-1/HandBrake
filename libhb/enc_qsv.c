@@ -618,13 +618,11 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     }
     if (qsv_encode->m_mfxVideoParam.mfx.GopRefDist > 0)
     {
-        pv->bfrm_delay = FFMIN(pv->bfrm_delay,
-                               qsv_encode->m_mfxVideoParam.mfx.GopRefDist - 1);
+        pv->bfrm_delay = FFMIN(pv->bfrm_delay, videoParam.mfx.GopRefDist - 1);
     }
     if (qsv_encode->m_mfxVideoParam.mfx.GopPicSize > 0)
     {
-        pv->bfrm_delay = FFMIN(pv->bfrm_delay,
-                               qsv_encode->m_mfxVideoParam.mfx.GopPicSize - 2);
+        pv->bfrm_delay = FFMIN(pv->bfrm_delay, videoParam.mfx.GopPicSize - 2);
     }
     // sanitize
     pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
