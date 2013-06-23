@@ -408,10 +408,22 @@ static int hb_qsv_info_init()
                                   hb_qsv_info->software_available);
 
     // check for version-dependent features
-    if (HB_QSV_MIN_SOFTWARE(1, 6) || HB_QSV_MIN_HARDWARE(1, 6))
+    // we only use software as a fallback, so check hardware first
+    if (hb_qsv_info->hardware_available)
     {
-        hb_qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
-        hb_qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
+        if (HB_QSV_MIN_HARDWARE(1, 6))
+        {
+            hb_qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
+            hb_qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
+        }
+    }
+    else
+    {
+        if (HB_QSV_MIN_SOFTWARE(1, 6))
+        {
+            hb_qsv_info->features |= HB_QSV_FEATURE_DECODE_TIMESTAMPS;
+            hb_qsv_info->features |= HB_QSV_FEATURE_CODEC_OPTIONS_2;
+        }
     }
 
     if (av_get_cpu_flags() & AV_CPU_FLAG_SSE)
