@@ -132,6 +132,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Attributes\ShortName.cs" />
     <Compile Include="Converters.cs" />
     <Compile Include="EventArgs\EncodeCompletedEventArgs.cs" />
     <Compile Include="EventArgs\EncodeProgressEventArgs.cs" />
@@ -168,6 +169,7 @@
     <Compile Include="Model\Encoding\Detelecine.cs" />
     <Compile Include="Model\Encoding\EncodingProfile.cs" />
     <Compile Include="Model\Encoding\HBMixdown.cs" />
+    <Compile Include="Model\Encoding\HBRate.cs" />
     <Compile Include="Model\Encoding\HBVideoEncoder.cs" />
     <Compile Include="Model\Encoding\Mixdown.cs" />
     <Compile Include="Model\Encoding\OutputExtension.cs" />

@@ -922,6 +922,8 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        public int ProgressPercentage { get; set; }
+
         #endregion
 
         #region Load and Shutdown Handling
@@ -936,7 +938,11 @@ namespace HandBrakeWPF.ViewModels
             // Perform an update check if required
             this.updateService.PerformStartupUpdateCheck(this.HandleUpdateCheckResults);
 
+            // Show or Hide the Preset Panel.
+            this.IsPresetPanelShowing = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowPresetPanel);
+
             // Setup the presets.
+            this.presetService.Load();
             if (this.presetService.CheckIfPresetsAreOutOfDate())
                 if (!this.userSettingService.GetUserSetting<bool>(UserSettingConstants.PresetNotification))
                     this.errorService.ShowMessageBox("HandBrake has determined your built-in presets are out of date... These presets will now be updated." + Environment.NewLine +
@@ -950,9 +956,6 @@ namespace HandBrakeWPF.ViewModels
 
             // Populate the Source menu with drives.
             this.SourceMenu = new BindingList<SourceMenuItem>(this.GenerateSourceMenu());
-
-            // Show or Hide the Preset Panel.
-            this.IsPresetPanelShowing = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowPresetPanel);
 
             // Log Cleaning
             if (userSettingService.GetUserSetting<bool>(UserSettingConstants.ClearOldLogs))
@@ -1910,6 +1913,8 @@ namespace HandBrakeWPF.ViewModels
                         }
 
                         lastEncodePercentage = percent;
+                        this.ProgressPercentage = percent;
+                        this.NotifyOfPropertyChange(() => ProgressPercentage);
                     }
                     else
                     {
@@ -2016,14 +2021,16 @@ namespace HandBrakeWPF.ViewModels
                 Image = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/HandBrake;component/Views/Images/folder.png")), Width = 16, Height = 16 },
                 Text = "Open Folder",
                 Command = new SourceMenuCommand(this.FolderScan),
-                IsDrive = false
+                IsDrive = false,
+                InputGestureText = "Ctrl + R"
             };
             SourceMenuItem fileScan = new SourceMenuItem
             {
                 Image = new Image { Source = new BitmapImage(new Uri("pack://application:,,,/HandBrake;component/Views/Images/Movies.png")), Width = 16, Height = 16 },
                 Text = "Open File",
                 Command = new SourceMenuCommand(this.FileScan),
-                IsDrive = false
+                IsDrive = false,
+                InputGestureText = "Ctrl + F"
             };
 
             SourceMenuItem titleSpecific = new SourceMenuItem { Text = "Title Specific Scan" };

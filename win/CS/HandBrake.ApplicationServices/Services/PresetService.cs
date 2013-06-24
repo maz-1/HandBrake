@@ -39,11 +39,6 @@ namespace HandBrake.ApplicationServices.Services
         private static readonly XmlSerializer Ser = new XmlSerializer(typeof(List<Preset>));
 
         /// <summary>
-        /// The User Setting Service
-        /// </summary>
-        private readonly IUserSettingService userSettingService;
-
-        /// <summary>
         /// User Preset Default Catgory Name
         /// </summary>
         public static string UserPresetCatgoryName = "User Presets";
@@ -61,29 +56,9 @@ namespace HandBrake.ApplicationServices.Services
         /// <summary>
         /// A Collection of presets
         /// </summary>
-        private ObservableCollection<Preset> presets = new ObservableCollection<Preset>();
+        private readonly ObservableCollection<Preset> presets = new ObservableCollection<Preset>();
 
         #endregion
-
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PresetService"/> class.
-        /// </summary>
-        /// <param name="userSettingService">
-        /// The user Setting Service.
-        /// </param>
-        public PresetService(IUserSettingService userSettingService)
-        {
-            this.userSettingService = userSettingService;
-
-            // If the preset file doesn't exist. Create it.
-            if (!File.Exists(this.builtInPresetFile))
-            {
-                this.UpdateBuiltInPresets();
-            }
-
-            this.LoadPresets();
-        }
 
         /// <summary>
         /// Gets a Collection of presets.
@@ -113,6 +88,20 @@ namespace HandBrake.ApplicationServices.Services
         }
 
         #region Public Methods
+
+        /// <summary>
+        /// The load.
+        /// </summary>
+        public void Load()
+        {
+            // If the preset file doesn't exist. Create it.
+            if (!File.Exists(this.builtInPresetFile))
+            {
+                this.UpdateBuiltInPresets();
+            }
+
+            this.LoadPresets();
+        }
 
         /// <summary>
         /// Add a new preset to the system.
@@ -413,7 +402,7 @@ namespace HandBrake.ApplicationServices.Services
                 // Recover from Error.
                 if (File.Exists(file))
                 {
-                    string disabledFile = file + ".old";
+                    string disabledFile = string.Format("{0}.{1}", file, GeneralUtilities.ProcessId);
                     File.Move(file, disabledFile);
                     if (File.Exists(file))
                     {
@@ -458,7 +447,6 @@ namespace HandBrake.ApplicationServices.Services
             {
                 RecoverFromCorruptedPresetFile(this.builtInPresetFile);
                 this.UpdateBuiltInPresets();
-                throw new GeneralApplicationException("HandBrake has detected corruption in the presets file and has attempted to rebuild this file.", "Please restart HandBrake before continuing.", exc);              
             }
 
             // Load in the users Presets from UserPresets.xml
@@ -479,7 +467,7 @@ namespace HandBrake.ApplicationServices.Services
             catch (Exception exc)
             {
                 RecoverFromCorruptedPresetFile(this.userPresetFile);
-                throw new GeneralApplicationException("HandBrake has detected corruption in the presets file and has attempted to rebuild this file.", "Please restart HandBrake before continuing.", exc);    
+                throw new GeneralApplicationException("HandBrake has detected a problem with your presets.", "Your old presets file has been renamed so that it doesn't get loaded on next launch.", exc);    
             }
         }
 
