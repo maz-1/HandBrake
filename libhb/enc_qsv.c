@@ -97,6 +97,7 @@ struct hb_work_private_s
     hb_esconfig_t  *config;
     uint32_t       frames_in;
     uint32_t       frames_out;
+    int64_t        last_start;
 
 #define BFRM_DELAY_MAX 2 // for B-pyramid
     // for DTS generation (when MSDK < 1.6)
@@ -659,6 +660,7 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
     pv->delayed_processing = hb_list_init();
     pv->frames_in = 0;
     pv->frames_out = 0;
+    pv->last_start = INT64_MIN;
 
     pv->job = job;
     pv->config = w->config;
@@ -863,6 +865,18 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 stage = av_qsv_get_last_stage( received_item );
                 work_surface = stage->out.p_surface;
             }
+
+            /*
+             * Debugging code to check that the upstream modules have generated
+             * a continuous, self-consistent frame stream.
+             */
+            int64_t start = work_surface->Data.TimeStamp;
+            if (pv->last_start > start)
+            {
+                hb_log("encqsvWork: input continuity error, last start %"PRId64" start %"PRId64"",
+                       pv->last_start, start);
+            }
+            pv->last_start = start;
 
             /*
              * Generate output DTS based on input PTS.
