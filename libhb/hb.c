@@ -6,7 +6,7 @@
    It may be used under the terms of the GNU General Public License v2.
    For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
  */
- 
+
 #include "hb.h"
 #include "hbffmpeg.h"
 #include <stdio.h>
@@ -24,7 +24,7 @@
 struct hb_handle_s
 {
     int            id;
-    
+
     /* The "Check for update" thread */
     int            build;
     char           version[32];
@@ -59,7 +59,7 @@ struct hb_handle_s
        increments each time the scan thread completes*/
     int            scanCount;
     volatile int   scan_die;
-    
+
     /* Stash of persistent data between jobs, for stuff
        like correcting frame count and framerate estimates
        on multi-pass encodes where frames get dropped.     */
@@ -119,7 +119,7 @@ int hb_avcodec_open(AVCodecContext *avctx, AVCodec *codec,
 {
     int ret;
 
-    if ((thread_count == HB_FFMPEG_THREADS_AUTO || thread_count > 0) && 
+    if ((thread_count == HB_FFMPEG_THREADS_AUTO || thread_count > 0) &&
         (codec->type == AVMEDIA_TYPE_VIDEO))
     {
         avctx->thread_count = (thread_count == HB_FFMPEG_THREADS_AUTO) ?
@@ -208,7 +208,7 @@ hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat,
         av_opt_set_int(ctx, "dst_format", dstFormat, 0);
         av_opt_set_int(ctx, "sws_flags", flags, 0);
 
-        sws_setColorspaceDetails( ctx, 
+        sws_setColorspaceDetails( ctx,
                       sws_getCoefficients( SWS_CS_DEFAULT ), // src colorspace
                       srcRange, // src range 0 = MPG, 1 = JPG
                       sws_getCoefficients( SWS_CS_DEFAULT ), // dst colorspace
@@ -221,7 +221,7 @@ hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat,
             fprintf(stderr, "Cannot initialize resampling context\n");
             sws_freeContext(ctx);
             ctx = NULL;
-        } 
+        }
     }
     return ctx;
 }
@@ -349,7 +349,6 @@ void hb_ff_set_sample_fmt(AVCodecContext *context, AVCodec *codec,
 #ifdef USE_QSV
 // make the Intel QSV information available to the UIs
 hb_qsv_info_t *hb_qsv_info = NULL;
-#endif 
 
 // minimum supported version (currently 1.4, for Sandy Bridge support)
 // let's keep this independent of what Libav can do for decode
@@ -617,9 +616,9 @@ hb_handle_t * hb_init( int verbose, int update_check )
     global_verbosity_level = verbose;
     if( verbose )
         putenv( "HB_DEBUG=1" );
-    
+
     h->id = hb_instance_counter++;
-    
+
     /* Check for an update on the website if asked to */
     h->build = -1;
 
@@ -677,7 +676,7 @@ hb_handle_t * hb_init( int verbose, int update_check )
     h->die         = 0;
     h->main_thread = hb_thread_init( "libhb", thread_func, h,
                                      HB_NORMAL_PRIORITY );
-    
+
     return h;
 }
 
@@ -753,7 +752,7 @@ hb_handle_t * hb_init_dl( int verbose, int update_check )
     h->main_thread = hb_thread_init( "libhb", thread_func, h,
                                      HB_NORMAL_PRIORITY );
 
-	return h;
+    return h;
 }
 
 
@@ -853,8 +852,8 @@ void hb_scan( hb_handle_t * h, const char * path, int title_index,
     }
 
     hb_log( "hb_scan: path=%s, title_index=%d", path, title_index );
-    h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index, 
-                                   &h->title_set, preview_count, 
+    h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index,
+                                   &h->title_set, preview_count,
                                    store_previews, min_duration );
 }
 
@@ -1077,7 +1076,7 @@ void hb_get_preview( hb_handle_t * h, hb_job_t * job, int picture,
 int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int threshold, int prog_equal, int prog_diff, int prog_threshold )
 {
     int j, k, n, off, cc_1, cc_2, cc[3];
-	// int flag[3] ; // debugging flag
+    // int flag[3] ; // debugging flag
     uint16_t s1, s2, s3, s4;
     cc_1 = 0; cc_2 = 0;
 
@@ -1089,7 +1088,7 @@ int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int thre
         threshold = prog_threshold;
     }
 
-    /* One pas for Y, one pass for Cb, one pass for Cr */    
+    /* One pas for Y, one pass for Cb, one pass for Cr */
     for( k = 0; k < 3; k++ )
     {
         uint8_t * data = buf->plane[k].data;
@@ -1136,7 +1135,7 @@ int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int thre
 
     /* HandBrake is all yuv420, so weight the average percentage of all 3 planes accordingly.*/
     int average_cc = ( 2 * cc[0] + ( cc[1] / 2 ) + ( cc[2] / 2 ) ) / 3;
-    
+
     /* Now see if that average percentage of combed pixels surpasses the threshold percentage given by the user.*/
     if( average_cc > threshold )
     {
@@ -1175,7 +1174,7 @@ void hb_set_anamorphic_size( hb_job_t * job,
     double storage_aspect = (double)cropped_width / (double)cropped_height;
     int mod = job->modulus ? job->modulus : 16;
     double aspect = title->aspect;
-    
+
     int64_t pixel_aspect_width  = job->anamorphic.par_width;
     int64_t pixel_aspect_height = job->anamorphic.par_height;
 
@@ -1247,7 +1246,7 @@ void hb_set_anamorphic_size( hb_job_t * job,
             *output_height = MULTIPLE_MOD( cropped_height, 2 );
             // adjust the source PAR for new width/height
             // new PAR = source PAR * ( old width / new_width ) * ( new_height / old_height )
-            pixel_aspect_width = (int64_t)title->pixel_aspect_width * cropped_width * (*output_height);            
+            pixel_aspect_width = (int64_t)title->pixel_aspect_width * cropped_width * (*output_height);
             pixel_aspect_height = (int64_t)title->pixel_aspect_height * (*output_width) * cropped_height;
         break;
 
@@ -1278,7 +1277,7 @@ void hb_set_anamorphic_size( hb_job_t * job,
 
             /* Time to get picture height that divide cleanly.*/
             height = MULTIPLE_MOD( height, mod);
-            
+
             if ( maxHeight && (maxHeight < height) )
             {
                 height = maxHeight;
@@ -1296,20 +1295,20 @@ void hb_set_anamorphic_size( hb_job_t * job,
             *output_width = width;
             *output_height = height;
         break;
-            
+
         case 3:
             /* Anamorphic 3: Power User Jamboree
                - Set everything based on specified values */
-            
+
             /* Use specified storage dimensions */
             storage_aspect = (double)job->width / (double)job->height;
             width = job->width;
             height = job->height;
-            
+
             /* Time to get picture dimensions that divide cleanly.*/
             width  = MULTIPLE_MOD( width, mod);
             height = MULTIPLE_MOD( height, mod);
-            
+
             /* Bind to max dimensions */
             if( maxWidth && width > maxWidth )
             {
@@ -1338,8 +1337,8 @@ void hb_set_anamorphic_size( hb_job_t * job,
                     width  = MULTIPLE_MOD( width, mod);
                 }
             }
-            
-            /* That finishes the storage dimensions. On to display. */            
+
+            /* That finishes the storage dimensions. On to display. */
             if( job->anamorphic.dar_width && job->anamorphic.dar_height )
             {
                 /* We need to adjust the PAR to produce this aspect. */
@@ -1367,13 +1366,13 @@ void hb_set_anamorphic_size( hb_job_t * job,
                     pixel_aspect_height = width;
                 }
             }
-            
+
             /* Back to caller */
             *output_width = width;
             *output_height = height;
         break;
     }
-    
+
     /* While x264 is smart enough to reduce fractions on its own, libavcodec
      * needs some help with the math, so lose superfluous factors. */
     hb_limit_rational64( &pixel_aspect_width, &pixel_aspect_height,
@@ -1613,7 +1612,7 @@ void hb_add( hb_handle_t * h, hb_job_t * job )
          * language.
          */
         job_copy->list_subtitle = hb_list_init();
-    
+
         for( i = 0; i < hb_list_count( job->title->list_subtitle ); i++ )
         {
             subtitle = hb_list_item( job->title->list_subtitle, i );
@@ -1826,7 +1825,7 @@ void hb_close( hb_handle_t ** _h )
     hb_title_t * title;
 
     h->die = 1;
-    
+
     hb_thread_close( &h->main_thread );
 
     while( ( title = hb_list_item( h->title_set.list_title, 0 ) ) )
@@ -1867,7 +1866,7 @@ int hb_global_init()
     hb_register(&hb_reader);
     hb_register(&hb_sync_video);
     hb_register(&hb_sync_audio);
-ifdef USE_QSV
+#ifdef USE_QSV
     hb_register(&hb_encqsv);
 #endif
     hb_register(&hb_deca52);
@@ -1896,7 +1895,7 @@ ifdef USE_QSV
     hb_register(&hb_enctheora);
     hb_register(&hb_encvorbis);
     hb_register(&hb_encx264);
-    
+
     hb_common_global_init();
 
 #ifdef USE_QSV
@@ -1919,7 +1918,7 @@ void hb_global_close()
     char dirname[1024];
     DIR * dir;
     struct dirent * entry;
-    
+
     /* Find and remove temp folder */
     memset( dirname, 0, 1024 );
     hb_get_temporary_directory( dirname );
@@ -1998,9 +1997,9 @@ static void thread_func( void * _h )
             }
             hb_lock( h->state_lock );
             h->state.state = HB_STATE_SCANDONE; //originally state.state
-			hb_unlock( h->state_lock );
-			/*we increment this sessions scan count by one for the MacGui
-			to trigger a new source being set */
+            hb_unlock( h->state_lock );
+            /*we increment this sessions scan count by one for the MacGui
+            to trigger a new source being set */
             h->scanCount++;
         }
 
@@ -2054,7 +2053,7 @@ static void redirect_thread_func(void * _data)
     dup2(pfd[1], /*stderr*/ 2);
 #endif
     FILE * log_f = fdopen(pfd[0], "rb");
-    
+
     char line_buffer[500];
     while(fgets(line_buffer, 500, log_f) != NULL)
     {
