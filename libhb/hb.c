@@ -1858,6 +1858,15 @@ int hb_global_init()
         return -1;
     }
 
+#ifdef USE_QSV
+    result = hb_qsv_info_init();
+    if (result < 0)
+    {
+        hb_error("hb_qsv_info_init failed!");
+        return -1;
+    }
+#endif
+
     /* libavcodec */
     hb_avcodec_init();
 
@@ -1897,15 +1906,6 @@ int hb_global_init()
     hb_register(&hb_encx264);
 
     hb_common_global_init();
-
-#ifdef USE_QSV
-    result = hb_qsv_info_init();
-    if (result < 0)
-    {
-        hb_error("hb_qsv_info_init failed!");
-        return -1;
-    }
-#endif
 
     return result;
 }
