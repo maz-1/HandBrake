@@ -99,6 +99,13 @@ struct hb_work_private_s
     uint32_t       frames_out;
     int64_t        last_start;
 
+    mfxEncodeCtrl *force_keyframe;
+    struct
+    {
+        int     index;
+        int64_t start;
+    } next_chapter;
+
 #define BFRM_DELAY_MAX 2 // for B-pyramid
     // for DTS generation (when MSDK < 1.6)
     int            bfrm_delay;
@@ -662,6 +669,23 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
     pv->frames_out = 0;
     pv->last_start = INT64_MIN;
 
+    // set up a re-usable mfxEncodeCtrl to force keyframes (e.g. for chapters)
+    pv->force_keyframe = calloc(1, sizeof(mfxEncodeCtrl));
+    if (pv->force_keyframe == NULL)
+    {
+        hb_error("encqsvInit: mfxEncodeCtrl allocation failure");
+        return -1;
+    }
+    pv->force_keyframe->QP          = 0;
+    pv->force_keyframe->FrameType   = MFX_FRAMETYPE_I|MFX_FRAMETYPE_IDR|MFX_FRAMETYPE_REF;
+    pv->force_keyframe->NumExtParam = 0;
+    pv->force_keyframe->NumPayload  = 0;
+    pv->force_keyframe->ExtParam    = NULL;
+    pv->force_keyframe->Payload     = NULL;
+
+    pv->next_chapter.index = 0;
+    pv->next_chapter.start = INT64_MIN;
+
     pv->job = job;
     pv->config = w->config;
     av_qsv_context *qsv = job->qsv;
@@ -792,15 +816,23 @@ void encqsvClose( hb_work_object_t * w )
         av_freep(&pv->sps_pps);
     }
 
-    if (pv != NULL && pv->list_dts != NULL)
+    if (pv != NULL)
     {
-        while (hb_list_count(pv->list_dts) > 0)
+        if (pv->list_dts != NULL)
         {
-            int64_t *item = hb_list_item(pv->list_dts, 0);
-            hb_list_rem(pv->list_dts, item);
-            free(item);
+            while (hb_list_count(pv->list_dts) > 0)
+            {
+                int64_t *item = hb_list_item(pv->list_dts, 0);
+                hb_list_rem(pv->list_dts, item);
+                free(item);
+            }
+            hb_list_close(&pv->list_dts);
         }
-        hb_list_close(&pv->list_dts);
+        if (pv->force_keyframe != NULL)
+        {
+            free(pv->force_keyframe);
+            pv->force_keyframe = NULL;
+        }
     }
 
     free( pv );
@@ -843,6 +875,7 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     while( 1 ){
 
     {
+        mfxEncodeCtrl    *work_control = NULL;
         mfxFrameSurface1 *work_surface = NULL;
 
         if(!is_end) {
@@ -899,6 +932,31 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                                        work_surface->Data.TimeStamp);
                 }
             }
+
+            /*
+             * Chapters have to start with a keyframe so request that this
+             * frame be coded as IDR. Since there may be several frames
+             * buffered in the encoder, remember the timestamp so when this
+             * frame finally pops out of the encoder we'll mark its buffer
+             * as the start of a chapter.
+             */
+            if (in->s.new_chap > 0 && job->chapter_markers)
+            {
+                if (!pv->next_chapter.index)
+                {
+                    pv->next_chapter.start = work_surface->Data.TimeStamp;
+                    pv->next_chapter.index = in->s.new_chap;
+                    work_control           = pv->force_keyframe;
+                }
+                else
+                {
+                    // however unlikely, this can happen in theory
+                    hb_log("encqsvWork: got chapter %d before we could write chapter %d, dropping marker",
+                           in->s.new_chap, pv->next_chapter.index);
+                }
+                // don't let 'work_loop' put a chapter mark on the wrong buffer
+                in->s.new_chap = 0;
+            }
         }
         else{
             work_surface = NULL;
@@ -911,7 +969,9 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         for (;;)
         {
             // Encode a frame asychronously (returns immediately)
-            sts = MFXVideoENCODE_EncodeFrameAsync(qsv->mfx_session, NULL, work_surface, task->bs, qsv_encode->p_syncp[sync_idx]->p_sync );
+            sts = MFXVideoENCODE_EncodeFrameAsync(qsv->mfx_session,
+                                                  work_control, work_surface, task->bs,
+                                                  qsv_encode->p_syncp[sync_idx]->p_sync);
 
             if (MFX_ERR_MORE_DATA == sts || (MFX_ERR_NONE <= sts && MFX_WRN_DEVICE_BUSY != sts))
                 if (work_surface && !pv->is_sys_mem)
@@ -1069,6 +1129,18 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 {
                     w->config->h264.init_delay = -buf->s.renderOffset;
                 }
+            }
+
+            /*
+             * If we have a chapter marker pending and this frame's
+             * presentation time stamp is at or after the marker's time stamp,
+             * use this as the chapter start.
+             */
+            if (pv->next_chapter.index && buf->s.frametype == HB_FRAME_IDR &&
+                pv->next_chapter.start <= buf->s.start)
+            {
+                buf->s.new_chap = pv->next_chapter.index;
+                pv->next_chapter.index = 0;
             }
 
                 if(pv->qsv_config.gop_ref_dist > 1)
