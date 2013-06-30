@@ -1049,6 +1049,26 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                         buf->s.renderOffset = hb_qsv_pop_next_dts(pv->list_dts);
                     }
                 }
+
+                /*
+                 * In the MP4 container, DT(0) = STTS(0) = 0.
+                 *
+                 * Which gives us:
+                 * CT(0) = CTTS(0) + STTS(0) = CTTS(0) = PTS(0) - DTS(0)
+                 * When DTS(0) < PTS(0), we then have:
+                 * CT(0) > 0 for video, but not audio (breaks A/V sync).
+                 *
+                 * This is typically solved by writing an edit list shifting
+                 * video samples by the initial delay, PTS(0) - DTS(0).
+                 *
+                 * See:
+                 * ISO/IEC 14496-12:2008(E), ISO base media file format
+                 *  - 8.6.1.2 Decoding Time to Sample Box
+                 */
+                if (w->config->h264.init_delay == 0 && buf->s.renderOffset < 0)
+                {
+                    w->config->h264.init_delay = -buf->s.renderOffset;
+                }
             }
 
                 if(pv->qsv_config.gop_ref_dist > 1)
