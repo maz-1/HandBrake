@@ -889,8 +889,6 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                     work_surface->Data.VU = calloc( 1, qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width *  qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Height /2);
                     work_surface->Data.Pitch = qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width;
                 }
-                work_surface->Data.TimeStamp = in->s.start;
-                av_qsv_dts_ordered_insert(qsv, 0, 0, work_surface->Data.TimeStamp ,0 );
                 qsv_yuv420_to_nv12(pv->sws_context_to_nv12,work_surface,in);
             }
             else{
@@ -898,6 +896,9 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 stage = av_qsv_get_last_stage( received_item );
                 work_surface = stage->out.p_surface;
             }
+
+            work_surface->Data.TimeStamp = in->s.start;
+            av_qsv_dts_ordered_insert(qsv, 0, 0, work_surface->Data.TimeStamp, 0);
 
             /*
              * Debugging code to check that the upstream modules have generated

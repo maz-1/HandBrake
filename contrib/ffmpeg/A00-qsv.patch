@@ -1851,8 +1851,8 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv_h264.c ./libavcodec/qsv_h264.c
 +            }
 +        }
 +
-+        picture->pkt_pts            = AV_NOPTS_VALUE;
-+        picture->pts                = avpkt->pts;
++        picture->pkt_pts            = new_stage->out.p_surface->Data.TimeStamp;
++        picture->pts                = new_stage->out.p_surface->Data.TimeStamp;
 +
 +        picture->repeat_pict        = (qsv_decode->m_mfxVideoParam.mfx.FrameInfo.PicStruct & MFX_PICSTRUCT_FIELD_REPEATED);
 +        picture->interlaced_frame   = !(qsv_decode->m_mfxVideoParam.mfx.FrameInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE);
