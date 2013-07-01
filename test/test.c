@@ -1839,14 +1839,7 @@ static int HandleEvents( hb_handle_t * h )
 
 
             // Add framerate shaping filter
-            if (vcodec == HB_VCODEC_QSV_H264)
-            {
-                // VFR yet unsupported
-                filter_cfr        = 1;
-                filter_vrate      = title->rate;
-                filter_vrate_base = title->rate_base;
-            }
-            else if (vrate)
+            if (vrate)
             {
                 filter_cfr        = cfr;
                 filter_vrate      = 27000000;

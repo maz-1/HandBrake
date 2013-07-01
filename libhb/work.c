@@ -710,8 +710,8 @@ static void do_job(hb_job_t *job)
                     }
                 }
             }
-            // as per MSDK/QSV support
-            init.cfr = 1;
+            // framerate shaping not yet supported
+            init.cfr = 0;
         }
         int is_additional_vpp_function = is_actual_crop_resize;
 
