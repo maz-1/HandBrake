@@ -635,8 +635,10 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     // sanitize
     pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
     pv->bfrm_delay = FFMIN(pv->bfrm_delay, BFRM_DELAY_MAX);
-    // check whether we need to generate DTS ourselves (MSDK < 1.6)
-    if (pv->bfrm_delay && !(hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6))
+    // check whether we need to generate DTS ourselves (MSDK < 1.6 or VFR/PFR)
+    pv->bfrm_workaround = job->cfr != 1 || !(hb_qsv_info->capabilities &
+                                             HB_QSV_CAP_MSDK_1_6);
+    if (pv->bfrm_delay && pv->bfrm_workaround)
     {
         pv->bfrm_workaround = 1;
         pv->list_dts        = hb_list_init();
