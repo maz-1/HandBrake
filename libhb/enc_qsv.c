@@ -106,7 +106,7 @@ struct hb_work_private_s
         int64_t start;
     } next_chapter;
 
-#define BFRM_DELAY_MAX 2 // for B-pyramid
+#define BFRM_DELAY_MAX 5
     // for DTS generation (when MSDK < 1.6)
     int            bfrm_delay;
     int            bfrm_workaround;
@@ -620,9 +620,9 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     // check whether B-frames are used and compute the delay
     pv->bfrm_delay = pv->codec_profile == MFX_PROFILE_AVC_BASELINE ? 0 : 1;
-    if (pv->bfrm_delay)
+    if (pv->bfrm_delay && (hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID))
     {
-        pv->bfrm_delay += !!(hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID);
+        pv->bfrm_delay = BFRM_DELAY_MAX;
     }
     if (qsv_encode->m_mfxVideoParam.mfx.GopRefDist > 0)
     {
@@ -922,6 +922,7 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
              * 0 -> ipts0, ipts1, ipts2...
              * 1 -> ipts0 - ipts1, ipts1 - ipts1, ipts1, ipts2...
              * 2 -> ipts0 - ipts2, ipts1 - ipts2, ipts2 - ipts2, ipts1, ipts2...
+             *      and so on.
              */
             if (pv->bfrm_delay && pv->bfrm_workaround)
             {
