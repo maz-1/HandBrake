@@ -106,8 +106,8 @@ struct hb_work_private_s
         int64_t start;
     } next_chapter;
 
-#define BFRM_DELAY_MAX 5
-    // for DTS generation (when MSDK < 1.6)
+#define BFRM_DELAY_MAX 16
+    // for DTS generation (when MSDK API < 1.6 or VFR)
     int            bfrm_delay;
     int            bfrm_workaround;
     int64_t        init_pts[BFRM_DELAY_MAX + 1];
@@ -143,7 +143,7 @@ struct hb_work_private_s
 
 extern char* get_codec_id(hb_work_private_t *pv);
 
-// for DTS generation (when MSDK < 1.6)
+// for DTS generation (when MSDK API < 1.6 or VFR)
 static void hb_qsv_add_new_dts(hb_list_t *list, int64_t new_dts)
 {
     if (list != NULL)
@@ -618,24 +618,19 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     pv->qsv_config.gop_ref_dist = videoParam.mfx.GopRefDist;
 
-    // check whether B-frames are used and compute the delay
+    // check whether B-frames are used
     pv->bfrm_delay = pv->codec_profile == MFX_PROFILE_AVC_BASELINE ? 0 : 1;
-    if (pv->bfrm_delay && (hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID))
-    {
-        pv->bfrm_delay = BFRM_DELAY_MAX;
-    }
-    if (qsv_encode->m_mfxVideoParam.mfx.GopRefDist > 0)
+    if (videoParam.mfx.GopRefDist > 0)
     {
         pv->bfrm_delay = FFMIN(pv->bfrm_delay, videoParam.mfx.GopRefDist - 1);
     }
-    if (qsv_encode->m_mfxVideoParam.mfx.GopPicSize > 0)
+    if (videoParam.mfx.GopPicSize > 0)
     {
         pv->bfrm_delay = FFMIN(pv->bfrm_delay, videoParam.mfx.GopPicSize - 2);
     }
     // sanitize
     pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
-    pv->bfrm_delay = FFMIN(pv->bfrm_delay, BFRM_DELAY_MAX);
-    // check whether we need to generate DTS ourselves (MSDK < 1.6 or VFR/PFR)
+    // check whether we need to generate DTS ourselves (MSDK API < 1.6 or VFR)
     pv->bfrm_workaround = job->cfr != 1 || !(hb_qsv_info->capabilities &
                                              HB_QSV_CAP_MSDK_1_6);
     if (pv->bfrm_delay && pv->bfrm_workaround)
@@ -914,19 +909,10 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
             }
             pv->last_start = start;
 
-            /*
-             * Generate output DTS based on input PTS.
-             *
-             * Depends on the B-frame delay:
-             *
-             * 0 -> ipts0, ipts1, ipts2...
-             * 1 -> ipts0 - ipts1, ipts1 - ipts1, ipts1, ipts2...
-             * 2 -> ipts0 - ipts2, ipts1 - ipts2, ipts2 - ipts2, ipts1, ipts2...
-             *      and so on.
-             */
+            // for DTS generation (when MSDK API < 1.6 or VFR)
             if (pv->bfrm_delay && pv->bfrm_workaround)
             {
-                if (pv->frames_in <= pv->bfrm_delay)
+                if (pv->frames_in <= BFRM_DELAY_MAX)
                 {
                     pv->init_pts[pv->frames_in] = work_surface->Data.TimeStamp;
                 }
@@ -1102,7 +1088,31 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 }
                 else
                 {
-                    // MSDK API < 1.6, so generate our own DTS
+                    // MSDK API < 1.6 or VFR, so generate our own DTS
+                    if ((pv->frames_out == 0)                             &&
+                        (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6) &&
+                        (hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID))
+                    {
+                        // with B-pyramid, the delay may be more than 1 frame,
+                        // so compute the actual delay based on the initial DTS
+                        // provided by MSDK; also, account for rounding errors
+                        // (e.g. 24000/1001 fps @ 90kHz -> 3753.75 ticks/frame)
+                        pv->bfrm_delay = ((task->bs->TimeStamp -
+                                           task->bs->DecodeTimeStamp +
+                                           (duration / 2)) / duration);
+                        pv->bfrm_delay = FFMAX(pv->bfrm_delay, 1);
+                        pv->bfrm_delay = FFMIN(pv->bfrm_delay, BFRM_DELAY_MAX);
+                    }
+                    /*
+                     * Generate VFR-compatible output DTS based on input PTS.
+                     *
+                     * Depends on the B-frame delay:
+                     *
+                     * 0: ipts0,  ipts1, ipts2...
+                     * 1: ipts0 - ipts1, ipts1 - ipts1, ipts1,  ipts2...
+                     * 2: ipts0 - ipts2, ipts1 - ipts2, ipts2 - ipts2, ipts1...
+                     * ...and so on.
+                     */
                     if (pv->frames_out <= pv->bfrm_delay)
                     {
                         buf->s.renderOffset = (pv->init_pts[pv->frames_out] -
