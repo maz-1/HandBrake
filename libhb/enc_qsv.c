@@ -619,7 +619,10 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     pv->qsv_config.gop_ref_dist = videoParam.mfx.GopRefDist;
 
     // check whether B-frames are used
-    pv->bfrm_delay = pv->codec_profile == MFX_PROFILE_AVC_BASELINE ? 0 : 1;
+    pv->bfrm_delay = !((videoParam.mfx.CodecProfile == MFX_PROFILE_AVC_BASELINE)             ||
+                       (videoParam.mfx.CodecProfile == MFX_PROFILE_AVC_CONSTRAINED_BASELINE) ||
+                       (videoParam.mfx.CodecProfile == MFX_PROFILE_AVC_CONSTRAINED_HIGH)     ||
+                       (videoParam.mfx.CodecProfile &  MFX_PROFILE_AVC_CONSTRAINT_SET0));
     if (videoParam.mfx.GopRefDist > 0)
     {
         pv->bfrm_delay = FFMIN(pv->bfrm_delay, videoParam.mfx.GopRefDist - 1);
