@@ -824,7 +824,7 @@ static int decodeFrame( hb_work_object_t *w, uint8_t *data, int size, int sequen
             // decode is async, sync only at encode
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO | MFX_IMPL_VIA_ANY; // practically means : Hardware acceleration via any supported OS supported OS infrastructure
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO_ANY|MFX_IMPL_VIA_ANY;
             qsv_from_first_frame = 1;
         }
 #endif
@@ -1159,7 +1159,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             pv->qsv_config.additional_buffers     = 64;
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO | MFX_IMPL_VIA_ANY;
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO_ANY|MFX_IMPL_VIA_ANY;
         }
 #endif
 
@@ -1204,7 +1204,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             pv->qsv_config.additional_buffers     = 64;
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
-            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO | MFX_IMPL_VIA_ANY;
+            pv->qsv_config.impl_requested         = MFX_IMPL_AUTO_ANY|MFX_IMPL_VIA_ANY;
         }
 #endif
     }

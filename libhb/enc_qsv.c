@@ -205,7 +205,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
             // no need to use additional sync as encode only -> single thread
             av_qsv_add_context_usage(qsv,0);
 
-            qsv->impl = MFX_IMPL_AUTO;
+            qsv->impl = MFX_IMPL_AUTO_ANY;
 
             memset(&qsv->mfx_session, 0, sizeof(mfxSession));
             qsv->ver.Major = AV_QSV_MSDK_VERSION_MAJOR;
