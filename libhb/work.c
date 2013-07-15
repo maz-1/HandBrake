@@ -745,7 +745,7 @@ static void do_job(hb_job_t *job)
 /*validated*/       ||(filter->id == HB_FILTER_DEINTERLACE && is_vpp_interlace)
                     || filter->id == HB_FILTER_DEBLOCK
                     || filter->id == HB_FILTER_DENOISE      // note: MFX_EXTBUFF_VPP_DENOISE
-                    || filter->id == HB_FILTER_RENDER_SUB
+/*validated*/ //    || filter->id == HB_FILTER_RENDER_SUB
 /*validated*/ //    || filter->id == HB_FILTER_ROTATE       // validated,  note : it makes sense to have more local to Video Memory, OpenCL as an example
                     || (filter->id == HB_FILTER_QSV && !is_additional_vpp_function )
                     ){
@@ -766,7 +766,7 @@ static void do_job(hb_job_t *job)
                         if( check_filter->id > HB_FILTER_QSV_PRE && check_filter->id < HB_FILTER_QSV_POST &&
                             // if original filter used - we need to wrap them into QSV pipeline
                            ((check_filter->id == HB_FILTER_DEINTERLACE && !is_vpp_interlace) ||
-                             check_filter->id == HB_FILTER_ROTATE ) )
+                             check_filter->id == HB_FILTER_ROTATE || check_filter->id == HB_FILTER_RENDER_SUB) )
                         {
                             to_use = 1;
                             break;

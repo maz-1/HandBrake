@@ -38,10 +38,16 @@ int qsv_nv12_to_yuv420(struct SwsContext* sws_context,hb_buffer_t* dst, mfxFrame
     int in_pitch = src->Data.Pitch;
     int h = src->Info.CropH;
     int w = src->Info.CropW;
-#if 0
+    uint8_t *in_luma = 0;
+    uint8_t *in_chroma = 0;
+    static int copyframe_in_use = 1;
+
+
     mfxStatus sts = MFX_ERR_NONE;
     mfxFrameSurface1 accel_dst;
 
+    if (copyframe_in_use)
+    {
     accel_dst.Info.FourCC = src->Info.FourCC;
     accel_dst.Info.CropH = src->Info.CropH;
     accel_dst.Info.CropW = src->Info.CropW;
@@ -54,14 +60,25 @@ int qsv_nv12_to_yuv420(struct SwsContext* sws_context,hb_buffer_t* dst, mfxFrame
     accel_dst.Data.VU = calloc( 1, in_pitch*h/2 );
 
     sts = core->CopyFrame(core->pthis, &accel_dst, src );
-    AV_QSV_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        if (sts < MFX_ERR_NONE)
+        {
+            free(accel_dst.Data.Y);
+            free(accel_dst.Data.VU);
+            copyframe_in_use = 0;
+        }
+        else
+        {
+            in_luma   = accel_dst.Data.Y  + accel_dst.Info.CropY * in_pitch     + accel_dst.Info.CropX;
+            in_chroma = accel_dst.Data.VU + accel_dst.Info.CropY / 2 * in_pitch + accel_dst.Info.CropX;
+        }
+    }
 
-    uint8_t *in_luma   = accel_dst.Data.Y  + accel_dst.Info.CropY * in_pitch     + accel_dst.Info.CropX;
-    uint8_t *in_chroma = accel_dst.Data.VU + accel_dst.Info.CropY / 2 * in_pitch + accel_dst.Info.CropX;
-#else
-    uint8_t *in_luma   = src->Data.Y  + src->Info.CropY * in_pitch     + src->Info.CropX;
-    uint8_t *in_chroma = src->Data.VU + src->Info.CropY / 2 * in_pitch + src->Info.CropX;
-#endif
+    if (!copyframe_in_use)
+    {
+        in_luma   = src->Data.Y  + src->Info.CropY * in_pitch     + src->Info.CropX;
+        in_chroma = src->Data.VU + src->Info.CropY / 2 * in_pitch + src->Info.CropX;
+    }
+
     hb_video_buffer_realloc( dst, w, h );
 
     uint8_t *srcs[] = { in_luma, in_chroma };
@@ -70,15 +87,13 @@ int qsv_nv12_to_yuv420(struct SwsContext* sws_context,hb_buffer_t* dst, mfxFrame
     uint8_t *dsts[] = { dst->plane[0].data, dst->plane[1].data, dst->plane[2].data };
     int dsts_stride[] = { dst->plane[0].stride, dst->plane[1].stride, dst->plane[2].stride };
 
-    // note about
-    // mfxStatus (*CopyFrame) (mfxHDL pthis, mfxFrameSurface1 *dst, mfxFrameSurface1 *src);
-    // mfxStatus (*CopyBuffer)(mfxHDL pthis, mfxU8 *dst, mfxU32 size, mfxFrameSurface1 *src);
-
     ret = sws_scale(sws_context, srcs, srcs_stride, 0, h, dsts, dsts_stride );
-#if 0
+
+    if (copyframe_in_use)
+    {
     free(accel_dst.Data.Y);
     free(accel_dst.Data.VU);
-#endif
+    }
 
     return ret;
 }
