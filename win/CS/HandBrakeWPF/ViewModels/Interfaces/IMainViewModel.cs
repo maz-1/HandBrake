@@ -84,5 +84,7 @@ namespace HandBrakeWPF.ViewModels.Interfaces
         /// Shutdown this View
         /// </summary>
         void Shutdown();
+
+        EncodeTask GetCurrentTask();
     }
 }

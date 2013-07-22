@@ -50,6 +50,8 @@ void parse_nalus( uint8_t *nal_inits, size_t length, hb_buffer_t *buf, uint32_t 
 #define QSV_NAME_cqp_offset_i   "cqp-offset-i"
 #define QSV_NAME_cqp_offset_p   "cqp-offset-p"
 #define QSV_NAME_cqp_offset_b   "cqp-offset-b"
+#define QSV_NAME_lookaheaddepth "lookahead-depth"
+#define QSV_NAME_lookahead      "lookahead"
 
 typedef enum {
     QSV_PARAM_OK            = 0,
@@ -59,6 +61,6 @@ typedef enum {
 } qsv_param_errors;
 
 int qsv_param_parse( av_qsv_config* config, const char *name, const char *value);
-void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info );
+void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info, hb_job_t *job );
 
 #endif //ENC_QSV_H

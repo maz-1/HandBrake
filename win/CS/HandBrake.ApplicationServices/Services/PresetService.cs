@@ -522,8 +522,7 @@ namespace HandBrake.ApplicationServices.Services
 
             preset.Task.VideoEncoder = VideoEncoder.QuickSync;
             preset.Task.Quality = 20;
-            preset.Task.AdvancedEncoderOptions =
-                "gop-ref-dist=4:gop-pic-size=32:async-depth=4";
+            preset.Task.AdvancedEncoderOptions = "async-depth=4";
             preset.Task.AudioTracks = new ObservableCollection<AudioTrack>();
             preset.Task.AudioTracks.Add(new AudioTrack { Bitrate = 224, Encoder = AudioEncoder.ffaac, MixDown = Mixdown.DolbyProLogicII});
             preset.Task.Anamorphic = Anamorphic.Loose;

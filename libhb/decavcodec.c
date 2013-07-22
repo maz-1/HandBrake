@@ -880,6 +880,9 @@ static int decodeFrame( hb_work_object_t *w, uint8_t *data, int size, int sequen
             pv->job->vcodec == HB_VCODEC_QSV_H264 && pv->job->title->video_codec_param == AV_CODEC_ID_H264 ){
             pv->context->hwaccel_context          = &pv->qsv_config;
             pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
+            if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
+                pv->qsv_config.additional_buffers     = 160; // LA might need more surfaces
+            else
             pv->qsv_config.additional_buffers     = 64; // FIFO_LARGE for now
             // decode is async, sync only at encode
             pv->qsv_config.sync_need              = 0;
@@ -1204,7 +1207,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             int ret;
             hb_dict_t *qsv_opts = NULL;
             hb_dict_entry_t *entry = NULL;
-            qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info);
+            qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info,job);
             if (job->advanced_opts != NULL && *job->advanced_opts != '\0')
             {
                 qsv_opts = hb_encopts_to_dict(job->advanced_opts, job->vcodec);
@@ -1240,6 +1243,9 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         if(job && job->vcodec == HB_VCODEC_QSV_H264 ){
             pv->context->hwaccel_context          = &pv->qsv_config;
             pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
+            if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
+                pv->qsv_config.additional_buffers     = 160;
+            else
             pv->qsv_config.additional_buffers     = 64;
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;
@@ -1290,6 +1296,9 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         if(job && job->vcodec == HB_VCODEC_QSV_H264 ){
             pv->context->hwaccel_context              = &pv->qsv_config;
             pv->qsv_config.io_pattern             = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
+            if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
+                pv->qsv_config.additional_buffers     = 160;
+            else
             pv->qsv_config.additional_buffers     = 64;
             pv->qsv_config.sync_need              = 0;
             pv->qsv_config.usage_threaded         = 1;

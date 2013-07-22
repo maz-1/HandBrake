@@ -139,6 +139,9 @@ struct hb_work_private_s
     mfxExtCodingOption2  qsv_coding_option2_config;
     mfxExtCodingOption   qsv_coding_option_config;
     int     mbbrx_param_idx;
+
+    // lookahead
+    mfxU16  la_depth;
 };
 
 extern char* get_codec_id(hb_work_private_t *pv);
@@ -278,17 +281,20 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam);
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam.mfx);
 
-    qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info);
+    qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info,job);
 
     hb_dict_t *qsv_opts_dict = NULL;
     if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )
         qsv_opts_dict = hb_encopts_to_dict( job->advanced_opts, job->vcodec );
 
+    int gop_pic_size_force = 0;
     int ret;
     hb_dict_entry_t *entry = NULL;
     while( ( entry = hb_dict_next( qsv_opts_dict, entry ) ) )
     {
         ret = qsv_param_parse( &pv->qsv_config, entry->key, entry->value );
+        if(!strcmp(entry->key,QSV_NAME_gop_pic_size))
+            gop_pic_size_force = 1;
         if( ret == QSV_PARAM_BAD_NAME )
             hb_log( "QSV options: Unknown suboption %s", entry->key );
         else
@@ -306,6 +312,8 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     qsv_encode->m_mfxVideoParam.mfx.TargetKbps              = 2000;
     qsv_encode->m_mfxVideoParam.mfx.RateControlMethod       = MFX_RATECONTROL_VBR;
+
+    int old_TargetKbps = qsv_encode->m_mfxVideoParam.mfx.TargetKbps;
 
     if (job->vquality >= 0)
     {
@@ -349,6 +357,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         //
         qsv_encode->m_mfxVideoParam.mfx.RateControlMethod = MFX_RATECONTROL_VBR;
         qsv_encode->m_mfxVideoParam.mfx.TargetKbps        = job->vbitrate;
+        old_TargetKbps = qsv_encode->m_mfxVideoParam.mfx.TargetKbps;
 
         // make it work like x264 for ease of use
         // (more convenient if switching back and forth)
@@ -392,23 +401,55 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         hb_error("wrong parameters setting");
     }
 
+    if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
+    {
+        int use_la = 0;
+
+        if (qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_VBR ||
+            qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_AVBR)
+        {
+            if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_lookahead)) != NULL && entry->value != NULL)
+                use_la |= atoi(entry->value);
+            else
+            if (qsv_encode->m_mfxVideoParam.mfx.TargetUsage < 3)
+                use_la = 1; // sort of default value
+        }
+        if (use_la)
+        {
+            qsv_encode->m_mfxVideoParam.mfx.RateControlMethod = MFX_RATECONTROL_LA;
+            qsv_encode->m_mfxVideoParam.mfx.TargetKbps        = old_TargetKbps;
+        }
+    }
+
+    if (!gop_pic_size_force && qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP)
+    {
+        pv->qsv_config.gop_pic_size = 32; // default for CQP, if not forced
+    }
+
     // version-specific encoder options
-    if (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6)
+    if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_BRC)
     {
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_mbbrc)) != NULL && entry->value != NULL)
         {
             pv->mbbrc =atoi(entry->value);
         }
         else
-            pv->mbbrc = 1; // MFX_CODINGOPTION_ON
+            pv->mbbrc = 1; // default: MFX_CODINGOPTION_ON
 
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_extbrc)) != NULL && entry->value != NULL)
         {
             pv->extbrc =atoi(entry->value);
         }
         else
-            pv->extbrc = 2; //MFX_CODINGOPTION_OFF
+            pv->extbrc = 2; // default: MFX_CODINGOPTION_OFF
     }
+
+
+    if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
+        if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_lookaheaddepth)) != NULL && entry->value != NULL)
+            pv->la_depth = atoi(entry->value);
+        else
+            pv->la_depth = 40; // default: value
 
     hb_dict_free( &qsv_opts_dict );
 
@@ -428,12 +469,17 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
                                       break;
         case MFX_RATECONTROL_CQP    : rc_method = "MFX_RATECONTROL_CQP";
                                       break;
+        case MFX_RATECONTROL_LA     : rc_method = "MFX_RATECONTROL_LA";
+                                      break;
         default                     : rc_method = "unknown";
     };
 
     if( qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP )
         hb_log("qsv: RateControlMethod:%s(I:%d/P:%d/B:%d)",rc_method,
                                                 qsv_encode->m_mfxVideoParam.mfx.QPI, qsv_encode->m_mfxVideoParam.mfx.QPP, qsv_encode->m_mfxVideoParam.mfx.QPB );
+    else
+    if( qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA )
+        hb_log("qsv: RateControlMethod:%s LookAheadDepth:%d TargetKbps:%d",rc_method , pv->la_depth, qsv_encode->m_mfxVideoParam.mfx.TargetKbps  );
     else
         hb_log("qsv: RateControlMethod:%s TargetKbps:%d",rc_method , qsv_encode->m_mfxVideoParam.mfx.TargetKbps );
 
@@ -517,7 +563,8 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     if(!pv->is_sys_mem)
         qsv_encode->p_ext_param_num = 1; // for MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION
 
-    if(pv->mbbrc || pv->extbrc){
+    if (pv->mbbrc || pv->extbrc || qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA)
+    {
         qsv_encode->p_ext_param_num++;
     }
 
@@ -525,7 +572,8 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     qsv_encode->m_mfxVideoParam.NumExtParam = qsv_encode->p_ext_param_num;
 
-    if(qsv_encode->m_mfxVideoParam.NumExtParam){
+    if (qsv_encode->m_mfxVideoParam.NumExtParam)
+    {
         int cur_idx = 0;
         qsv_encode->p_ext_params = av_mallocz(sizeof(mfxExtBuffer *)*qsv_encode->p_ext_param_num);
         AV_QSV_CHECK_POINTER(qsv_encode->p_ext_params, MFX_ERR_MEMORY_ALLOC);
@@ -537,7 +585,8 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         pv->qsv_coding_option_config.PicTimingSEI     = MFX_CODINGOPTION_OFF;
         qsv_encode->p_ext_params[cur_idx++]            = (mfxExtBuffer*)&pv->qsv_coding_option_config;
 
-        if(!pv->is_sys_mem){
+        if (!pv->is_sys_mem)
+        {
             memset(&qsv_encode->ext_opaque_alloc, 0, sizeof(mfxExtOpaqueSurfaceAlloc));
             qsv_encode->ext_opaque_alloc.Header.BufferId    = MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION;
             qsv_encode->ext_opaque_alloc.Header.BufferSz    = sizeof(mfxExtOpaqueSurfaceAlloc);
@@ -555,12 +604,14 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
             qsv_encode->ext_opaque_alloc.In.Type        = qsv_encode->request[0].Type;
         }
 
-        if(pv->mbbrc || pv->extbrc){
+        if (pv->mbbrc || pv->extbrc || qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA)
+        {
             pv->qsv_coding_option2_config.Header.BufferId  = MFX_EXTBUFF_CODING_OPTION2;
             pv->qsv_coding_option2_config.Header.BufferSz  = sizeof(mfxExtCodingOption2);
             pv->qsv_coding_option2_config.MBBRC            = pv->mbbrc << 4;
                                                             // default is off
             pv->qsv_coding_option2_config.ExtBRC           = pv->extbrc == 0 ? MFX_CODINGOPTION_OFF : pv->extbrc << 4;
+            pv->qsv_coding_option2_config.LookAheadDepth   = pv->la_depth;
 
             // reset if out of the ranges
             if(pv->qsv_coding_option2_config.MBBRC > MFX_CODINGOPTION_ADAPTIVE)
@@ -581,6 +632,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
             if( pv->mbbrx_param_idx ){
                 pv->qsv_coding_option2_config.MBBRC     = MFX_CODINGOPTION_UNKNOWN;
                 pv->qsv_coding_option2_config.ExtBRC    = MFX_CODINGOPTION_OFF;
+                pv->qsv_coding_option2_config.LookAheadDepth    = 0;
                     pv->mbbrx_param_idx = 0;
             }
         }
@@ -635,7 +687,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
     // check whether we need to generate DTS ourselves (MSDK API < 1.6 or VFR)
     pv->bfrm_workaround = job->cfr != 1 || !(hb_qsv_info->capabilities &
-                                             HB_QSV_CAP_MSDK_1_6);
+                                             HB_QSV_CAP_BITSTREAM_DTS);
     if (pv->bfrm_delay && pv->bfrm_workaround)
     {
         pv->bfrm_workaround = 1;
@@ -1093,8 +1145,8 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 {
                     // MSDK API < 1.6 or VFR, so generate our own DTS
                     if ((pv->frames_out == 0)                             &&
-                        (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_1_6) &&
-                        (hb_qsv_info->capabilities & HB_QSV_CAP_BPYRAMID))
+                        (hb_qsv_info->capabilities & HB_QSV_CAP_BITSTREAM_DTS) &&
+                        (hb_qsv_info->capabilities & HB_QSV_CAP_H264_BPYRAMID))
                     {
                         // with B-pyramid, the delay may be more than 1 frame,
                         // so compute the actual delay based on the initial DTS
@@ -1302,7 +1354,9 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
        !strcmp(name,QSV_NAME_extbrc)      ||
        !strcmp(name,QSV_NAME_cqp_offset_i)      ||
        !strcmp(name,QSV_NAME_cqp_offset_p)      ||
-       !strcmp(name,QSV_NAME_cqp_offset_b)
+       !strcmp(name,QSV_NAME_cqp_offset_b)      ||
+       !strcmp(name,QSV_NAME_lookaheaddepth)    ||
+       !strcmp(name,QSV_NAME_lookahead)
        )
         ret = QSV_PARAM_OK;
     else
@@ -1311,12 +1365,15 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
     return ret;
 }
 
-void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info ){
+void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info, hb_job_t *job ){
     if(!config)
         return;
 
     config->async_depth     = AV_QSV_ASYNC_DEPTH_DEFAULT;
     config->target_usage    = MFX_TARGETUSAGE_BEST_QUALITY + 1;
+    config->num_ref_frame   = 0;
     config->gop_ref_dist    = 4;
-    config->gop_pic_size    = 32;
+
+    int used_rate = round((float)job->vrate/(float)job->vrate_base);
+    config->gop_pic_size    = (used_rate * 5) + 1;
 }

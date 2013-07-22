@@ -273,6 +273,7 @@ namespace HandBrake.ApplicationServices.Utilities
             AddEncodeElement(xmlWriter, "x264OptionExtra", "string", parsed.AdvancedEncoderOptions);
             AddEncodeElement(xmlWriter, "x264Preset", "string", parsed.X264Preset.ToString().ToLower());
             AddEncodeElement(xmlWriter, "h264Profile", "string", parsed.H264Profile.ToString().ToLower());
+            AddEncodeElement(xmlWriter, "QsvPreset", "string", parsed.QsvPreset.ToString());
             string tune = parsed.X264Tune.ToString().ToLower();
             if (parsed.FastDecode)
             {

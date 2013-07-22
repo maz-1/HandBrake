@@ -1313,6 +1313,11 @@ namespace HandBrakeWPF.ViewModels
             this.scanService.Scan(task.Source, task.Title, this.UserSettingService.GetUserSetting<int>(ASUserSettingConstants.PreviewScanCount), QueueEditAction);
         }
 
+        public EncodeTask GetCurrentTask()
+        {
+            return this.CurrentTask;
+        }
+
         /// <summary>
         /// Pause an Encode
         /// </summary>
