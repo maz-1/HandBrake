@@ -1207,7 +1207,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             int ret;
             hb_dict_t *qsv_opts = NULL;
             hb_dict_entry_t *entry = NULL;
-            qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info,job);
+            qsv_param_set_defaults(&pv->qsv_config);
             if (job->advanced_opts != NULL && *job->advanced_opts != '\0')
             {
                 qsv_opts = hb_encopts_to_dict(job->advanced_opts, job->vcodec);

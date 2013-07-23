@@ -281,20 +281,17 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam);
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam.mfx);
 
-    qsv_param_set_defaults(&pv->qsv_config, hb_qsv_info,job);
+    qsv_param_set_defaults(&pv->qsv_config);
 
     hb_dict_t *qsv_opts_dict = NULL;
     if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )
         qsv_opts_dict = hb_encopts_to_dict( job->advanced_opts, job->vcodec );
 
-    int gop_pic_size_force = 0;
     int ret;
     hb_dict_entry_t *entry = NULL;
     while( ( entry = hb_dict_next( qsv_opts_dict, entry ) ) )
     {
         ret = qsv_param_parse( &pv->qsv_config, entry->key, entry->value );
-        if(!strcmp(entry->key,QSV_NAME_gop_pic_size))
-            gop_pic_size_force = 1;
         if( ret == QSV_PARAM_BAD_NAME )
             hb_log( "QSV options: Unknown suboption %s", entry->key );
         else
@@ -421,9 +418,19 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         }
     }
 
-    if (!gop_pic_size_force && qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP)
+    if (pv->qsv_config.gop_pic_size < 0)
     {
-        pv->qsv_config.gop_pic_size = 32; // default for CQP, if not forced
+        int rate = (int)((double)job->vrate / (double)job->vrate_base + 0.5);
+        if (qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP)
+        {
+            // ensure B-pyramid is enabled for CQP on Haswell
+            pv->qsv_config.gop_pic_size = 32;
+        }
+        else
+        {
+            // set the keyframe interval based on the framerate
+            pv->qsv_config.gop_pic_size = 5 * rate + 1;
+        }
     }
 
     // version-specific encoder options
@@ -1365,15 +1372,14 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
     return ret;
 }
 
-void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info, hb_job_t *job ){
-    if(!config)
-        return;
-
-    config->async_depth     = AV_QSV_ASYNC_DEPTH_DEFAULT;
-    config->target_usage    = MFX_TARGETUSAGE_BEST_QUALITY + 1;
-    config->num_ref_frame   = 0;
-    config->gop_ref_dist    = 4;
-
-    int used_rate = round((float)job->vrate/(float)job->vrate_base);
-    config->gop_pic_size    = (used_rate * 5) + 1;
+void qsv_param_set_defaults(av_qsv_config *config)
+{
+    if (config != NULL)
+    {
+        config->async_depth   = AV_QSV_ASYNC_DEPTH_DEFAULT;
+        config->target_usage  = MFX_TARGETUSAGE_BEST_QUALITY + 1;
+        config->num_ref_frame = 0;  // set automatically by MSDK
+        config->gop_ref_dist  = 4;  // power of 2, >= 4: B-pyramid
+        config->gop_pic_size  = -1; // set automatically based on framerate
+    }
 }

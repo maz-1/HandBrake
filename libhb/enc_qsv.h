@@ -60,7 +60,7 @@ typedef enum {
     QSV_PARAM_BAD_CONFIG    = -3,
 } qsv_param_errors;
 
-int qsv_param_parse( av_qsv_config* config, const char *name, const char *value);
-void qsv_param_set_defaults( av_qsv_config* config, hb_qsv_info_t *qsv_info, hb_job_t *job );
+int  qsv_param_parse(av_qsv_config *config, const char *name, const char *value);
+void qsv_param_set_defaults(av_qsv_config *config);
 
 #endif //ENC_QSV_H
