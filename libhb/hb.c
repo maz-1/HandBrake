@@ -350,10 +350,9 @@ void hb_ff_set_sample_fmt(AVCodecContext *context, AVCodec *codec,
 // make the Intel QSV information available to the UIs
 hb_qsv_info_t *hb_qsv_info = NULL;
 
-// minimum supported version (currently 1.4, for Sandy Bridge support)
-// let's keep this independent of what Libav can do for decode
-#define HB_QSV_MINVERSION_MAJOR 1
-#define HB_QSV_MINVERSION_MINOR 4
+// minimum supported version (currently 1.3, for Sandy Bridge support)
+#define HB_QSV_MINVERSION_MAJOR AV_QSV_MSDK_VERSION_MAJOR
+#define HB_QSV_MINVERSION_MINOR AV_QSV_MSDK_VERSION_MINOR
 
 // check available hardware & software versions against a minimum
 #define HB_QSV_MIN_HARDWARE(MAJOR, MINOR)           \
