@@ -123,7 +123,7 @@ static void hb_av_add_new_pts(hb_list_t *list, int64_t new_pts)
     int64_t *cur_item, *new_item;
     if (list != NULL)
     {
-        int64_t *new_item = malloc(sizeof(int64_t));
+        new_item = malloc(sizeof(int64_t));
         if (new_item != NULL)
         {
             *new_item = new_pts;
@@ -142,10 +142,10 @@ static void hb_av_add_new_pts(hb_list_t *list, int64_t new_pts)
 }
 static int64_t hb_av_pop_next_pts(hb_list_t *list)
 {
-    int64_t next_pts = AV_NOPTS_VALUE;
+    int64_t *item, next_pts = AV_NOPTS_VALUE;
     if (list != NULL && hb_list_count(list) > 0)
     {
-        int64_t *item = hb_list_item(list, 0);
+        item = hb_list_item(list, 0);
         if (item != NULL)
         {
             next_pts = *item;
