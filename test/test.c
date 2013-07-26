@@ -1823,7 +1823,6 @@ static int HandleEvents( hb_handle_t * h )
 
             if (vcodec == HB_VCODEC_QSV_H264)
             {
-                char *filter_str;
                 int qsv_deinterlace;
                 filter = hb_filter_init(HB_FILTER_QSV_PRE);
                 hb_add_filter(job, filter, NULL);
