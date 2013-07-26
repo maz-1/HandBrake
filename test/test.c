@@ -1837,11 +1837,11 @@ static int HandleEvents( hb_handle_t * h )
                 int qsv_deinterlace = (deinterlace &&
                                        (!deinterlace_opt ||
                                         !strcmp(deinterlace_opt, "32")));
-                filter_str = hb_strdup_printf("%d:%d:%d:%d:%d:%d_dei:%s",
+                filter_str = hb_strdup_printf("%d:%d:%d:%d:%d:%d_dei:%d",
                                               job->width,   job->height,
                                               job->crop[0], job->crop[1],
                                               job->crop[2], job->crop[3],
-                                              qsv_deinterlace ? "1" : "0");
+                                              qsv_deinterlace);
                 filter = hb_filter_init(HB_FILTER_QSV);
                 hb_add_filter(job, filter, filter_str);
                 free(filter_str);
