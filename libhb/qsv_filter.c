@@ -198,7 +198,7 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
             memcpy(&(qsv_vpp->p_surfaces[i]->Info), &(qsv_vpp->m_mfxVideoParam.vpp.Out), sizeof(mfxFrameInfo));
         }
 
-        qsv_vpp->sync_num = FFMIN( qsv_vpp->surface_num, AV_QSV_SYNC_NUM ); // AV_QSV_SYNC_NUM;
+        qsv_vpp->sync_num = FFMIN( qsv_vpp->surface_num, AV_QSV_SYNC_NUM );
 
         for (i = 0; i < qsv_vpp->sync_num; i++){
             qsv_vpp->p_syncp[i] = av_mallocz(sizeof(av_qsv_sync));
@@ -454,12 +454,18 @@ int process_frame(av_qsv_list* received_item, av_qsv_context* qsv, hb_filter_pri
     int sync_idx = av_qsv_get_free_sync(qsv_vpp, qsv);
     int surface_idx = -1;
 
-    for(;;){
-
+    for(;;)
+    {
+            if (sync_idx == -1)
+            {
+                hb_error("qsv: Not enough resources allocated for QSV filter");
+                ret = 0;
+                break;
+            }
             if( sts == MFX_ERR_MORE_SURFACE || sts == MFX_ERR_NONE )
                surface_idx = av_qsv_get_free_surface(qsv_vpp, qsv,  &(qsv_vpp->m_mfxVideoParam.vpp.Out), QSV_PART_ANY);
             if (surface_idx == -1) {
-                hb_log("qsv: Not enough resources allocated for the filter");
+                hb_error("qsv: Not enough resources allocated for QSV filter");
                 ret = 0;
                 break;
             }

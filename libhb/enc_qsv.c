@@ -1015,7 +1015,11 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
             received_item = NULL;
         }
         int sync_idx = av_qsv_get_free_sync( qsv_encode, qsv );
-
+        if (sync_idx == -1)
+        {
+            hb_error("qsv: Not enough resources allocated for QSV encode");
+            return 0;
+        }
         av_qsv_task *task = av_qsv_list_item( qsv_encode->tasks, pv->async_depth );
 
         for (;;)

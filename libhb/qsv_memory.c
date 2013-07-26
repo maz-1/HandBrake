@@ -30,16 +30,15 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hbffmpeg.h"
 #include "qsv_memory.h"
 
-
 int qsv_nv12_to_yuv420(struct SwsContext* sws_context,hb_buffer_t* dst, mfxFrameSurface1* src, mfxCoreInterface *core){
     int ret = 0;
     int i,j;
 
-    int in_pitch = src->Data.Pitch;
-    int h = src->Info.CropH;
-    int w = src->Info.CropW;
-    uint8_t *in_luma = 0;
-    uint8_t *in_chroma = 0;
+    int in_pitch        = src->Data.Pitch;
+    int w               = AV_QSV_ALIGN16(src->Info.Width);
+    int h               = (MFX_PICSTRUCT_PROGRESSIVE == src->Info.PicStruct) ? AV_QSV_ALIGN16(src->Info.Height) : AV_QSV_ALIGN32(src->Info.Height);
+    uint8_t *in_luma    = 0;
+    uint8_t *in_chroma  = 0;
     static int copyframe_in_use = 1;
 
 
@@ -48,18 +47,19 @@ int qsv_nv12_to_yuv420(struct SwsContext* sws_context,hb_buffer_t* dst, mfxFrame
 
     if (copyframe_in_use)
     {
-    accel_dst.Info.FourCC = src->Info.FourCC;
-    accel_dst.Info.CropH = src->Info.CropH;
-    accel_dst.Info.CropW = src->Info.CropW;
-    accel_dst.Info.CropY = src->Info.CropY;
-    accel_dst.Info.CropX = src->Info.CropX;
-    accel_dst.Info.Width = src->Info.Width;
-    accel_dst.Info.Height = src->Info.Height;
-    accel_dst.Data.Pitch = src->Data.Pitch;
-    accel_dst.Data.Y = calloc( 1, in_pitch*h );
-    accel_dst.Data.VU = calloc( 1, in_pitch*h/2 );
+        accel_dst.Info.FourCC   = src->Info.FourCC;
+        accel_dst.Info.CropH    = src->Info.CropH;
+        accel_dst.Info.CropW    = src->Info.CropW;
+        accel_dst.Info.CropY    = src->Info.CropY;
+        accel_dst.Info.CropX    = src->Info.CropX;
+        accel_dst.Info.Width    = w;
+        accel_dst.Info.Height   = h;
+        accel_dst.Data.Pitch    = src->Data.Pitch;
+        accel_dst.Data.Y        = calloc( 1, in_pitch*h );
+        accel_dst.Data.VU       = calloc( 1, in_pitch*h/2 );
 
-    sts = core->CopyFrame(core->pthis, &accel_dst, src );
+        sts = core->CopyFrame(core->pthis, &accel_dst, src);
+
         if (sts < MFX_ERR_NONE)
         {
             free(accel_dst.Data.Y);
@@ -81,18 +81,18 @@ int qsv_nv12_to_yuv420(struct SwsContext* sws_context,hb_buffer_t* dst, mfxFrame
 
     hb_video_buffer_realloc( dst, w, h );
 
-    uint8_t *srcs[] = { in_luma, in_chroma };
+    uint8_t *srcs[]   = { in_luma, in_chroma };
     int srcs_stride[] = { in_pitch, in_pitch };
 
-    uint8_t *dsts[] = { dst->plane[0].data, dst->plane[1].data, dst->plane[2].data };
+    uint8_t *dsts[]   = { dst->plane[0].data, dst->plane[1].data, dst->plane[2].data };
     int dsts_stride[] = { dst->plane[0].stride, dst->plane[1].stride, dst->plane[2].stride };
 
     ret = sws_scale(sws_context, srcs, srcs_stride, 0, h, dsts, dsts_stride );
 
     if (copyframe_in_use)
     {
-    free(accel_dst.Data.Y);
-    free(accel_dst.Data.VU);
+        free(accel_dst.Data.Y);
+        free(accel_dst.Data.VU);
     }
 
     return ret;
@@ -104,15 +104,15 @@ int qsv_yuv420_to_nv12(struct SwsContext* sws_context,mfxFrameSurface1* dst, hb_
     int w = src->plane[0].width;
     int h = src->plane[0].height;
 
-    int out_pitch = dst->Data.Pitch;
-    uint8_t *out_luma = dst->Data.Y;
+    int out_pitch       = dst->Data.Pitch;
+    uint8_t *out_luma   = dst->Data.Y;
     uint8_t *out_chroma = dst->Data.VU;
 
-    uint8_t *srcs[] = { src->plane[0].data, src->plane[1].data, src->plane[2].data };
-    int srcs_stride[] = { src->plane[0].stride, src->plane[1].stride, src->plane[2].stride };
+    uint8_t *srcs[]     = { src->plane[0].data, src->plane[1].data, src->plane[2].data };
+    int srcs_stride[]   = { src->plane[0].stride, src->plane[1].stride, src->plane[2].stride };
 
-    uint8_t *dsts[] = { out_luma, out_chroma };
-    int dsts_stride[] = { out_pitch, out_pitch };
+    uint8_t *dsts[]     = { out_luma, out_chroma };
+    int dsts_stride[]   = { out_pitch, out_pitch };
 
     ret = sws_scale(sws_context, srcs, srcs_stride, 0, h, dsts, dsts_stride );
 

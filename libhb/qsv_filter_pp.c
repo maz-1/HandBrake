@@ -148,9 +148,12 @@ static int filter_pre_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
     AV_QSV_ZERO_MEMORY(qsv_vpp->m_mfxVideoParam);
 
 
-    if(prev_vpp)
+    if (prev_vpp)
+    {
         memcpy( &qsv_vpp->m_mfxVideoParam.vpp,  &prev_vpp->m_mfxVideoParam.vpp, sizeof(prev_vpp->m_mfxVideoParam.vpp));
-    else{
+    }
+    else
+    {
         AV_QSV_ZERO_MEMORY(qsv_vpp->m_mfxVideoParam);
 
         // FrameRate is important for VPP to start with
@@ -195,7 +198,7 @@ static int filter_pre_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
 
     qsv_vpp->m_mfxVideoParam.IOPattern = MFX_IOPATTERN_IN_OPAQUE_MEMORY | MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
 
-    qsv_vpp->surface_num = FFMIN(prev_vpp? prev_vpp->surface_num : qsv->dec_space->surface_num/2, AV_QSV_SURFACE_NUM );
+    qsv_vpp->surface_num = FFMIN(prev_vpp ? prev_vpp->surface_num : qsv->dec_space->surface_num/2, AV_QSV_SURFACE_NUM);
 
     for(i = 0; i < qsv_vpp->surface_num; i++){
         qsv_vpp->p_surfaces[i] = av_mallocz( sizeof(mfxFrameSurface1) );
@@ -203,7 +206,7 @@ static int filter_pre_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
         memcpy(&(qsv_vpp->p_surfaces[i]->Info), &(qsv_vpp->m_mfxVideoParam.vpp.Out), sizeof(mfxFrameInfo));
     }
 
-    qsv_vpp->sync_num = FFMIN(prev_vpp? prev_vpp->sync_num : qsv->dec_space->sync_num/2, AV_QSV_SYNC_NUM );
+    qsv_vpp->sync_num = FFMIN(prev_vpp ? prev_vpp->sync_num : qsv->dec_space->sync_num, AV_QSV_SYNC_NUM);
     for (i = 0; i < qsv_vpp->sync_num; i++){
         qsv_vpp->p_syncp[i] = av_mallocz(sizeof(av_qsv_sync));
         AV_QSV_CHECK_POINTER(qsv_vpp->p_syncp[i], MFX_ERR_MEMORY_ALLOC);
@@ -297,14 +300,13 @@ static int hb_qsv_filter_pre_init( hb_filter_object_t * filter,
     // PIX_FMT_YUV420P,   ///< planar YUV 4:2:0, 12bpp, (1 Cr & Cb sample per 2x2 Y samples) , 3 planes: Y, U, V
     // PIX_FMT_NV12,      ///< planar YUV 4:2:0, 12bpp, 1 plane for Y and 1 plane for the UV components, which are interleaved (first byte U and the following byte V)
     pv->sws_context_from_nv12 = hb_sws_get_context(
-                        pv->job->width, pv->job->height, AV_PIX_FMT_NV12,
-                        pv->job->width, pv->job->height, AV_PIX_FMT_YUV420P,
+                        pv->job->title->width, pv->job->title->height, AV_PIX_FMT_NV12,
+                        pv->job->title->width, pv->job->title->height, AV_PIX_FMT_YUV420P,
                         SWS_LANCZOS|SWS_ACCURATE_RND);
     pv->sws_context_to_nv12 = hb_sws_get_context(
-                        pv->job->width, pv->job->height, AV_PIX_FMT_YUV420P,
-                        pv->job->width, pv->job->height, AV_PIX_FMT_NV12,
+                        pv->job->title->width, pv->job->title->height, AV_PIX_FMT_YUV420P,
+                        pv->job->title->width, pv->job->title->height, AV_PIX_FMT_NV12,
                         SWS_LANCZOS|SWS_ACCURATE_RND);
-
     return 0;
 }
 int pre_process_frame(hb_buffer_t *in, av_qsv_context* qsv, hb_filter_private_t * pv ){
@@ -320,7 +322,8 @@ int pre_process_frame(hb_buffer_t *in, av_qsv_context* qsv, hb_filter_private_t 
 
     av_qsv_space *qsv_vpp = pv->vpp_space;
 
-    if(received_item){
+    if (received_item)
+    {
         stage = av_qsv_get_last_stage( received_item );
         work_surface = stage->out.p_surface;
     }
@@ -330,18 +333,27 @@ int pre_process_frame(hb_buffer_t *in, av_qsv_context* qsv, hb_filter_private_t 
 
     for (;;)
     {
-            if( sts == MFX_ERR_MORE_SURFACE || sts == MFX_ERR_NONE )
+            if (sync_idx == -1)
+            {
+                hb_error("qsv: Not enough resources allocated for the preprocessing filter");
+                ret = 0;
+                break;
+            }
+
+            if (sts == MFX_ERR_MORE_SURFACE || sts == MFX_ERR_NONE)
                surface_idx = av_qsv_get_free_surface(qsv_vpp, qsv,  &(qsv_vpp->m_mfxVideoParam.vpp.Out), QSV_PART_ANY);
             if (surface_idx == -1) {
-                hb_log("qsv: Not enough resources allocated for the filter");
+                hb_error("qsv: Not enough resources allocated for the preprocessing filter");
                 ret = 0;
                 break;
             }
 
             sts = MFXVideoUSER_ProcessFrameAsync(qsv->mfx_session, &work_surface, 1, &qsv_vpp->p_surfaces[surface_idx] , 1, qsv_vpp->p_syncp[sync_idx]->p_sync);
 
-            if( MFX_ERR_MORE_DATA == sts ){
-                if(!qsv_vpp->pending){
+            if (MFX_ERR_MORE_DATA == sts)
+            {
+                if (!qsv_vpp->pending)
+                {
                     qsv_vpp->pending = av_qsv_list_init(0);
                 }
 
