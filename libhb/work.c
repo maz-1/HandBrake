@@ -713,7 +713,7 @@ static void do_job(hb_job_t *job)
             // framerate shaping not yet supported
             init.cfr = 0;
         }
-        int is_additional_vpp_function = is_actual_crop_resize;
+        int is_additional_vpp_function = (is_actual_crop_resize || is_vpp_interlace);
 
         for( i = 0; i < hb_list_count( job->list_filter ); )
         {
