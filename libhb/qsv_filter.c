@@ -329,8 +329,6 @@ static int hb_qsv_filter_init( hb_filter_object_t * filter,
                &pv->deinterlace);
     }
 
-    pv->deinterlace &= 32;
-
     pv->job = init->job;
 
     // will be later as more params will be known

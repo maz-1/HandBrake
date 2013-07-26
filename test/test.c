@@ -1821,20 +1821,32 @@ static int HandleEvents( hb_handle_t * h )
             hb_add_filter( job, filter, filter_str );
             free( filter_str );
 
-            if(vcodec == HB_VCODEC_QSV_H264)
+            if (vcodec == HB_VCODEC_QSV_H264)
             {
-                char * filter_str;
+                char *filter_str;
+                int qsv_deinterlace;
+                filter = hb_filter_init(HB_FILTER_QSV_PRE);
+                hb_add_filter(job, filter, NULL);
+                filter = hb_filter_init(HB_FILTER_QSV_POST);
+                hb_add_filter(job, filter, NULL);
+                /*
+                 * QSV deinterlace should only be used if:
+                 *
+                 * - deinterlace_opt == NULL
+                 * OR
+                 * - deinterlace_opt == "32"
+                 */
+                qsv_deinterlace = (deinterlace &&
+                                   (!deinterlace_opt ||
+                                    !strcmp(deinterlace_opt, "32")));
                 filter_str = hb_strdup_printf("%d:%d:%d:%d:%d:%d_dei:%s",
-                        job->width, job->height,
-                        job->crop[0], job->crop[1], job->crop[2], job->crop[3], deinterlace ? (deinterlace_opt ? deinterlace_opt: "-1") : "0" );
-                filter = hb_filter_init( HB_FILTER_QSV );
-                hb_add_filter( job, filter, filter_str );
-                free( filter_str );
-
-                filter = hb_filter_init( HB_FILTER_QSV_PRE );
-                hb_add_filter( job, filter, NULL );
-                filter = hb_filter_init( HB_FILTER_QSV_POST );
-                hb_add_filter( job, filter, NULL );
+                                              job->width,   job->height,
+                                              job->crop[0], job->crop[1],
+                                              job->crop[2], job->crop[3],
+                                              qsv_deinterlace ? "1" : "0");
+                filter = hb_filter_init(HB_FILTER_QSV);
+                hb_add_filter(job, filter, filter_str);
+                free(filter_str);
             }
 
 
