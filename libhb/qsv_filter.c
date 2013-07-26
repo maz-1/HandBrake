@@ -70,7 +70,7 @@ hb_filter_object_t hb_filter_qsv =
 {
     .id            = HB_FILTER_QSV,
     .enforce_order = 1,
-    .name          = "Intel Quick Sync VPP Filter",
+    .name          = "Quick Sync Video VPP",
     .settings      = NULL,
     .init          = hb_qsv_filter_init,
     .work          = hb_qsv_filter_work,

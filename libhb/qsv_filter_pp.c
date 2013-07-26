@@ -82,7 +82,7 @@ hb_filter_object_t hb_filter_qsv_pre =
 {
     .id            = HB_FILTER_QSV_PRE,
     .enforce_order = 1,
-    .name          = "QSV User filter Pre",
+    .name          = "Quick Sync Video user filter (pre)",
     .settings      = NULL,
     .init          = hb_qsv_filter_pre_init,
     .work          = hb_qsv_filter_pre_work,
@@ -94,7 +94,7 @@ hb_filter_object_t hb_filter_qsv_post =
 {
     .id            = HB_FILTER_QSV_POST,
     .enforce_order = 1,
-    .name          = "QSV User filter Post",
+    .name          = "Quick Sync Video user filter (post)",
     .settings      = NULL,
     .init          = hb_qsv_filter_post_init,
     .work          = hb_qsv_filter_post_work,
@@ -271,8 +271,7 @@ static int hb_qsv_filter_pre_info( hb_filter_object_t * filter,
     if( !pv )
         return 0;
 
-    sprintf( info->human_readable_desc,
-        "QSV PRE filter" );
+    sprintf(info->human_readable_desc, "copy data to system memory");
 
     return 0;
 }
@@ -553,8 +552,7 @@ static int hb_qsv_filter_post_info( hb_filter_object_t * filter,
     if( !pv )
         return 0;
 
-    sprintf( info->human_readable_desc,
-        "QSV POST filter" );
+    sprintf(info->human_readable_desc, "copy data to Quick Sync Video memory");
 
     return 0;
 }
