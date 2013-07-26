@@ -133,15 +133,16 @@ struct hb_work_private_s
     // is to expect VPP before
     int is_vpp_present;
 
-    //if set - MB BRC option
-    mfxU16  mbbrc;
-    mfxU16  extbrc;
-    mfxExtCodingOption2  qsv_coding_option2_config;
-    mfxExtCodingOption   qsv_coding_option_config;
-    int     mbbrx_param_idx;
+    // always set
+    mfxExtCodingOption qsv_coding_option_config;
+    mfxExtVideoSignalInfo qsv_signal_info_config;
 
-    // lookahead
-    mfxU16  la_depth;
+    // only set if supported
+    mfxU16 mbbrc;
+    mfxU16 extbrc;
+    mfxU16 la_depth;
+    int mbbrx_param_idx;
+    mfxExtCodingOption2 qsv_coding_option2_config;
 };
 
 extern char* get_codec_id(hb_work_private_t *pv);
@@ -282,6 +283,42 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     AV_QSV_ZERO_MEMORY(qsv_encode->m_mfxVideoParam.mfx);
 
     qsv_param_set_defaults(&pv->qsv_config);
+
+    /* set up the VUI color model to match what the COLR atom says. */
+    int color_prim, color_transfer, color_matrix;
+    switch (job->color_matrix_code)
+    {
+        case 4:
+            // custom
+            color_prim     = job->color_prim;
+            color_transfer = job->color_transfer;
+            color_matrix   = job->color_matrix;
+            break;
+        case 3:
+            // ITU BT.709 HD content
+            color_prim     = HB_COLR_PRI_BT709;
+            color_transfer = HB_COLR_TRA_BT709;
+            color_matrix   = HB_COLR_MAT_BT709;
+            break;
+        case 2:
+            // ITU BT.601 DVD or SD TV content (PAL)
+            color_prim     = HB_COLR_PRI_EBUTECH;
+            color_transfer = HB_COLR_TRA_BT709;
+            color_matrix   = HB_COLR_MAT_SMPTE170M;
+            break;
+        case 1:
+            // ITU BT.601 DVD or SD TV content (NTSC)
+            color_prim     = HB_COLR_PRI_SMPTEC;
+            color_transfer = HB_COLR_TRA_BT709;
+            color_matrix   = HB_COLR_MAT_SMPTE170M;
+            break;
+        default:
+            // detected during scan
+            color_prim     = job->title->color_prim;
+            color_transfer = job->title->color_transfer;
+            color_matrix   = job->title->color_matrix;
+            break;
+    }
 
     hb_dict_t *qsv_opts_dict = NULL;
     if( job->advanced_opts != NULL && *job->advanced_opts != '\0' )
@@ -460,6 +497,16 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
 
     hb_dict_free( &qsv_opts_dict );
 
+    /*
+     * reload colorimetry in case values were set in the advanced_opts string.
+     *
+     * TODO: let users set custom values in the advanced_opts string.
+     */
+    job->color_matrix_code = 4;
+    job->color_prim        = color_prim;
+    job->color_transfer    = color_transfer;
+    job->color_matrix      = color_matrix;
+
     if(pv->qsv_config.async_depth)
         qsv_encode->m_mfxVideoParam.AsyncDepth = pv->qsv_config.async_depth;
 
@@ -576,6 +623,7 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
     }
 
     qsv_encode->p_ext_param_num++; // for MFX_EXTBUFF_CODING_OPTION
+    qsv_encode->p_ext_param_num++; // for MFX_EXTBUFF_VIDEO_SIGNAL_INFO
 
     qsv_encode->m_mfxVideoParam.NumExtParam = qsv_encode->p_ext_param_num;
 
@@ -585,12 +633,23 @@ int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
         qsv_encode->p_ext_params = av_mallocz(sizeof(mfxExtBuffer *)*qsv_encode->p_ext_param_num);
         AV_QSV_CHECK_POINTER(qsv_encode->p_ext_params, MFX_ERR_MEMORY_ALLOC);
 
-        // MFX_EXTBUFF_CODING_OPTION, supported from MSDK API 1.0 , so no additional check for now
-        pv->qsv_coding_option_config.Header.BufferId  = MFX_EXTBUFF_CODING_OPTION;
-        pv->qsv_coding_option_config.Header.BufferSz  = sizeof(mfxExtCodingOption);
-        pv->qsv_coding_option_config.AUDelimiter      = MFX_CODINGOPTION_OFF;
-        pv->qsv_coding_option_config.PicTimingSEI     = MFX_CODINGOPTION_OFF;
-        qsv_encode->p_ext_params[cur_idx++]            = (mfxExtBuffer*)&pv->qsv_coding_option_config;
+        // MFX_EXTBUFF_CODING_OPTION, supported since MSDK API 1.0
+        pv->qsv_coding_option_config.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
+        pv->qsv_coding_option_config.Header.BufferSz = sizeof(mfxExtCodingOption);
+        pv->qsv_coding_option_config.AUDelimiter     = MFX_CODINGOPTION_OFF;
+        pv->qsv_coding_option_config.PicTimingSEI    = MFX_CODINGOPTION_OFF;
+        qsv_encode->p_ext_params[cur_idx++]          = (mfxExtBuffer*)&pv->qsv_coding_option_config;
+
+        // MFX_EXTBUFF_VIDEO_SIGNAL_INFO, supported since MSDK API 1.3
+        pv->qsv_signal_info_config.Header.BufferId          = MFX_EXTBUFF_VIDEO_SIGNAL_INFO;
+        pv->qsv_signal_info_config.Header.BufferSz          = sizeof(mfxExtVideoSignalInfo);
+        pv->qsv_signal_info_config.VideoFormat              = 5; // undefined
+        pv->qsv_signal_info_config.VideoFullRange           = 0; // TV range
+        pv->qsv_signal_info_config.ColourDescriptionPresent = 1; // write to bistream
+        pv->qsv_signal_info_config.ColourPrimaries          = color_prim;
+        pv->qsv_signal_info_config.TransferCharacteristics  = color_transfer;
+        pv->qsv_signal_info_config.MatrixCoefficients       = color_matrix;
+        qsv_encode->p_ext_params[cur_idx++]                 = (mfxExtBuffer*)&pv->qsv_signal_info_config;
 
         if (!pv->is_sys_mem)
         {
