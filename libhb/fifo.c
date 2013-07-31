@@ -383,6 +383,10 @@ hb_buffer_t * hb_buffer_dup( const hb_buffer_t * src )
             hb_buffer_init_planes( buf );
     }
 
+#ifdef USE_QSV
+    memcpy(&buf->qsv_details,&src->qsv_details,sizeof(src->qsv_details));
+#endif
+
     return buf;
 }
 
@@ -406,7 +410,7 @@ int hb_buffer_copy(hb_buffer_t * dst, const hb_buffer_t * src)
 static void hb_buffer_init_planes_internal( hb_buffer_t * b, uint8_t * has_plane )
 {
     uint8_t * plane = b->data;
-    int p, tot = 0;
+    int p;
 
     for( p = 0; p < 4; p++ )
     {
@@ -419,7 +423,6 @@ static void hb_buffer_init_planes_internal( hb_buffer_t * b, uint8_t * has_plane
             b->plane[p].height = hb_image_height( b->f.fmt, b->f.height, p );
             b->plane[p].size   = b->plane[p].stride * b->plane[p].height_stride;
             plane += b->plane[p].size;
-            tot += b->plane[p].size;
         }
     }
 }
@@ -502,6 +505,7 @@ void hb_video_buffer_realloc( hb_buffer_t * buf, int width, int height )
 
     buf->f.width = width;
     buf->f.height = height;
+    buf->size       = size;
 
     hb_buffer_init_planes_internal( buf, has_plane );
 }

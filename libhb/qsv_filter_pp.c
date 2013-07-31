@@ -33,31 +33,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "qsv_filter.h"
 #include "qsv_memory.h"
 
-typedef struct hb_qsv_sync_s{
-    int                 frame_go;
-    hb_cond_t           *frame_completed;
-    hb_lock_t           *frame_completed_lock;
-
-    hb_buffer_t         *in;
-    hb_buffer_t         *out;
-} hb_qsv_sync_t;
-
-struct hb_filter_private_s
-{
-    hb_job_t            *job;
-    hb_list_t           *list;
-
-    hb_qsv_sync_t       pre;
-    hb_qsv_sync_t       post;
-
-    hb_qsv_sync_t       pre_busy;
-
-    av_qsv_space           *vpp_space;
-    hb_list_t           *qsv_user;
-
-    struct SwsContext* sws_context_to_nv12;
-    struct SwsContext* sws_context_from_nv12;
-};
 
 static int hb_qsv_filter_pre_init( hb_filter_object_t * filter,
                                hb_filter_init_t * init );
@@ -293,6 +268,10 @@ static int hb_qsv_filter_pre_init( hb_filter_object_t * filter,
     pv->pre_busy.frame_completed     = hb_cond_init();
     pv->pre_busy.frame_completed_lock = hb_lock_init();
 
+    pv->post_busy.frame_go               = 0;
+    pv->post_busy.frame_completed        = hb_cond_init();
+    pv->post_busy.frame_completed_lock   = hb_lock_init();
+
     pv->list = hb_list_init();
 
     // just to remind:
@@ -460,7 +439,6 @@ static int hb_qsv_filter_pre_work( hb_filter_object_t * filter,
     if(!in->qsv_details.filter_details)
         in->qsv_details.filter_details = pv;
 
-
     if ( in->size <= 0 )
     {
         *buf_out = in;
@@ -541,6 +519,11 @@ static void hb_qsv_filter_pre_close( hb_filter_object_t * filter ){
     hb_cond_close(&pv->pre_busy.frame_completed);
     hb_lock_close(&pv->pre_busy.frame_completed_lock);
 
+    hb_cond_close(&pv->post_busy.frame_completed);
+    hb_lock_close(&pv->post_busy.frame_completed_lock);
+
+    hb_list_close( &pv->list );
+
     free( pv );
     filter->private_data = NULL;
 }
@@ -580,6 +563,13 @@ static int hb_qsv_filter_post_work( hb_filter_object_t * filter,
     av_qsv_context* qsv = pv->job->qsv;
     pv = in->qsv_details.filter_details;
 
+    if (!pv)
+    {
+        *buf_out = NULL;
+        *buf_in = NULL;
+        return HB_FILTER_OK;
+    }
+
     while(1){
         int ret = filter_pre_init(qsv,pv);
         if(ret >= 2)
@@ -588,19 +578,34 @@ static int hb_qsv_filter_post_work( hb_filter_object_t * filter,
             break;
     }
 
-
     pv->post.in = in;
     pv->post.out = out;
 
-    pv->post.in = in;
-
+    // signal: input is prepared, can start inserting data back into pipeline
     hb_lock(pv->post.frame_completed_lock);
     pv->post.frame_go = 1;
     hb_cond_broadcast(pv->post.frame_completed);
     hb_unlock(pv->post.frame_completed_lock);
 
-    // for now - just bypass to the next
+    // wait: on signal that data is ready
+    hb_lock(pv->post_busy.frame_completed_lock);
+    while(!pv->post_busy.frame_go){
+        hb_cond_timedwait(pv->post_busy.frame_completed,pv->post_busy.frame_completed_lock,1000);
+        if(*pv->job->die)
+            break;
+    }
+    pv->post_busy.frame_go = 0;
+    hb_unlock(pv->post_busy.frame_completed_lock);
+
+    if (pv->post.status == HB_FILTER_OK || pv->post.status == HB_FILTER_DONE)
+    {
     *buf_out = in;
+    }
+    else
+    {
+        *buf_out = NULL;
+        pv->post.status = HB_FILTER_OK;
+    }
     *buf_in = NULL;
 
     return HB_FILTER_OK;
@@ -859,11 +864,13 @@ int process_filter(qsv_filter_task_t* task, void* params){
 
     qsv_nv12_to_yuv420(task->pv->sws_context_from_nv12,task->pv->pre.out, task->in, task->processor.core);
 
+    // signal: input is prepared, converted from pipeline into internal buffer
     hb_lock(task->pv->pre.frame_completed_lock);
     task->pv->pre.frame_go = 1;
     hb_cond_broadcast(task->pv->pre.frame_completed);
     hb_unlock(task->pv->pre.frame_completed_lock);
 
+    // wait: input is prepared, converted from pipeline into internal buffer
     hb_lock(task->pv->post.frame_completed_lock);
     while(!task->pv->post.frame_go){
         hb_cond_timedwait(task->pv->post.frame_completed,task->pv->post.frame_completed_lock,1000);
@@ -891,7 +898,16 @@ int process_filter(qsv_filter_task_t* task, void* params){
     }
 #endif
 
+    if(task->pv->post.in)
+    {
     qsv_yuv420_to_nv12(task->pv->sws_context_to_nv12, task->out, task->pv->post.in);
+    }
+
+    // signal: output is prepared, converted from internal buffer into pipeline
+    hb_lock(task->pv->post_busy.frame_completed_lock);
+    task->pv->post_busy.frame_go = 1;
+    hb_cond_broadcast(task->pv->post_busy.frame_completed);
+    hb_unlock(task->pv->post_busy.frame_completed_lock);
 
     unlock_frame(task->processor.alloc,task->in);
     unlock_frame(task->processor.alloc,task->out);

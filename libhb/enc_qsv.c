@@ -929,9 +929,12 @@ void encqsvClose( hb_work_object_t * w )
         }
         }
 
-        av_freep(&pv->sps_pps->SPSBuffer);
-        av_freep(&pv->sps_pps->PPSBuffer);
-        av_freep(&pv->sps_pps);
+        if (pv->sps_pps)
+        {
+            av_freep(&pv->sps_pps->SPSBuffer);
+            av_freep(&pv->sps_pps->PPSBuffer);
+            av_freep(&pv->sps_pps);
+        }
     }
 
     if (pv != NULL)

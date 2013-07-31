@@ -63,6 +63,33 @@ typedef struct qsv_filter_private_s{
         hb_list_t           *tasks;
 } qsv_filter_t;
 
+typedef struct hb_qsv_sync_s{
+    int                 frame_go;
+    int                 status;
+    hb_cond_t           *frame_completed;
+    hb_lock_t           *frame_completed_lock;
+
+    hb_buffer_t         *in;
+    hb_buffer_t         *out;
+} hb_qsv_sync_t;
+
+typedef struct hb_filter_private_s
+{
+    hb_job_t            *job;
+    hb_list_t           *list;
+
+    hb_qsv_sync_t       pre;
+    hb_qsv_sync_t       pre_busy;
+
+    hb_qsv_sync_t       post;
+    hb_qsv_sync_t       post_busy;
+
+    av_qsv_space        *vpp_space;
+    hb_list_t           *qsv_user;
+
+    struct SwsContext* sws_context_to_nv12;
+    struct SwsContext* sws_context_from_nv12;
+} hb_filter_private_t_qsv;
 
 // methods to be called by Media SDK
 mfxStatus MFX_CDECL qsv_PluginInit(mfxHDL pthis, mfxCoreInterface *core);

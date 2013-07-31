@@ -13,6 +13,7 @@
 
 #ifdef USE_QSV
 #include "libavcodec/qsv.h"
+#include "qsv_filter_pp.h"
 #endif
 
 typedef struct
@@ -1640,8 +1641,27 @@ static void filter_loop( void * _f )
         }
 
         buf_out = NULL;
+
+#ifdef USE_QSV
+        hb_buffer_t *last_buf_in = buf_in;
+#endif
+
         f->status = f->work( f, &buf_in, &buf_out );
 
+#ifdef USE_QSV
+        if (f->status==HB_FILTER_DELAY && last_buf_in->qsv_details.filter_details &&
+            buf_out == NULL)
+        {
+            hb_filter_private_t_qsv *qsv_user = buf_in ? buf_in->qsv_details.filter_details : last_buf_in->qsv_details.filter_details ;
+            qsv_user->post.status = f->status;
+
+            hb_lock(qsv_user->post.frame_completed_lock);
+            qsv_user->post.frame_go = 1;
+            hb_cond_broadcast(qsv_user->post.frame_completed);
+            hb_unlock(qsv_user->post.frame_completed_lock);
+
+        }
+#endif
         if ( buf_out && f->chapter_val && f->chapter_time <= buf_out->s.start )
         {
             buf_out->s.new_chap = f->chapter_val;
