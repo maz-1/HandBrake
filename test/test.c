@@ -136,6 +136,9 @@ static int    start_at_frame = 0;
 static int64_t stop_at_pts    = 0;
 static int    stop_at_frame = 0;
 static uint64_t min_title_duration = 10;
+#ifdef USE_QSV
+static int qsv_decode = 1;
+#endif
 
 /* Exit cleanly on Ctrl-C */
 static volatile int die = 0;
@@ -1873,6 +1876,10 @@ static int HandleEvents( hb_handle_t * h )
                 job->vcodec = vcodec;
             }
 
+#ifdef USE_QSV
+            job->qsv_decode = qsv_decode;
+#endif
+
             /* Grab audio tracks */
             if( atracks )
             {
@@ -3448,7 +3455,10 @@ if (hb_qsv_available())
 if (hb_qsv_available())
 {
     fprintf( out,
-    "### QSV Options, via --encopts=\"option1=value1:option2=value2\" -----------\n\n"
+    "### Intel Quick Sync Video------------------------------------------------------\n\n"
+    "    --disable-qsv-decoding  Force software decoding of the video track.\n"
+    "\n"
+    "    Advanced encoding options, via --encopts=\"option1=value1:option2=value2\":\n"
     "        - target-usage  A range of numbers that indicate trade-offs between\n"
     "          <number>          quality and speed, from 1 to 7 inclusive.\n"
     "                            Default is 2\n"
@@ -3647,6 +3657,7 @@ static int ParseOptions( int argc, char ** argv )
             { "no-dvdnav",   no_argument,       NULL,    DVDNAV },
 #ifdef USE_QSV
             { "qsv-baseline", no_argument,      NULL,    QSV_BASELINE },
+            { "disable-qsv-decoding", no_argument, &qsv_decode, 0 },
 #endif
 
             { "format",      required_argument, NULL,    'f' },

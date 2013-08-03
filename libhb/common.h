@@ -514,6 +514,7 @@ struct hb_job_s
                                         //  to non-I frames).
 #ifdef USE_QSV
     av_qsv_context   *qsv;
+    int               qsv_decode;
 #endif
 
 #ifdef __LIBHB__

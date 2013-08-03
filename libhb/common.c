@@ -2829,6 +2829,10 @@ static void job_setup( hb_job_t * job, hb_title_t * title )
 
     job->list_attachment = hb_attachment_list_copy( title->list_attachment );
     job->metadata = hb_metadata_copy( title->metadata );
+
+#ifdef USE_QSV
+    job->qsv_decode = title->qsv_decode_support;
+#endif
 }
 
 static void job_clean( hb_job_t * job )

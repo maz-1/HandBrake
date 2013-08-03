@@ -247,7 +247,7 @@ const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id)
 
 int hb_qsv_decode_is_enabled(hb_job_t *job)
 {
-    return ((job != NULL && job->title->qsv_decode_support) &&
+    return ((job != NULL && job->title->qsv_decode_support && job->qsv_decode) &&
             (job->vcodec & HB_VCODEC_QSV_MASK));
 }
 
