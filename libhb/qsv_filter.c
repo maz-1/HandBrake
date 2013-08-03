@@ -335,9 +335,11 @@ static int hb_qsv_filter_init( hb_filter_object_t * filter,
     // filter_init(pv->job->qsv, pv);
 
     // just passing
-    init->cfr = init->job->cfr;
     init->vrate = init->vrate;
     init->vrate_base = init->vrate_base;
+
+    // framerate shaping not yet supported
+    init->cfr = 0;
 
     init->pix_fmt = pv->pix_fmt;
     init->width = pv->width_out;

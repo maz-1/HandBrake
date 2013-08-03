@@ -1603,11 +1603,6 @@ static int HandleEvents( hb_handle_t * h )
 
             hb_filter_object_t * filter;
 
-            if(vcodec == HB_VCODEC_QSV_H264)
-            {
-                job->vcodec = vcodec;
-            }
-
             /* Add selected filters */
             if( detelecine )
             {
@@ -1820,33 +1815,6 @@ static int HandleEvents( hb_handle_t * h )
             filter = hb_filter_init( HB_FILTER_CROP_SCALE );
             hb_add_filter( job, filter, filter_str );
             free( filter_str );
-
-            if (vcodec == HB_VCODEC_QSV_H264)
-            {
-                filter = hb_filter_init(HB_FILTER_QSV_PRE);
-                hb_add_filter(job, filter, NULL);
-                filter = hb_filter_init(HB_FILTER_QSV_POST);
-                hb_add_filter(job, filter, NULL);
-                /*
-                 * QSV deinterlace should only be used if:
-                 *
-                 * - deinterlace_opt == NULL
-                 * OR
-                 * - deinterlace_opt == "32"
-                 */
-                int qsv_deinterlace = (deinterlace &&
-                                       (!deinterlace_opt ||
-                                        !strcmp(deinterlace_opt, "32")));
-                filter_str = hb_strdup_printf("%d:%d:%d:%d:%d:%d_dei:%d",
-                                              job->width,   job->height,
-                                              job->crop[0], job->crop[1],
-                                              job->crop[2], job->crop[3],
-                                              qsv_deinterlace);
-                filter = hb_filter_init(HB_FILTER_QSV);
-                hb_add_filter(job, filter, filter_str);
-                free(filter_str);
-            }
-
 
             // Add framerate shaping filter
             if (vrate)
@@ -4002,10 +3970,6 @@ static int ParseOptions( int argc, char ** argv )
                     else if (!( strcmp( optarg, "bob" ) ))
                     {
                         deinterlace_opt = "15";
-                    }
-                    else if (!( strcmp( optarg, "qsv" ) ))
-                    {
-                        deinterlace_opt = "32";
                     }
                     else
                     {

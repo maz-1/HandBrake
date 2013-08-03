@@ -672,6 +672,114 @@ static void do_job(hb_job_t *job)
         }
     }
 
+#ifdef USE_QSV
+    /*
+     * When QSV is used for decoding, not all CPU-based filters are supported,
+     * so we need to do a little extra setup here.
+     */
+    if (hb_qsv_decode_is_enabled(job))
+    {
+        int vpp_settings[7];
+        int num_cpu_filters = 0;
+        hb_filter_object_t *filter;
+        // default values for VPP filter
+        vpp_settings[0] = job->title->width;
+        vpp_settings[1] = job->title->height;
+        vpp_settings[2] = job->title->crop[0];
+        vpp_settings[3] = job->title->crop[1];
+        vpp_settings[4] = job->title->crop[2];
+        vpp_settings[5] = job->title->crop[3];
+        vpp_settings[6] = 0; // deinterlace: off
+        if (job->list_filter != NULL && hb_list_count(job->list_filter) > 0)
+        {
+            while (hb_list_count(job->list_filter) > num_cpu_filters)
+            {
+                filter = hb_list_item(job->list_filter, num_cpu_filters);
+                switch (filter->id)
+                {
+                    // cropping and scaling always done via VPP filter
+                    case HB_FILTER_CROP_SCALE:
+                        if (filter->settings == NULL || *filter->settings == '\0')
+                        {
+                            // VPP defaults were set above, so not a problem
+                            // however, this should never happen, print an error
+                            hb_error("do_job: '%s': no settings!", filter->name);
+                        }
+                        else
+                        {
+                            sscanf(filter->settings, "%d:%d:%d:%d:%d:%d",
+                                   &vpp_settings[0], &vpp_settings[1],
+                                   &vpp_settings[2], &vpp_settings[3],
+                                   &vpp_settings[4], &vpp_settings[5]);
+                        }
+                        hb_list_rem(job->list_filter, filter);
+                        hb_filter_close(&filter);
+                        break;
+
+                    // pick VPP or CPU deinterlace depending on settings
+                    case HB_FILTER_DEINTERLACE:
+                        if (filter->settings == NULL || !strcmp(filter->settings, "qsv"))
+                        {
+                            // deinterlacing via VPP filter
+                            vpp_settings[6] = 1;
+                            hb_list_rem(job->list_filter, filter);
+                            hb_filter_close(&filter);
+                        }
+                        else
+                        {
+                            // validated
+                            num_cpu_filters++;
+                        }
+                        break;
+
+                    // then, validated filters
+                    case HB_FILTER_ROTATE: // TODO: use Media SDK for this
+                    case HB_FILTER_RENDER_SUB:
+                        num_cpu_filters++;
+                        break;
+
+                    // finally, drop all unsupported filters
+                    default:
+                        hb_log("do_job: full QSV path, removing unsupported filter '%s'",
+                               filter->name);
+                        hb_list_rem(job->list_filter, filter);
+                        hb_filter_close(&filter);
+                        break;
+                }
+            }
+            if (num_cpu_filters > 0)
+            {
+                // we need filters to copy to system memory and back
+                filter = hb_filter_init(HB_FILTER_QSV_PRE);
+                hb_add_filter(job, filter, NULL);
+                filter = hb_filter_init(HB_FILTER_QSV_POST);
+                hb_add_filter(job, filter, NULL);
+            }
+            if (vpp_settings[0] != job->title->width  ||
+                vpp_settings[1] != job->title->height ||
+                vpp_settings[2] >= 1 /* crop */       ||
+                vpp_settings[3] >= 1 /* crop */       ||
+                vpp_settings[4] >= 1 /* crop */       ||
+                vpp_settings[5] >= 1 /* crop */       ||
+                vpp_settings[6] >= 1 /* deinterlace */)
+            {
+                // we need the VPP filter
+                char *settings = hb_strdup_printf("%d:%d:%d:%d:%d:%d_dei:%d",
+                                                  vpp_settings[0],
+                                                  vpp_settings[1],
+                                                  vpp_settings[2],
+                                                  vpp_settings[3],
+                                                  vpp_settings[4],
+                                                  vpp_settings[5],
+                                                  vpp_settings[6]);
+                filter = hb_filter_init(HB_FILTER_QSV);
+                hb_add_filter(job, filter, settings);
+                free(settings);
+            }
+        }
+    }
+#endif
+
     // Filters have an effect on settings.
     // So initialize the filters and update the job.
     if( job->list_filter && hb_list_count( job->list_filter ) )
@@ -689,113 +797,9 @@ static void do_job(hb_job_t *job)
         init.vrate = title->rate;
         init.cfr = 0;
 
-#ifdef USE_QSV
-        int is_vpp_interlace = 0;
-        int is_actual_crop_resize = 0;
-        if (hb_qsv_decode_is_enabled(job))
-        {
-            for( i = 0; i < hb_list_count( job->list_filter ); i++ )
-            {
-                hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
-                if( filter->id == HB_FILTER_DEINTERLACE )
-                {
-                    if( filter->settings )
-                    {
-                        if( !(strcmp( filter->settings, "32" )) )
-                            is_vpp_interlace = 1;
-                    }
-                    else
-                    {
-                      // for QSV path - deinterlace from QSV is default, if not param(s) set
-                      is_vpp_interlace = 2;
-                    }
-                }
-                else
-                if( filter->id == HB_FILTER_QSV )
-                {
-                    if( job->width  != job->title->width ||
-                        job->height != job->title->height ||
-                        job->crop[0] != 0 ||  job->crop[1] != 0 ||
-                        job->crop[2] != 0 ||  job->crop[3] != 0 )
-                    {
-                        is_actual_crop_resize = 1;
-                    }
-                }
-            }
-            // framerate shaping not yet supported
-            init.cfr = 0;
-        }
-        int is_additional_vpp_function = (is_actual_crop_resize || is_vpp_interlace);
-#endif
-
         for( i = 0; i < hb_list_count( job->list_filter ); )
         {
             hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
-
-#ifdef USE_QSV
-            // to do not use QSV related if not handled from its decode
-            if( job->vcodec == HB_VCODEC_QSV_H264 )
-             // for now, only h.264 related stuff
-             if (!hb_qsv_decode_is_enabled(job))
-             {
-                if( filter->id == HB_FILTER_QSV_PRE  ||
-                    filter->id == HB_FILTER_QSV_POST ||
-                    filter->id == HB_FILTER_QSV )
-                {
-                        hb_list_rem( job->list_filter, filter );
-                        hb_filter_close( &filter );
-                        continue;
-                }
-             }
-             else
-             if( title->video_codec_param == AV_CODEC_ID_H264 )
-             {
-                // for QSV crop and scale taken as HW VPP
-                if( filter->id == HB_FILTER_CROP_SCALE  ||
-                    filter->id == HB_FILTER_VFR
-                    // to check and use with USER_VPP_FILTER, some should come from QSV/HW
-                    || filter->id == HB_FILTER_DETELECINE   // note: Table 3: Deinterlacing/Inverse Telecine Support in VPP, mediasdk-man.pdf
-                    || filter->id == HB_FILTER_DECOMB
-/*validated*/       ||(filter->id == HB_FILTER_DEINTERLACE && is_vpp_interlace)
-                    || filter->id == HB_FILTER_DEBLOCK
-                    || filter->id == HB_FILTER_DENOISE      // note: MFX_EXTBUFF_VPP_DENOISE
-/*validated*/ //    || filter->id == HB_FILTER_RENDER_SUB
-/*validated*/ //    || filter->id == HB_FILTER_ROTATE       // validated,  note : it makes sense to have more local to Video Memory, OpenCL as an example
-                    || (filter->id == HB_FILTER_QSV && !is_additional_vpp_function )
-                    ){
-                        hb_list_rem( job->list_filter, filter );
-                        hb_filter_close( &filter );
-                        continue;
-                }
-
-                // only use if some filters are in between
-                if( filter->id == HB_FILTER_QSV_PRE  ||
-                    filter->id == HB_FILTER_QSV_POST )
-                {
-                    int to_use = 0;
-                    int x = 0;
-                    for( ;x < hb_list_count( job->list_filter );x++ )
-                    {
-                        hb_filter_object_t * check_filter = hb_list_item( job->list_filter, x );
-                        if( check_filter->id > HB_FILTER_QSV_PRE && check_filter->id < HB_FILTER_QSV_POST &&
-                            // if original filter used - we need to wrap them into QSV pipeline
-                           ((check_filter->id == HB_FILTER_DEINTERLACE && !is_vpp_interlace) ||
-                             check_filter->id == HB_FILTER_ROTATE || check_filter->id == HB_FILTER_RENDER_SUB) )
-                        {
-                            to_use = 1;
-                            break;
-                        }
-                    }
-
-                    if( !to_use )
-                    {
-                        hb_list_rem( job->list_filter, filter );
-                        hb_filter_close( &filter );
-                        continue;
-                    }
-                }
-             }
-#endif
 
             if( filter->init( filter, &init ) )
             {
