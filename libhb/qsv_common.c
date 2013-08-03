@@ -232,3 +232,15 @@ void hb_qsv_info_print()
         }
     }
 }
+
+const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id)
+{
+    switch (codec_id)
+    {
+        case AV_CODEC_ID_H264:
+            return "h264_qsv";
+            
+        default:
+            return NULL;
+    }
+}

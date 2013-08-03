@@ -59,4 +59,7 @@ int  hb_qsv_available();
 int  hb_qsv_info_init();
 void hb_qsv_info_print();
 
+/* Intel Quick Sync Video DECODE utilities */
+const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id);
+
 #endif
