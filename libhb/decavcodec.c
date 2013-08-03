@@ -1174,27 +1174,10 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
 #ifdef USE_QSV
     if (hb_qsv_decode_is_enabled(job))
     {
-        int ret;
-        hb_dict_t *qsv_opts = NULL;
-        hb_dict_entry_t *entry = NULL;
-        qsv_param_set_defaults(&pv->qsv_config);
-        // parse QSV encoding options to determine AsyncDepth
-        if (job->advanced_opts != NULL && *job->advanced_opts != '\0')
-        {
-            qsv_opts = hb_encopts_to_dict(job->advanced_opts, job->vcodec);
-        }
-        while ((entry = hb_dict_next(qsv_opts, entry)) != NULL)
-        {
-            ret = qsv_param_parse(&pv->qsv_config, entry->key, entry->value);
-            if (ret == QSV_PARAM_BAD_NAME)
-                hb_log("QSV options: Unknown suboption %s", entry->key);
-            if (ret == QSV_PARAM_BAD_VALUE)
-                hb_log("QSV options: Bad argument %s=%s", entry->key, entry->value);
-        }
-        hb_dict_free(&qsv_opts);
         // setup the QSV configuration
         pv->qsv_config.impl_requested     = MFX_IMPL_AUTO_ANY|MFX_IMPL_VIA_ANY;
         pv->qsv_config.io_pattern         = MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
+        pv->qsv_config.async_depth        = job->qsv_async_depth;
         pv->qsv_config.sync_need          =  0;
         pv->qsv_config.usage_threaded     =  1;
         pv->qsv_config.additional_buffers = 64; // FIFO_LARGE

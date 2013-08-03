@@ -2831,7 +2831,8 @@ static void job_setup( hb_job_t * job, hb_title_t * title )
     job->metadata = hb_metadata_copy( title->metadata );
 
 #ifdef USE_QSV
-    job->qsv_decode = title->qsv_decode_support;
+    job->qsv_decode      = title->qsv_decode_support;
+    job->qsv_async_depth = AV_QSV_ASYNC_DEPTH_DEFAULT;
 #endif
 }
 

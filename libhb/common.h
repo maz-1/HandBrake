@@ -515,6 +515,7 @@ struct hb_job_s
 #ifdef USE_QSV
     av_qsv_context   *qsv;
     int               qsv_decode;
+    int               qsv_async_depth;
 #endif
 
 #ifdef __LIBHB__

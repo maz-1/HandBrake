@@ -499,11 +499,9 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
     job->color_transfer    = color_transfer;
     job->color_matrix      = color_matrix;
 
-    if(pv->qsv_config.async_depth)
-        qsv_encode->m_mfxVideoParam.AsyncDepth = pv->qsv_config.async_depth;
-
-    pv->max_async_depth = pv->qsv_config.async_depth;
-    pv->async_depth     = 0;
+    qsv_encode->m_mfxVideoParam.AsyncDepth = job->qsv_async_depth;
+    pv->max_async_depth                    = job->qsv_async_depth;
+    pv->async_depth                        = 0;
 
     char *rc_method = NULL;
     switch (qsv_encode->m_mfxVideoParam.mfx.RateControlMethod){
@@ -586,7 +584,8 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
 
     if(pv->is_sys_mem){
 
-        qsv_encode->surface_num = FFMIN( qsv_encode->request[0].NumFrameSuggested + pv->qsv_config.async_depth,AV_QSV_SURFACE_NUM );
+        qsv_encode->surface_num = FFMIN(qsv_encode->request[0].NumFrameSuggested +
+                                        pv->job->qsv_async_depth, AV_QSV_SURFACE_NUM);
         if(qsv_encode->surface_num <= 0 )
             qsv_encode->surface_num = AV_QSV_SURFACE_NUM;
 
@@ -1397,9 +1396,6 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
     if(!config)
         return QSV_PARAM_BAD_CONFIG;
 
-    if(!strcmp(name,QSV_NAME_async_depth))
-        config->async_depth = FFMAX( atoi(value),0 );
-    else
     if(!strcmp(name,QSV_NAME_target_usage))
         config->target_usage = FFMAX( atoi(value),0 );
     else

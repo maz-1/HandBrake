@@ -48,7 +48,6 @@ struct hb_filter_private_s
     int                 is_frc_used;
 
     av_qsv_space           *vpp_space;
-    av_qsv_config qsv_config;
 
     // FRC param(s)
     mfxExtVPPFrameRateConversion    frc_config;
@@ -110,25 +109,6 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
 
     av_qsv_add_context_usage(qsv,HAVE_THREADS);
 
-
-    qsv_param_set_defaults(&pv->qsv_config);
-    hb_dict_t * qsv_opts = NULL;
-    if( pv->job->advanced_opts != NULL && *pv->job->advanced_opts != '\0' )
-        qsv_opts = hb_encopts_to_dict( pv->job->advanced_opts, pv->job->vcodec );
-
-    int ret;
-    hb_dict_entry_t * entry = NULL;
-    while( ( entry = hb_dict_next( qsv_opts, entry ) ) )
-    {
-        ret = qsv_param_parse( &pv->qsv_config, entry->key, entry->value );
-        if( ret == QSV_PARAM_BAD_NAME )
-            hb_log( "QSV options: Unknown suboption %s", entry->key );
-        else
-        if( ret == QSV_PARAM_BAD_VALUE )
-            hb_log( "QSV options: Bad argument %s=%s", entry->key, entry->value ? entry->value : "(null)" );
-    }
-    hb_dict_free( &qsv_opts );
-
     // see params needed like at mediasdk-man.pdf:"Appendix A: Configuration Parameter Constraints"
     // for now - most will take from the decode
     {
@@ -174,7 +154,7 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
 
         qsv_vpp->m_mfxVideoParam.IOPattern = MFX_IOPATTERN_IN_OPAQUE_MEMORY | MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
 
-        qsv_vpp->m_mfxVideoParam.AsyncDepth = pv->qsv_config.async_depth;
+        qsv_vpp->m_mfxVideoParam.AsyncDepth = pv->job->qsv_async_depth;
 
         memset(&qsv_vpp->request, 0, sizeof(mfxFrameAllocRequest)*2);
 
