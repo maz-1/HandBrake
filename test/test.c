@@ -3095,17 +3095,14 @@ static void ShowHelp()
 if (hb_qsv_available())
 {
     fprintf(out,
-    "                            same style as mencoder (x264/qsv/ffmpeg only):");
+    "                            same style as mencoder (x264/qsv/ffmpeg only):\n");
 }
 else
+#endif
 {
     fprintf(out,
-    "                            same style as mencoder (x264 and ffmpeg only):");
+    "                            same style as mencoder (x264 and ffmpeg only):\n");
 }
-#else
-    fprintf(out,
-    "                            same style as mencoder (x264 and ffmpeg only):");
-#endif
     
     fprintf(out,
     "                            option1=value1:option2=value2\n"
@@ -3465,44 +3462,6 @@ if (hb_qsv_available())
     "    --qsv-async-depth       Specifies how many asynchronous operations should be\n"
     "                            performed before the result is explicitly synchronized.\n"
     "                            Default: 4. If zero, the value is not specified.\n"
-    "\n"
-    "    Advanced encoding options, via --encopts=\"option1=value1:option2=value2\":\n"
-    "        - target-usage  A range of numbers that indicate trade-offs between\n"
-    "          <number>          quality and speed, from 1 to 7 inclusive.\n"
-    "                            Default is 2\n"
-    "        - num-ref-frame Number of reference frames; if equal to 0,\n"
-    "          <number>          this parameter is not specified.\n"
-    "        - gop-pic-size  Number of pictures within the current GOP.\n"
-    "          <number>          If equal to 0, then the GOP size is unspecified.\n"
-    "                            If equal to 1, only I-frames are used.\n"
-    "        - gop-ref-dist  Distance between I- or P- key frames; if it is zero,\n"
-    "          <number>          the GOP structure is unspecified.\n"
-    "                            Note: If GopRefDist = 1, there are no B-frames used.\n"
-    "        - mbbrc         Setting this flag enables macroblock level bitrate\n"
-    "          <number>          control that generally improves subjective\n"
-    "                            visual quality.\n"
-    "                            Enabling this flag may have negative impact on\n"
-    "                            performance and objective visual quality metric.\n"
-    "                            Default is ON\n"
-    "        - extbrc        Setting this flag instructs encoder to use extended\n"
-    "          <number>          bitrate control algorithms. It generally improves\n"
-    "                            objective and subjective visual quality, but it\n"
-    "                            also leads to violation of HRD conformance and may\n"
-    "                            significantly reduce performance.\n"
-    "                            Default is OFF\n"
-    "        - cqp-offset-i\n"
-    "        - cqp-offset-p\n"
-    "        - cqp-offset-b  Specify shift/offset for QP(CQP) mode and each\n"
-    "                            Default is \"0:2:4\"\n"
-    "          <number>          I, P and B frames respectively.\n"
-    "        - lookahead     Use the look ahead bitrate control algorithm.\n"
-    "          <number>          Value more than 0 - enables the feature,\n"
-    "                            if supported by runtime hardware and driver\n"
-    "        - lookahead-depth   Specifies the depth of look ahead rate control\n"
-    "          <number>          algorithm. It is number of frames that SDK\n"
-    "                            encoder analyzes before encoding. Valid value\n"
-    "                            range is from 10 to 100 inclusive.\n"
-    "                            Default is 40\n"
     "\n"
     );
 }
