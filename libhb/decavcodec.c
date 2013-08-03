@@ -44,6 +44,7 @@
 
 #ifdef USE_QSV
 #include "enc_qsv.h"
+#include "qsv_common.h"
 #endif
 
 static void compute_frame_duration( hb_work_private_t *pv );

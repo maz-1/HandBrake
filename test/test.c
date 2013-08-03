@@ -27,7 +27,7 @@
 #include "parsecsv.h"
 
 #ifdef USE_QSV
-#include "libavcodec/qsv.h"
+#include "qsv_common.h"
 #endif
 
 #if defined( __APPLE_CC__ )
