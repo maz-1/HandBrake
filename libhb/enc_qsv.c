@@ -31,6 +31,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "enc_qsv.h"
 #include "qsv_common.h"
 #include "h264_common.h"
+#include "qsv_filter_pp.h"
 
 /**
  * @brief Convert profile string name into profile_e enum with mapping of supported profiles
@@ -768,8 +769,6 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
  **********************************************************************/
 int encqsvInit( hb_work_object_t * w, hb_job_t * job )
 {
-    mfxStatus sts = MFX_ERR_NONE;
-
     hb_work_private_t * pv = calloc( 1, sizeof( hb_work_private_t ) );
     w->private_data = pv;
 
@@ -797,8 +796,6 @@ int encqsvInit( hb_work_object_t * w, hb_job_t * job )
 
     pv->job = job;
     pv->config = w->config;
-    av_qsv_context *qsv = job->qsv;
-    av_qsv_space* qsv_encode = 0;
 
     pv->codec_level = MFX_LEVEL_AVC_3;
     if(job->h264_level){
@@ -1355,8 +1352,6 @@ void parse_nalus(uint8_t *nal_inits, size_t length, hb_buffer_t *buf, uint32_t f
     while( size > 0 ){
 
             uint8_t* current_nal = offset + sizeof(ff_prefix_code)-1;
-            int nal_ref_idc= current_nal[0]>>5;
-
             uint8_t *next_offset = offset + sizeof(ff_prefix_code);
             size_t next_size     = size - sizeof(ff_prefix_code);
             size_t current_size  = next_size;
