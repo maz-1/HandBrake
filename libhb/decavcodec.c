@@ -1802,13 +1802,3 @@ static void decodeAudio(hb_audio_t *audio, hb_work_private_t *pv, uint8_t *data,
         }
     }
 }
-
-#ifdef USE_QSV
-char* get_codec_id(hb_work_private_t *pv){
-    char *ret = "";
-    if( pv && pv->video_codec_opened > 0 && pv->context && pv->context->codec )
-        ret = pv->context->codec->name;
-
-    return ret;
-}
-#endif

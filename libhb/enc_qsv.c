@@ -146,8 +146,6 @@ struct hb_work_private_s
     mfxExtCodingOption2 qsv_coding_option2_config;
 };
 
-extern char* get_codec_id(hb_work_private_t *pv);
-
 // for DTS generation (when MSDK API < 1.6 or VFR)
 static void hb_qsv_add_new_dts(hb_list_t *list, int64_t new_dts)
 {
@@ -177,29 +175,22 @@ static int64_t hb_qsv_pop_next_dts(hb_list_t *list)
     return next_dts;
 }
 
-int qsv_enc_init( av_qsv_context* qsv, hb_work_private_t * pv ){
-    mfxStatus sts;
+int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
+{
     int i = 0;
-    int is_encode_only = 0;
+    mfxStatus sts;
+    hb_job_t *job = pv->job;
 
-    hb_job_t       * job  = pv->job;
-
-    if(!qsv){
-        int x = 0;
-        for(;x < hb_list_count( job->list_work );x++){
-            hb_work_object_t * w = hb_list_item( job->list_work, x );
-            if(w->id == WORK_DECAVCODECV || w->id == WORK_DECMPEG2){
-                char *codec = get_codec_id(w->private_data);
-                is_encode_only = strstr(codec,"qsv") == 0 ? 1 : 0;
-                if(is_encode_only)
-                    qsv = av_mallocz( sizeof( av_qsv_context ) );
-                else
-                    hb_error( "Wrong settings for decode/encode" );
-                break;
-            }
+    int is_encode_only = !hb_qsv_decode_is_enabled(job);
+    if (qsv == NULL)
+    {
+        if (!is_encode_only)
+        {
+            hb_error("qsv_enc_init: decode enabled but no context!");
+            return 3;
         }
+        qsv = av_mallocz(sizeof(av_qsv_context));
     }
-    if(!qsv && !is_encode_only) return 3;
 
     av_qsv_space* qsv_encode = qsv->enc_space;
 
