@@ -847,6 +847,10 @@ struct hb_title_s
     char        *container_name;
     int         data_rate;
 
+#ifdef USE_QSV
+    int qsv_decode_support;
+#endif
+
     hb_metadata_t *metadata;
 
     hb_list_t * list_chapter;
@@ -943,6 +947,9 @@ typedef struct hb_work_info_s
             int color_prim;
             int color_transfer;
             int color_matrix;
+#ifdef USE_QSV
+            int qsv_decode_support;
+#endif
         };
         struct
         {    // info only valid for audio decoders

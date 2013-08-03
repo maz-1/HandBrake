@@ -1172,8 +1172,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
     pv->list = hb_list_init();
 
 #ifdef USE_QSV
-    if (job != NULL && job->vcodec == HB_VCODEC_QSV_H264 &&
-        w->codec_param == AV_CODEC_ID_H264)
+    if (hb_qsv_decode_is_enabled(job))
     {
         int ret;
         hb_dict_t *qsv_opts = NULL;
@@ -1673,6 +1672,11 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
             break;
         }
     }
+
+#ifdef USE_QSV
+    info->qsv_decode_support = hb_qsv_decode_is_supported(pv->context->codec_id,
+                                                          pv->context->pix_fmt);
+#endif
 
     return 1;
 }

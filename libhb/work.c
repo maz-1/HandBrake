@@ -12,7 +12,7 @@
 #include "libavformat/avformat.h"
 
 #ifdef USE_QSV
-#include "libavcodec/qsv.h"
+#include "qsv_common.h"
 #include "qsv_filter_pp.h"
 #endif
 
@@ -235,7 +235,17 @@ void hb_display_job_info(hb_job_t *job)
 
     hb_log(" * video track");
 
-    hb_log("   + decoder: %s", title->video_codec_name );
+#ifdef USE_QSV
+    if (hb_qsv_decode_is_enabled(job))
+    {
+        hb_log("   + decoder: %s",
+               hb_qsv_decode_get_codec_name(title->video_codec_param));
+    }
+    else
+#endif
+    {
+        hb_log("   + decoder: %s", title->video_codec_name);
+    }
 
     if( title->video_bitrate )
     {
@@ -679,9 +689,10 @@ static void do_job(hb_job_t *job)
         init.vrate = title->rate;
         init.cfr = 0;
 
+#ifdef USE_QSV
         int is_vpp_interlace = 0;
         int is_actual_crop_resize = 0;
-        if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264 )
+        if (hb_qsv_decode_is_enabled(job))
         {
             for( i = 0; i < hb_list_count( job->list_filter ); i++ )
             {
@@ -715,15 +726,17 @@ static void do_job(hb_job_t *job)
             init.cfr = 0;
         }
         int is_additional_vpp_function = (is_actual_crop_resize || is_vpp_interlace);
+#endif
 
         for( i = 0; i < hb_list_count( job->list_filter ); )
         {
             hb_filter_object_t * filter = hb_list_item( job->list_filter, i );
 
+#ifdef USE_QSV
             // to do not use QSV related if not handled from its decode
             if( job->vcodec == HB_VCODEC_QSV_H264 )
              // for now, only h.264 related stuff
-             if( title->video_codec_param != AV_CODEC_ID_H264 )
+             if (!hb_qsv_decode_is_enabled(job))
              {
                 if( filter->id == HB_FILTER_QSV_PRE  ||
                     filter->id == HB_FILTER_QSV_POST ||
@@ -782,6 +795,7 @@ static void do_job(hb_job_t *job)
                     }
                 }
              }
+#endif
 
             if( filter->init( filter, &init ) )
             {
@@ -826,14 +840,18 @@ static void do_job(hb_job_t *job)
         }
     }
 
-    if( job->vcodec == HB_VCODEC_QSV_H264 && title->video_codec_param == AV_CODEC_ID_H264){
+#ifdef USE_QSV
+    if (hb_qsv_decode_is_enabled(job))
+    {
         job->fifo_mpeg2  = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
         job->fifo_raw    = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
         job->fifo_sync   = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
         job->fifo_render = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
-        job->fifo_mpeg4 = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
+        job->fifo_mpeg4  = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
     }
-    else{
+    else
+#endif
+    {
         job->fifo_mpeg2  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
         job->fifo_raw    = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
         job->fifo_sync   = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
