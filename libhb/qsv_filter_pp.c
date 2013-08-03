@@ -535,7 +535,7 @@ static int hb_qsv_filter_post_info( hb_filter_object_t * filter,
     if( !pv )
         return 0;
 
-    sprintf(info->human_readable_desc, "copy data to Quick Sync Video memory");
+    sprintf(info->human_readable_desc, "copy data to opaque memory");
 
     return 0;
 }
