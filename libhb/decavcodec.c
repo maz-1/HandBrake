@@ -341,7 +341,9 @@ static void closePrivData( hb_work_private_t ** ppv )
         }
         if ( pv->context && pv->context->codec )
         {
+#ifdef USE_QSV
             if (!pv->qsv_decode)
+#endif
             {
                 hb_avcodec_close(pv->context);
             }

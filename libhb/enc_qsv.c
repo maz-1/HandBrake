@@ -30,8 +30,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hb.h"
 #include "enc_qsv.h"
 #include "qsv_common.h"
+#include "qsv_memory.h"
 #include "h264_common.h"
-#include "qsv_filter_pp.h"
 
 /**
  * @brief Convert profile string name into profile_e enum with mapping of supported profiles
