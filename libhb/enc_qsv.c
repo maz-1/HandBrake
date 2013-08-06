@@ -142,6 +142,7 @@ struct hb_work_private_s
     // only set if supported
     mfxU16 mbbrc;
     mfxU16 extbrc;
+    mfxU16 trellis;
     mfxU16 la_depth;
     int mbbrx_param_idx;
     mfxExtCodingOption2 qsv_coding_option2_config;
@@ -481,6 +482,15 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
             pv->extbrc = 2; // default: MFX_CODINGOPTION_OFF
     }
 
+    if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_TRELLIS)
+    {
+        if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_trellis)) != NULL && entry->value != NULL)
+        {
+            pv->trellis = hb_qsv_trellisvalue_xlat(atoi(entry->value));
+        }
+        else
+            pv->trellis = MFX_TRELLIS_UNKNOWN;
+    }
 
     if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_lookaheaddepth)) != NULL && entry->value != NULL)
@@ -529,6 +539,19 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
         hb_log("qsv: RateControlMethod:%s TargetKbps:%d",rc_method , qsv_encode->m_mfxVideoParam.mfx.TargetKbps );
 
     hb_log("qsv: TargetUsage:%d AsyncDepth:%d", qsv_encode->m_mfxVideoParam.mfx.TargetUsage,qsv_encode->m_mfxVideoParam.AsyncDepth);
+
+    if (pv->trellis != MFX_TRELLIS_UNKNOWN)
+    {
+        char mask[] = "OFF";
+        if (!(pv->trellis & MFX_TRELLIS_OFF))
+        {
+            mask[0] = pv->trellis & MFX_TRELLIS_I ? 'I' : ' ';
+            mask[1] = pv->trellis & MFX_TRELLIS_P ? 'P' : ' ';
+            mask[2] = pv->trellis & MFX_TRELLIS_B ? 'B' : ' ';
+        }
+        hb_log("qsv: Trellis mask: \"%c%c%c\"", mask[0],mask[1],mask[2] );
+    }
+
     qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN    = job->vrate;
     qsv_encode->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD    = job->vrate_base;
     qsv_encode->m_mfxVideoParam.mfx.FrameInfo.AspectRatioW     = job->anamorphic.par_width;
@@ -609,7 +632,9 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
     if(!pv->is_sys_mem)
         qsv_encode->p_ext_param_num = 1; // for MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION
 
-    if (pv->mbbrc || pv->extbrc || qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA)
+    if (pv->mbbrc || pv->extbrc ||
+        qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA ||
+        pv->extbrc != MFX_TRELLIS_UNKNOWN)
     {
         qsv_encode->p_ext_param_num++;
     }
@@ -662,7 +687,9 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
             qsv_encode->ext_opaque_alloc.In.Type        = qsv_encode->request[0].Type;
         }
 
-        if (pv->mbbrc || pv->extbrc || qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA)
+        if (pv->mbbrc || pv->extbrc ||
+            qsv_encode->m_mfxVideoParam.mfx.RateControlMethod == MFX_RATECONTROL_LA ||
+            pv->extbrc != MFX_TRELLIS_UNKNOWN)
         {
             pv->qsv_coding_option2_config.Header.BufferId  = MFX_EXTBUFF_CODING_OPTION2;
             pv->qsv_coding_option2_config.Header.BufferSz  = sizeof(mfxExtCodingOption2);
@@ -670,10 +697,11 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
                                                             // default is off
             pv->qsv_coding_option2_config.ExtBRC           = pv->extbrc == 0 ? MFX_CODINGOPTION_OFF : pv->extbrc << 4;
             pv->qsv_coding_option2_config.LookAheadDepth   = pv->la_depth;
+            pv->qsv_coding_option2_config.Trellis          = pv->trellis;
 
             // reset if out of the ranges
             if(pv->qsv_coding_option2_config.MBBRC > MFX_CODINGOPTION_ADAPTIVE)
-                pv->qsv_coding_option2_config.MBBRC = MFX_CODINGOPTION_UNKNOWN;
+                pv->qsv_coding_option2_config.MBBRC  = MFX_CODINGOPTION_UNKNOWN;
             if(pv->qsv_coding_option2_config.ExtBRC > MFX_CODINGOPTION_ADAPTIVE)
                 pv->qsv_coding_option2_config.ExtBRC = MFX_CODINGOPTION_OFF;
 
@@ -688,9 +716,10 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
         // if not supported first time we will reset
         if( sts < MFX_ERR_NONE ){
             if( pv->mbbrx_param_idx ){
-                pv->qsv_coding_option2_config.MBBRC     = MFX_CODINGOPTION_UNKNOWN;
-                pv->qsv_coding_option2_config.ExtBRC    = MFX_CODINGOPTION_OFF;
+                pv->qsv_coding_option2_config.MBBRC             = MFX_CODINGOPTION_UNKNOWN;
+                pv->qsv_coding_option2_config.ExtBRC            = MFX_CODINGOPTION_OFF;
                 pv->qsv_coding_option2_config.LookAheadDepth    = 0;
+                pv->qsv_coding_option2_config.Trellis           = MFX_TRELLIS_UNKNOWN;
                     pv->mbbrx_param_idx = 0;
             }
         }
@@ -745,7 +774,7 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
     pv->bfrm_delay = FFMAX(pv->bfrm_delay, 0);
     // check whether we need to generate DTS ourselves (MSDK API < 1.6 or VFR)
     pv->bfrm_workaround = job->cfr != 1 || !(hb_qsv_info->capabilities &
-                                             HB_QSV_CAP_BITSTREAM_DTS);
+                                             HB_QSV_CAP_MSDK_API_1_6);
     if (pv->bfrm_delay && pv->bfrm_workaround)
     {
         pv->bfrm_workaround = 1;
@@ -1206,7 +1235,7 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 {
                     // MSDK API < 1.6 or VFR, so generate our own DTS
                     if ((pv->frames_out == 0)                             &&
-                        (hb_qsv_info->capabilities & HB_QSV_CAP_BITSTREAM_DTS) &&
+                        (hb_qsv_info->capabilities & HB_QSV_CAP_MSDK_API_1_6) &&
                         (hb_qsv_info->capabilities & HB_QSV_CAP_H264_BPYRAMID))
                     {
                         // with B-pyramid, the delay may be more than 1 frame,
@@ -1412,7 +1441,8 @@ int qsv_param_parse( av_qsv_config* config, const char *name, const char *value)
        !strcmp(name,QSV_NAME_cqp_offset_p)      ||
        !strcmp(name,QSV_NAME_cqp_offset_b)      ||
        !strcmp(name,QSV_NAME_lookaheaddepth)    ||
-       !strcmp(name,QSV_NAME_lookahead)
+       !strcmp(name,QSV_NAME_lookahead)         ||
+       !strcmp(name,QSV_NAME_trellis)
        )
         ret = QSV_PARAM_OK;
     else

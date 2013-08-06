@@ -8,7 +8,12 @@
  */
 
 #include "common.h"
+#include "hb_dict.h"
 #include "qsv_common.h"
+#include "h264_common.h"
+
+// for x264_vidformat_names etc.
+#include "x264.h"
 
 // avoids a warning
 #include "libavutil/cpu.h"
@@ -84,7 +89,7 @@ int hb_qsv_info_init()
                 hb_qsv_info->cpu_name++;
             }
         }
-        
+
         // Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 3C
         // Table 35-1: CPUID Signature Values of DisplayFamily_DisplayModel
         if (family == 0x06)
@@ -142,13 +147,14 @@ int hb_qsv_info_init()
         if (HB_CHECK_MFX_VERSION(qsv_hardware_version, 1, 6))
         {
             hb_qsv_info->capabilities |= HB_QSV_CAP_OPTION2_BRC;
-            hb_qsv_info->capabilities |= HB_QSV_CAP_BITSTREAM_DTS;
+            hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_API_1_6;
         }
         if (HB_CHECK_MFX_VERSION(qsv_hardware_version, 1, 7))
         {
             if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_HSW)
             {
                 hb_qsv_info->capabilities |= HB_QSV_CAP_OPTION2_LOOKAHEAD;
+                hb_qsv_info->capabilities |= HB_QSV_CAP_OPTION2_TRELLIS;
             }
         }
         if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_HSW)
@@ -161,7 +167,7 @@ int hb_qsv_info_init()
         if (HB_CHECK_MFX_VERSION(qsv_software_version, 1, 6))
         {
             hb_qsv_info->capabilities |= HB_QSV_CAP_OPTION2_BRC;
-            hb_qsv_info->capabilities |= HB_QSV_CAP_BITSTREAM_DTS;
+            hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_API_1_6;
             hb_qsv_info->capabilities |= HB_QSV_CAP_H264_BPYRAMID;
         }
     }
@@ -239,7 +245,7 @@ const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id)
     {
         case AV_CODEC_ID_H264:
             return "h264_qsv";
-            
+
         default:
             return NULL;
     }
@@ -263,4 +269,89 @@ int hb_qsv_decode_is_supported(enum AVCodecID codec_id,
         default:
             return 0;
     }
+}
+
+int hb_qsv_codingoption_xlat(int val)
+{
+    switch (HB_QSV_CLIP3(-1, 2, val))
+    {
+        case 0:
+            return MFX_CODINGOPTION_OFF;
+        case 1:
+        case 2: // MFX_CODINGOPTION_ADAPTIVE, reserved
+            return MFX_CODINGOPTION_ON;
+        case -1:
+        default:
+            return MFX_CODINGOPTION_UNKNOWN;
+    }
+}
+
+int hb_qsv_trellisvalue_xlat(int val)
+{
+    switch (HB_QSV_CLIP3(-1, 3, val))
+    {
+        case 0:
+            return MFX_TRELLIS_OFF;
+        case 1: // I-frames only
+            return MFX_TRELLIS_I;
+        case 2: // I- and P-frames
+            return MFX_TRELLIS_I|MFX_TRELLIS_P;
+        case 3: // all frames
+            return MFX_TRELLIS_I|MFX_TRELLIS_P|MFX_TRELLIS_B;
+        case -1:
+        default:
+            return MFX_TRELLIS_UNKNOWN;
+    }
+}
+
+int hb_qsv_atoindex(const char* const *arr, const char *str, int *err)
+{
+    int i;
+    for (i = 0; arr[i] != NULL; i++)
+    {
+        if (!strcasecmp(arr[i], str))
+        {
+            break;
+        }
+    }
+    *err = (arr[i] == NULL);
+    return i;
+}
+// adapted from libx264
+int hb_qsv_atobool(const char *str, int *err)
+{
+    if (!strcasecmp(str,    "1") ||
+        !strcasecmp(str,  "yes") ||
+        !strcasecmp(str, "true"))
+    {
+        return 1;
+    }
+    if (!strcasecmp(str,     "0") ||
+        !strcasecmp(str,    "no") ||
+        !strcasecmp(str, "false"))
+    {
+        return 0;
+    }
+    *err = 1;
+    return 0;
+}
+int hb_qsv_atoi(const char *str, int *err)
+{
+    char *end;
+    int v = strtol(str, &end, 0);
+    if (end == str || end[0] != '\0')
+    {
+        *err = 1;
+    }
+    return v;
+}
+float hb_qsv_atof(const char *str, int *err)
+{
+    char *end;
+    float v = strtod(str, &end);
+    if (end == str || end[0] != '\0')
+    {
+        *err = 1;
+    }
+    return v;
 }

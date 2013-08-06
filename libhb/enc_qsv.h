@@ -37,7 +37,6 @@ int nal_find_start_code(uint8_t** pb, size_t* size);
 void parse_nalus( uint8_t *nal_inits, size_t length, hb_buffer_t *buf, uint32_t frame_num);
 
 
-#define QSV_NAME_async_depth    "async-depth"
 #define QSV_NAME_target_usage   "target-usage"
 #define QSV_NAME_num_ref_frame  "num-ref-frame"
 #define QSV_NAME_gop_ref_dist   "gop-ref-dist"
@@ -52,6 +51,7 @@ void parse_nalus( uint8_t *nal_inits, size_t length, hb_buffer_t *buf, uint32_t 
 #define QSV_NAME_cqp_offset_b   "cqp-offset-b"
 #define QSV_NAME_lookaheaddepth "lookahead-depth"
 #define QSV_NAME_lookahead      "lookahead"
+#define QSV_NAME_trellis        "trellis"
 
 typedef enum {
     QSV_PARAM_OK            = 0,
