@@ -266,7 +266,7 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
         {
             pv->frc_config.Header.BufferId  = MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION;
             pv->frc_config.Header.BufferSz  = sizeof(mfxExtVPPFrameRateConversion);
-            pv->frc_config.Algorithm        = MFX_FRCALGM_DISTRIBUTED_TIMESTAMP;
+            pv->frc_config.Algorithm        = MFX_FRCALGM_PRESERVE_TIMESTAMP;
 
             qsv_vpp->p_ext_params[1] = (mfxExtBuffer*)&pv->frc_config;
         }
