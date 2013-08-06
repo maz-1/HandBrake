@@ -494,7 +494,7 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
 
     if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
         if ((entry = hb_dict_get(qsv_opts_dict, QSV_NAME_lookaheaddepth)) != NULL && entry->value != NULL)
-            pv->la_depth = atoi(entry->value);
+            pv->la_depth = HB_QSV_CLIP3(11,50, atoi(entry->value)); // range of: >10 and <=50
         else
             pv->la_depth = 40; // default: value
 
