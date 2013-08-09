@@ -575,10 +575,20 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
 
     // width must be a multiple of 16
     // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of progressive
-    qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width  =  AV_QSV_ALIGN16(qsv_encode->m_mfxVideoParam.mfx.FrameInfo.CropW);
-    qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Height = (MFX_PICSTRUCT_PROGRESSIVE == qsv_encode->m_mfxVideoParam.mfx.FrameInfo.PicStruct)?
-                                                            AV_QSV_ALIGN16(qsv_encode->m_mfxVideoParam.mfx.FrameInfo.CropH) :
-                                                            AV_QSV_ALIGN32(qsv_encode->m_mfxVideoParam.mfx.FrameInfo.CropH);
+
+    if (pv->is_vpp_present)
+    {
+        av_qsv_space *vpp = av_qsv_list_item(qsv->vpp_space,av_qsv_list_count(qsv->vpp_space)-1);
+        qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width  = vpp->m_mfxVideoParam.vpp.Out.Width;
+        qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Height = vpp->m_mfxVideoParam.vpp.Out.Height;
+    }
+    else
+    {
+        qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Width  =  AV_QSV_ALIGN16(qsv_encode->m_mfxVideoParam.mfx.FrameInfo.CropW);
+        qsv_encode->m_mfxVideoParam.mfx.FrameInfo.Height = (MFX_PICSTRUCT_PROGRESSIVE == qsv_encode->m_mfxVideoParam.mfx.FrameInfo.PicStruct)?
+                                                                AV_QSV_ALIGN16(qsv_encode->m_mfxVideoParam.mfx.FrameInfo.CropH) :
+                                                                AV_QSV_ALIGN32(qsv_encode->m_mfxVideoParam.mfx.FrameInfo.CropH);
+    }
 
     if(pv->is_sys_mem)
         qsv_encode->m_mfxVideoParam.IOPattern = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
