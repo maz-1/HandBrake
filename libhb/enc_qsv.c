@@ -574,7 +574,7 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
        qsv_encode->m_mfxVideoParam.mfx.NumRefFrame);
 
     // width must be a multiple of 16
-    // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of progressive
+    // height must be a multiple of 32 in case of interlace picture and a multiple of 16 in case of progressive
 
     if (pv->is_vpp_present)
     {
