@@ -30,37 +30,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define ENC_QSV_H
 
 #include "hb.h"
-#include "hb_dict.h"
-#include "libavcodec/qsv.h"
+#include "qsv_common.h"
 
 int nal_find_start_code(uint8_t** pb, size_t* size);
 void parse_nalus( uint8_t *nal_inits, size_t length, hb_buffer_t *buf, uint32_t frame_num);
 
-
-#define QSV_NAME_target_usage   "target-usage"
-#define QSV_NAME_num_ref_frame  "num-ref-frame"
-#define QSV_NAME_gop_ref_dist   "gop-ref-dist"
-#define QSV_NAME_gop_pic_size   "gop-pic-size"
-#define QSV_NAME_vbv_bufsize    "vbv-bufsize"
-#define QSV_NAME_vbv_maxrate    "vbv-maxrate"
-#define QSV_NAME_vbv_init       "vbv-init"
-#define QSV_NAME_mbbrc          "mbbrc"
-#define QSV_NAME_extbrc         "extbrc"
-#define QSV_NAME_cqp_offset_i   "cqp-offset-i"
-#define QSV_NAME_cqp_offset_p   "cqp-offset-p"
-#define QSV_NAME_cqp_offset_b   "cqp-offset-b"
-#define QSV_NAME_lookaheaddepth "lookahead-depth"
-#define QSV_NAME_lookahead      "lookahead"
-#define QSV_NAME_trellis        "trellis"
-
-typedef enum {
-    QSV_PARAM_OK            = 0,
-    QSV_PARAM_BAD_NAME      = -1,
-    QSV_PARAM_BAD_VALUE     = -2,
-    QSV_PARAM_BAD_CONFIG    = -3,
-} qsv_param_errors;
-
-int  qsv_param_parse(av_qsv_config *config, const char *name, const char *value);
-void qsv_param_set_defaults(av_qsv_config *config);
-
-#endif //ENC_QSV_H
+#endif // ENC_QSV_H

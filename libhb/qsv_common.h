@@ -65,6 +65,58 @@ const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id);
 int hb_qsv_decode_is_enabled(hb_job_t *job);
 int hb_qsv_decode_is_supported(enum AVCodecID codec_id, enum AVPixelFormat pix_fmt);
 
+/* Media SDK parameters handling */
+enum
+{
+    HB_QSV_PARAM_OK,
+    HB_QSV_PARAM_ERROR,
+    HB_QSV_PARAM_BAD_NAME,
+    HB_QSV_PARAM_BAD_VALUE,
+    HB_QSV_PARAM_UNSUPPORTED,
+};
+
+typedef struct
+{
+    /*
+     * Supported mfxExtBuffer.BufferId values:
+     *
+     * MFX_EXTBUFF_AVC_REFLIST_CTRL
+     * MFX_EXTBUFF_AVC_TEMPORAL_LAYERS
+     * MFX_EXTBUFF_CODING_OPTION
+     * MFX_EXTBUFF_CODING_OPTION_SPSPPS
+     * MFX_EXTBUFF_CODING_OPTION2
+     * MFX_EXTBUFF_ENCODER_CAPABILITY
+     * MFX_EXTBUFF_ENCODER_RESET_OPTION
+     * MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION
+     * MFX_EXTBUFF_PICTURE_TIMING_SEI
+     * MFX_EXTBUFF_VIDEO_SIGNAL_INFO
+     *
+     * This should cover all encode-compatible extended
+     * buffers that can be attached to an mfxVideoParam.
+     */
+#define HB_QSV_ENC_NUM_EXT_PARAM_MAX 10
+    mfxExtBuffer*         ExtParamArray[HB_QSV_ENC_NUM_EXT_PARAM_MAX];
+    mfxExtCodingOption    codingOption;
+    mfxExtCodingOption2   codingOption2;
+    mfxExtVideoSignalInfo videoSignalInfo;
+    struct
+    {
+        int gop_pic_size;
+        int int_ref_cycle_size;
+    } gop;
+    struct
+    {
+        int   lookahead;
+        int   cqp_offsets[3];
+        int   vbv_max_bitrate;
+        int   vbv_buffer_size;
+        float vbv_buffer_init;
+    } rc;
+
+    // assigned via hb_qsv_param_default, may be shared with another structure
+    mfxVideoParam *videoParam;
+} hb_qsv_param_t;
+
 #define HB_QSV_CLIP3(min, max, val) ((val < min) ? min : (val > max) ? max : val)
 int   hb_qsv_codingoption_xlat(int val);
 int   hb_qsv_trellisvalue_xlat(int val);
@@ -72,5 +124,8 @@ int   hb_qsv_atoindex(const char* const *arr, const char *str, int *err);
 int   hb_qsv_atobool (const char *str, int *err);
 int   hb_qsv_atoi    (const char *str, int *err);
 float hb_qsv_atof    (const char *str, int *err);
+
+int hb_qsv_param_default(hb_qsv_param_t *param, mfxVideoParam *videoParam);
+int hb_qsv_param_parse  (hb_qsv_param_t *param, const char *key, const char *value, int vcodec);
 
 #endif
