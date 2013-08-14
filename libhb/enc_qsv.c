@@ -499,14 +499,22 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     pv->param.videoParam->mfx.FrameInfo.CropW         = job->width;
     pv->param.videoParam->mfx.FrameInfo.CropH         = job->height;
     pv->param.videoParam->mfx.FrameInfo.Width         = AV_QSV_ALIGN16(job->width);
-    if (pv->param.videoParam->mfx.FrameInfo.PicStruct == MFX_PICSTRUCT_PROGRESSIVE)
-    {
-        pv->param.videoParam->mfx.FrameInfo.Height = AV_QSV_ALIGN16(job->height);
-    }
-    else
-    {
-        pv->param.videoParam->mfx.FrameInfo.Height = AV_QSV_ALIGN32(job->height);
-    }
+    pv->param.videoParam->mfx.FrameInfo.Height        = AV_QSV_ALIGN16(job->height);
+    pv->param.videoParam->mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
+    /*
+     * Note: interlaced encoding with the QSV H.264 encoder is explicitly
+     * unsupported for now.
+     *
+     * Unlike libx264, QSV requires that the input buffers be already padded to
+     * the coding width and height (the latter has to divide cleanly by 32 in
+     * the interlaced case). This would require:
+     *
+     * - detecting that interlaced encoding will be used early
+     * - padding VPP buffers so that the output height divides cleanly by 32
+     * - force-enabling VPP when there is no crop & scale but interlaced is on
+     *
+     * Also note that MFX_RATECONTROL_LA is progressive-only.
+     */
 
     // set H.264 profile and level
     if (job->h264_profile != NULL && job->h264_profile[0] != '\0' &&
@@ -689,8 +697,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     mfxStatus err;
     mfxVersion version;
     mfxVideoParam videoParam;
-    mfxExtBuffer* ExtParamArray[2];
+    mfxExtBuffer* ExtParamArray[3];
     mfxSession session = (mfxSession)0;
+    mfxExtCodingOption  option1_buf, *option1 = &option1_buf;
     mfxExtCodingOption2 option2_buf, *option2 = &option2_buf;
     mfxExtCodingOptionSPSPPS sps_pps_buf, *sps_pps = &sps_pps_buf;
     version.Major = HB_QSV_MINVERSION_MAJOR;
@@ -722,6 +731,11 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     sps_pps->PPSBuffer       = w->config->h264.pps;
     sps_pps->PPSBufSize      = sizeof(w->config->h264.pps);
     videoParam.ExtParam[videoParam.NumExtParam++] = (mfxExtBuffer*)sps_pps;
+    // introduced in API 1.0
+    memset(option1, 0, sizeof(mfxExtCodingOption));
+    option1->Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
+    option1->Header.BufferSz = sizeof(mfxExtCodingOption);
+    videoParam.ExtParam[videoParam.NumExtParam++] = (mfxExtBuffer*)option1;
     // introduced in API 1.6
     memset(option2, 0, sizeof(mfxExtCodingOption2));
     option2->Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
@@ -791,6 +805,34 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                 return -1;
         }
     }
+    const char *cavlc, *rdopt;
+    switch (option1->CAVLC)
+    {
+        case MFX_CODINGOPTION_ON:
+            cavlc = "on";
+            break;
+        case MFX_CODINGOPTION_OFF:
+            cavlc = "off";
+            break;
+        default:
+            hb_error("encqsvInit: invalid CAVLC value %"PRIu16"",
+                     option1->CAVLC);
+            return -1;
+    }
+    switch (option1->RateDistortionOpt)
+    {
+        case MFX_CODINGOPTION_ON:
+            rdopt = "on";
+            break;
+        case MFX_CODINGOPTION_OFF:
+            rdopt = "off";
+            break;
+        default:
+            hb_error("encqsvInit: invalid RateDistortionOpt value %"PRIu16"",
+                     option1->RateDistortionOpt);
+            return -1;
+    }
+    hb_log("encqsvInit: CAVLC %s RateDistortionOpt %s", cavlc, rdopt);
     if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_BRC)
     {
         const char *mbbrc, *extbrc;

@@ -425,7 +425,6 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             param->gop.gop_pic_size = HB_QSV_CLIP3(-1, UINT16_MAX, ivalue);
         }
     }
-    /* not yet validated
     else if (!strcasecmp(key, "scenecut"))
     {
         ivalue = hb_qsv_atobool(value, &error);
@@ -440,7 +439,7 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
                 param->videoParam->mfx.GopOptFlag &= ~MFX_GOP_STRICT;
             }
         }
-    }*/
+    }
     else if (!strcasecmp(key, "cqp-offset-i"))
     {
         ivalue = hb_qsv_atoi(value, &error);
@@ -489,7 +488,6 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             param->rc.vbv_max_bitrate = HB_QSV_CLIP3(0, UINT16_MAX, ivalue);
         }
     }
-    /* not yet validated
     else if (!strcasecmp(key, "cabac"))
     {
         switch (vcodec)
@@ -504,14 +502,13 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
         {
             param->codingOption.CAVLC = hb_qsv_codingoption_xlat(ivalue);
         }
-    }*/
-    /* not yet validated
-    else if (!strcasecmp(key, "rdo"))
+    }
+    else if (!strcasecmp(key, "rate-distorsion-opt"))
     {
         switch (vcodec)
         {
             case HB_VCODEC_QSV_H264:
-                ivalue = hb_qsv_atoi(value, &error);
+                ivalue = hb_qsv_atobool(value, &error);
                 break;
             default:
                 return HB_QSV_PARAM_UNSUPPORTED;
@@ -520,8 +517,7 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
         {
             param->codingOption.RateDistortionOpt = hb_qsv_codingoption_xlat(ivalue);
         }
-    }*/
-    /* not yet validated
+    }
     else if (!strcasecmp(key, "videoformat"))
     {
         switch (vcodec)
@@ -599,16 +595,12 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             param->videoSignalInfo.ColourDescriptionPresent = 1;
             param->videoSignalInfo.MatrixCoefficients = ivalue;
         }
-    }*/
-    /* not yet validated
+    }
     else if (!strcasecmp(key, "tff") ||
              !strcasecmp(key, "interlaced"))
     {
         switch (vcodec)
         {
-            case HB_VCODEC_QSV_H264:
-                ivalue = hb_qsv_atobool(value, &error);
-                break;
             default:
                 return HB_QSV_PARAM_UNSUPPORTED;
         }
@@ -623,9 +615,6 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
     {
         switch (vcodec)
         {
-            case HB_VCODEC_QSV_H264:
-                ivalue = hb_qsv_atobool(value, &error);
-                break;
             default:
                 return HB_QSV_PARAM_UNSUPPORTED;
         }
@@ -635,7 +624,7 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
                                                           MFX_PICSTRUCT_FIELD_BFF :
                                                           MFX_PICSTRUCT_PROGRESSIVE);
         }
-    }*/
+    }
     else if (!strcasecmp(key, "mbbrc"))
     {
         if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_BRC)
