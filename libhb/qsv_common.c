@@ -601,6 +601,9 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
     {
         switch (vcodec)
         {
+            case HB_VCODEC_QSV_H264:
+                ivalue = hb_qsv_atobool(value, &error);
+                break;
             default:
                 return HB_QSV_PARAM_UNSUPPORTED;
         }
@@ -615,6 +618,9 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
     {
         switch (vcodec)
         {
+            case HB_VCODEC_QSV_H264:
+                ivalue = hb_qsv_atobool(value, &error);
+                break;
             default:
                 return HB_QSV_PARAM_UNSUPPORTED;
         }

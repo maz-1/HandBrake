@@ -516,6 +516,16 @@ struct hb_job_s
     av_qsv_context   *qsv;
     int               qsv_decode;
     int               qsv_async_depth;
+    // shared encoding parameters
+    // initialized by the QSV encoder, then used upstream (e.g. by filters) to
+    // configure their output so that it corresponds to what the encoder expects
+    struct
+    {
+        int pic_struct;
+        int align_width;
+        int align_height;
+        int is_init_done;
+    } qsv_enc_info;
 #endif
 
 #ifdef __LIBHB__

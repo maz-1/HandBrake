@@ -107,6 +107,12 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
 
     if(!qsv->dec_space || !qsv->dec_space->is_init_done) return 2;
 
+    // we need to know final output settings before we can properly configure
+    if (!pv->job->qsv_enc_info.is_init_done)
+    {
+        return 2;
+    }
+
     av_qsv_add_context_usage(qsv,HAVE_THREADS);
 
     // see params needed like at mediasdk-man.pdf:"Appendix A: Configuration Parameter Constraints"
@@ -114,6 +120,23 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
     {
         av_qsv_space *qsv_vpp = pv->vpp_space;
         AV_QSV_ZERO_MEMORY(qsv_vpp->m_mfxVideoParam);
+
+        if (pv->deinterlace)
+        {
+            /*
+             * Input may be progressive, interlaced or even mixed, so init with
+             * MFX_PICSTRUCT_UNKNOWN and use per-frame field order information
+             * (mfxFrameSurface1.Info.PicStruct)
+             */
+            qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct  = MFX_PICSTRUCT_UNKNOWN;
+            qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct = MFX_PICSTRUCT_PROGRESSIVE;
+        }
+        else
+        {
+            /* Same PicStruct in/out: no filtering */
+            qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct  = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
+            qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
+        }
 
         // FrameRate is important for VPP to start with
         if( qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN == 0 &&
@@ -126,16 +149,14 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
         qsv_vpp->m_mfxVideoParam.vpp.In.ChromaFormat    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.ChromaFormat;
         qsv_vpp->m_mfxVideoParam.vpp.In.CropX           = pv->crop[2];
         qsv_vpp->m_mfxVideoParam.vpp.In.CropY           = pv->crop[0];
-        qsv_vpp->m_mfxVideoParam.vpp.In.CropW           = pv->width_in - pv->crop[3] - pv->crop[2];
+        qsv_vpp->m_mfxVideoParam.vpp.In.CropW           = pv-> width_in - pv->crop[3] - pv->crop[2];
         qsv_vpp->m_mfxVideoParam.vpp.In.CropH           = pv->height_in - pv->crop[1] - pv->crop[0];
-        qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct       = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
         qsv_vpp->m_mfxVideoParam.vpp.In.FrameRateExtN   = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtN;
         qsv_vpp->m_mfxVideoParam.vpp.In.FrameRateExtD   = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FrameRateExtD;
         qsv_vpp->m_mfxVideoParam.vpp.In.AspectRatioW    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.AspectRatioW;
         qsv_vpp->m_mfxVideoParam.vpp.In.AspectRatioH    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.AspectRatioH;
-        qsv_vpp->m_mfxVideoParam.vpp.In.Width           = AV_QSV_ALIGN16(pv->width_in);
-        qsv_vpp->m_mfxVideoParam.vpp.In.Height          = (MFX_PICSTRUCT_PROGRESSIVE == qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct)?
-                                                            AV_QSV_ALIGN16(pv->height_in) : AV_QSV_ALIGN32(pv->height_in);
+        qsv_vpp->m_mfxVideoParam.vpp.In.Width           = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.Width;
+        qsv_vpp->m_mfxVideoParam.vpp.In.Height          = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.Height;
 
         qsv_vpp->m_mfxVideoParam.vpp.Out.FourCC          = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.FourCC;
         qsv_vpp->m_mfxVideoParam.vpp.Out.ChromaFormat    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.ChromaFormat;
@@ -143,14 +164,12 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
         qsv_vpp->m_mfxVideoParam.vpp.Out.CropY           = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.CropY;
         qsv_vpp->m_mfxVideoParam.vpp.Out.CropW           = pv->width_out;
         qsv_vpp->m_mfxVideoParam.vpp.Out.CropH           = pv->height_out;
-        qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct       = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
         qsv_vpp->m_mfxVideoParam.vpp.Out.FrameRateExtN   = pv->job->vrate;
         qsv_vpp->m_mfxVideoParam.vpp.Out.FrameRateExtD   = pv->job->vrate_base;
         qsv_vpp->m_mfxVideoParam.vpp.Out.AspectRatioW    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.AspectRatioW;
         qsv_vpp->m_mfxVideoParam.vpp.Out.AspectRatioH    = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.AspectRatioH;
-        qsv_vpp->m_mfxVideoParam.vpp.Out.Width           = AV_QSV_ALIGN16(pv->width_out);
-        qsv_vpp->m_mfxVideoParam.vpp.Out.Height          = (MFX_PICSTRUCT_PROGRESSIVE == qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct)?
-                                                            AV_QSV_ALIGN16(pv->height_out) : AV_QSV_ALIGN32(pv->height_out);
+        qsv_vpp->m_mfxVideoParam.vpp.Out.Width           = pv->job->qsv_enc_info.align_width;
+        qsv_vpp->m_mfxVideoParam.vpp.Out.Height          = pv->job->qsv_enc_info.align_height;
 
         qsv_vpp->m_mfxVideoParam.IOPattern = MFX_IOPATTERN_IN_OPAQUE_MEMORY | MFX_IOPATTERN_OUT_OPAQUE_MEMORY;
 
@@ -271,11 +290,6 @@ static int filter_init( av_qsv_context* qsv, hb_filter_private_t * pv ){
             qsv_vpp->p_ext_params[1] = (mfxExtBuffer*)&pv->frc_config;
         }
 
-        if (pv->deinterlace)
-        {
-            qsv_vpp->m_mfxVideoParam.vpp.In.PicStruct  = qsv->dec_space->m_mfxVideoParam.mfx.FrameInfo.PicStruct;
-            qsv_vpp->m_mfxVideoParam.vpp.Out.PicStruct = MFX_PICSTRUCT_PROGRESSIVE;
-        }
         sts = MFXVideoVPP_Init(qsv->mfx_session, &qsv_vpp->m_mfxVideoParam);
 
         AV_QSV_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);

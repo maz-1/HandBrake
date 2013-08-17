@@ -484,6 +484,19 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                         job->anamorphic.par_width,
                         job->anamorphic.par_height, UINT16_MAX);
 
+    // some encoding parameters are used by filters to configure their output
+    if (pv->param.videoParam->mfx.FrameInfo.PicStruct != MFX_PICSTRUCT_PROGRESSIVE)
+    {
+        job->qsv_enc_info.align_height = AV_QSV_ALIGN32(job->height);
+    }
+    else
+    {
+        job->qsv_enc_info.align_height = AV_QSV_ALIGN16(job->height);
+    }
+    job->qsv_enc_info.align_width  = AV_QSV_ALIGN16(job->width);
+    job->qsv_enc_info.pic_struct   = pv->param.videoParam->mfx.FrameInfo.PicStruct;
+    job->qsv_enc_info.is_init_done = 1;
+
     // encode to H.264 and set FrameInfo
     pv->param.videoParam->mfx.CodecId                 = MFX_CODEC_AVC;
     pv->param.videoParam->mfx.CodecLevel              = MFX_LEVEL_UNKNOWN;
@@ -498,23 +511,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     pv->param.videoParam->mfx.FrameInfo.CropY         = 0;
     pv->param.videoParam->mfx.FrameInfo.CropW         = job->width;
     pv->param.videoParam->mfx.FrameInfo.CropH         = job->height;
-    pv->param.videoParam->mfx.FrameInfo.Width         = AV_QSV_ALIGN16(job->width);
-    pv->param.videoParam->mfx.FrameInfo.Height        = AV_QSV_ALIGN16(job->height);
-    pv->param.videoParam->mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
-    /*
-     * Note: interlaced encoding with the QSV H.264 encoder is explicitly
-     * unsupported for now.
-     *
-     * Unlike libx264, QSV requires that the input buffers be already padded to
-     * the coding width and height (the latter has to divide cleanly by 32 in
-     * the interlaced case). This would require:
-     *
-     * - detecting that interlaced encoding will be used early
-     * - padding VPP buffers so that the output height divides cleanly by 32
-     * - force-enabling VPP when there is no crop & scale but interlaced is on
-     *
-     * Also note that MFX_RATECONTROL_LA is progressive-only.
-     */
+    pv->param.videoParam->mfx.FrameInfo.PicStruct     = job->qsv_enc_info.pic_struct;
+    pv->param.videoParam->mfx.FrameInfo.Width         = job->qsv_enc_info.align_width;
+    pv->param.videoParam->mfx.FrameInfo.Height        = job->qsv_enc_info.align_height;
 
     // set H.264 profile and level
     if (job->h264_profile != NULL && job->h264_profile[0] != '\0' &&
@@ -564,6 +563,27 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         }
     }
 
+    // interlaced encoding is not always possible
+    if (pv->param.videoParam->mfx.FrameInfo.PicStruct != MFX_PICSTRUCT_PROGRESSIVE)
+    {
+        if (pv->param.videoParam->mfx.CodecProfile == MFX_PROFILE_AVC_CONSTRAINED_BASELINE ||
+            pv->param.videoParam->mfx.CodecProfile == MFX_PROFILE_AVC_BASELINE             ||
+            pv->param.videoParam->mfx.CodecProfile == MFX_PROFILE_AVC_PROGRESSIVE_HIGH)
+        {
+            hb_error("encqsvInit: profile %s doesn't support interlaced encoding",
+                     qsv_h264_profile_xlat(pv->param.videoParam->mfx.CodecProfile));
+            return -1;
+        }
+        if ((pv->param.videoParam->mfx.CodecLevel >= MFX_LEVEL_AVC_1b &&
+             pv->param.videoParam->mfx.CodecLevel <= MFX_LEVEL_AVC_2) ||
+            (pv->param.videoParam->mfx.CodecLevel >= MFX_LEVEL_AVC_42))
+        {
+            hb_error("encqsvInit: level %s doesn't support interlaced encoding",
+                     qsv_h264_level_xlat(pv->param.videoParam->mfx.CodecLevel));
+            return -1;
+        }
+    }
+
     // set rate control paremeters
     if (job->vquality >= 0)
     {
@@ -575,31 +595,37 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     }
     else if (job->vbitrate > 0)
     {
-        if (hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD)
+        // sanitize lookahead
+        if (!(hb_qsv_info->capabilities & HB_QSV_CAP_OPTION2_LOOKAHEAD))
         {
-            if (pv->param.rc.lookahead < 0)
+            // lookahead not supported
+            pv->param.rc.lookahead = 0;
+        }
+        else if (pv->param.rc.lookahead > 0 &&
+                 pv->param.videoParam->mfx.FrameInfo.PicStruct != MFX_PICSTRUCT_PROGRESSIVE)
+        {
+            // user force-enabled lookahead but we can't use it
+            hb_log("encqsvInit: MFX_RATECONTROL_LA not used (LookAhead is progressive-only)");
+            pv->param.rc.lookahead = 0;
+        }
+        else if (pv->param.rc.lookahead < 0)
+        {
+            if (pv->param.rc.vbv_max_bitrate > 0 ||
+                pv->param.videoParam->mfx.FrameInfo.PicStruct != MFX_PICSTRUCT_PROGRESSIVE)
             {
-                if (pv->param.rc.vbv_max_bitrate > 0)
-                {
-                    // lookahead RC doesn't support VBV
-                    pv->param.rc.lookahead = 0;
-                }
-                else
-                {
-                    // set automatically based on target usage
-                    pv->param.rc.lookahead = (pv->param.videoParam->mfx.TargetUsage <= MFX_TARGETUSAGE_2);
-                }
+                // lookahead doesn't support VBV or interlaced encoding
+                pv->param.rc.lookahead = 0;
             }
             else
             {
-                // user force-enabled or force-disabled lookahead RC
-                pv->param.rc.lookahead = !!pv->param.rc.lookahead;
+                // set automatically based on target usage
+                pv->param.rc.lookahead = (pv->param.videoParam->mfx.TargetUsage <= MFX_TARGETUSAGE_2);
             }
         }
         else
         {
-            // lookahead RC not supported
-            pv->param.rc.lookahead = 0;
+            // user force-enabled or force-disabled lookahead
+            pv->param.rc.lookahead = !!pv->param.rc.lookahead;
         }
         if (pv->param.rc.lookahead)
         {
@@ -629,7 +655,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                 else
                 {
                     pv->param.videoParam->mfx.InitialDelayInKB = (pv->param.rc.vbv_buffer_size *
-                                                                 pv->param.rc.vbv_buffer_init / 8);
+                                                                  pv->param.rc.vbv_buffer_init / 8);
                 }
                 pv->param.videoParam->mfx.BufferSizeInKB = (pv->param.rc.vbv_buffer_size / 8);
             }
@@ -651,7 +677,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                 else
                 {
                     pv->param.videoParam->mfx.InitialDelayInKB = (pv->param.rc.vbv_buffer_size *
-                                                                 pv->param.rc.vbv_buffer_init / 8);
+                                                                  pv->param.rc.vbv_buffer_init / 8);
                 }
                 pv->param.videoParam->mfx.BufferSizeInKB = (pv->param.rc.vbv_buffer_size / 8);
             }
@@ -804,6 +830,22 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                        videoParam.mfx.RateControlMethod);
                 return -1;
         }
+    }
+    switch (videoParam.mfx.FrameInfo.PicStruct)
+    {
+        case MFX_PICSTRUCT_PROGRESSIVE:
+            hb_log("encqsvInit: PicStruct progressive");
+            break;
+        case MFX_PICSTRUCT_FIELD_TFF:
+            hb_log("encqsvInit: PicStruct top field first");
+            break;
+        case MFX_PICSTRUCT_FIELD_BFF:
+            hb_log("encqsvInit: PicStruct bottom field first");
+            break;
+        default:
+            hb_error("encqsvInit: invalid PicStruct value 0x%"PRIx16"",
+                     videoParam.mfx.FrameInfo.PicStruct);
+            return -1;
     }
     const char *cavlc, *rdopt;
     switch (option1->CAVLC)
@@ -1147,6 +1189,17 @@ int encqsvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
                 // don't let 'work_loop' put a chapter mark on the wrong buffer
                 in->s.new_chap = 0;
             }
+
+            /*
+             * If interlaced encoding is requested during encoder initialization,
+             * but the input mfxFrameSurface1 is flagged as progressive here,
+             * the output bitstream will be progressive (according to MediaInfo).
+             *
+             * Assume the user knows what he's doing (say he is e.g. encoding a
+             * progressive-flagged source using interlaced compression - he may
+             * well have a good reason to do so; mis-flagged sources do exist).
+             */
+            work_surface->Info.PicStruct = pv->enc_space.m_mfxVideoParam.mfx.FrameInfo.PicStruct;
         }
         else{
             work_surface = NULL;
