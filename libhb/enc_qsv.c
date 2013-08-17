@@ -847,6 +847,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
             case MFX_CODINGOPTION_ADAPTIVE:
                 mbbrc = "adaptive";
                 break;
+            case MFX_CODINGOPTION_UNKNOWN:
+                mbbrc = "runtime";
+                break;
             default:
                 hb_error("encqsvInit: invalid MBBRC value %"PRIu16"",
                          option2->MBBRC);
@@ -862,6 +865,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                 break;
             case MFX_CODINGOPTION_ADAPTIVE:
                 extbrc = "adaptive";
+                break;
+            case MFX_CODINGOPTION_UNKNOWN:
+                extbrc = "runtime";
                 break;
             default:
                 hb_error("encqsvInit: invalid ExtBRC value %"PRIu16"",
