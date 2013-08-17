@@ -121,9 +121,9 @@ struct hb_work_private_s
 // save/restore PTS if the decoder may not attach the right PTS to the frame
 static void hb_av_add_new_pts(hb_list_t *list, int64_t new_pts)
 {
-    int index;
+    int index = 0;
     int64_t *cur_item, *new_item;
-    if (list != NULL)
+    if (list != NULL && new_pts != AV_NOPTS_VALUE)
     {
         new_item = malloc(sizeof(int64_t));
         if (new_item != NULL)
@@ -133,9 +133,19 @@ static void hb_av_add_new_pts(hb_list_t *list, int64_t new_pts)
             for (index = 0; index < hb_list_count(list); index++)
             {
                 cur_item = hb_list_item(list, index);
-                if (cur_item != NULL && *cur_item > *new_item)
+                if (cur_item != NULL)
                 {
-                    break;
+                    if (*cur_item == *new_item)
+                    {
+                        // no duplicates
+                        free(new_item);
+                        return;
+                    }
+                    if (*cur_item > *new_item)
+                    {
+                        // insert here
+                        break;
+                    }
                 }
             }
             hb_list_insert(list, index, new_item);
