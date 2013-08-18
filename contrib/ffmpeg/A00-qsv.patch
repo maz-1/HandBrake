@@ -152,7 +152,7 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv.c ./libavcodec/qsv.c
 +            break;
 +#if HAVE_THREADS
 +        }
-+        av_qsv_sleep(100);
++        av_qsv_sleep(5);
 +#endif
 +    }
 +    return ret;
@@ -191,7 +191,7 @@ diff -Naur ../../libav-v9.3/libavcodec/qsv.c ./libavcodec/qsv.c
 +            break;
 +#if HAVE_THREADS
 +        }
-+        av_qsv_sleep(100);
++        av_qsv_sleep(5);
 +#endif
 +    }
 +    return ret;
