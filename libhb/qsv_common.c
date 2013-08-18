@@ -391,7 +391,8 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             return HB_QSV_PARAM_BAD_VALUE;
         }
     }
-    if (!strcasecmp(key, "target-usage"))
+    if (!strcasecmp(key, "target-usage") ||
+        !strcasecmp(key, "tu"))
     {
         ivalue = hb_qsv_atoi(value, &error);
         if (!error)
@@ -401,7 +402,8 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
                                                               ivalue);
         }
     }
-    else if (!strcasecmp(key, "num-ref-frame"))
+    else if (!strcasecmp(key, "num-ref-frame") ||
+             !strcasecmp(key, "ref"))
     {
         ivalue = hb_qsv_atoi(value, &error);
         if (!error)
@@ -417,7 +419,8 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             param->videoParam->mfx.GopRefDist = HB_QSV_CLIP3(0, 32, ivalue);
         }
     }
-    else if (!strcasecmp(key, "gop-pic-size"))
+    else if (!strcasecmp(key, "gop-pic-size") ||
+             !strcasecmp(key, "keyint"))
     {
         ivalue = hb_qsv_atoi(value, &error);
         if (!error)
@@ -503,7 +506,8 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             param->codingOption.CAVLC = hb_qsv_codingoption_xlat(ivalue);
         }
     }
-    else if (!strcasecmp(key, "rate-distorsion-opt"))
+    else if (!strcasecmp(key, "rate-distorsion-opt") ||
+             !strcasecmp(key, "rdo"))
     {
         switch (vcodec)
         {
@@ -661,7 +665,8 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             return HB_QSV_PARAM_UNSUPPORTED;
         }
     }
-    else if (!strcasecmp(key, "lookahead"))
+    else if (!strcasecmp(key, "lookahead") ||
+             !strcasecmp(key, "la"))
     {
         switch (vcodec)
         {
@@ -683,7 +688,8 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
             return HB_QSV_PARAM_UNSUPPORTED;
         }
     }
-    else if (!strcasecmp(key, "lookahead-depth"))
+    else if (!strcasecmp(key, "lookahead-depth") ||
+             !strcasecmp(key, "la-depth"))
     {
         switch (vcodec)
         {
