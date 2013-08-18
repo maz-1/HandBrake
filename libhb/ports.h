@@ -19,7 +19,11 @@
 /************************************************************************
  * Utils
  ***********************************************************************/
+// provide time in ms
 uint64_t hb_get_date();
+// provide time in us
+uint64_t hb_get_time_us();
+
 void     hb_snooze( int delay );
 int      hb_get_cpu_count();
 int      hb_platform_init();
@@ -114,4 +118,3 @@ void  hb_system_sleep_private_disable(void *opaque);
 #endif /* __LIBHB__ */
 
 #endif
-
