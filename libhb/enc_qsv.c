@@ -714,6 +714,23 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     }
     pv->param.videoParam->mfx.GopPicSize = pv->param.gop.gop_pic_size;
 
+    /* sanitize some settings that affect memory consumption */
+    if (hb_qsv_decode_is_enabled(job))
+    {
+        // limit these to avoid running out of resources (causes hang)
+        pv->param.videoParam->mfx.GopRefDist   = FFMIN(pv->param.videoParam->mfx.GopRefDist,
+                                                       pv->param.rc.lookahead ? 8 : 16);
+        pv->param.codingOption2.LookAheadDepth = FFMIN(pv->param.codingOption2.LookAheadDepth,
+                                                       pv->param.rc.lookahead ? 48 - pv->param.videoParam->mfx.GopRefDist : 0);
+    }
+    else
+    {
+        // encode-only is a bit less sensitive to memory issues
+        pv->param.videoParam->mfx.GopRefDist   = FFMIN(pv->param.videoParam->mfx.GopRefDist, 16);
+        pv->param.codingOption2.LookAheadDepth = FFMIN(pv->param.codingOption2.LookAheadDepth,
+                                                       pv->param.rc.lookahead ? 60 : 0);
+    }
+
     /*
      * init a dummy encode-only session to get the SPS/PPS
      * and the final output settings sanitized by Media SDK

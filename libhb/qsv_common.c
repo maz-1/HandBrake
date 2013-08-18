@@ -703,9 +703,7 @@ int hb_qsv_param_parse(hb_qsv_param_t *param,
         {
             if (!error)
             {
-                // this requires a LOT of video memory - documentation says
-                // 10-100 but limit it to 50 to avoid running out of memory
-                param->codingOption2.LookAheadDepth = HB_QSV_CLIP3(10, 50,
+                param->codingOption2.LookAheadDepth = HB_QSV_CLIP3(10, 100,
                                                                    ivalue);
             }
         }
