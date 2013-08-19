@@ -162,7 +162,6 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
         return 0;
     }
 
-    pv->is_sys_mem = !hb_qsv_decode_is_enabled(job);
     if (qsv == NULL)
     {
         if (!pv->is_sys_mem)
@@ -333,16 +332,6 @@ int qsv_enc_init(av_qsv_context *qsv, hb_work_private_t *pv)
     }
     qsv_encode->is_init_done = 1;
 
-    if (pv->is_sys_mem)
-    {
-        hb_log("qsv_enc_init: using encode-only path");
-    }
-    if (MFXQueryIMPL(qsv->mfx_session, &qsv->impl) == MFX_ERR_NONE)
-    {
-        hb_log("qsv_enc_init: using Intel Media SDK %s implementation",
-               qsv->impl == MFX_IMPL_SOFTWARE ? "software" : "hardware");
-    }
-
     pv->init_done = 1;
     return 0;
 }
@@ -358,12 +347,12 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     w->private_data       = pv;
 
     pv->job                = job;
+    pv->is_sys_mem         = !hb_qsv_decode_is_enabled(job);
     pv->delayed_processing = hb_list_init();
     pv->last_start         = INT64_MIN;
     pv->frames_in          = 0;
     pv->frames_out         = 0;
     pv->init_done          = 0;
-    pv->is_sys_mem         = 0;
     pv->is_vpp_present     = 0;
 
     // set up a re-usable mfxEncodeCtrl to force keyframes (e.g. for chapters)
@@ -714,8 +703,8 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     }
     pv->param.videoParam->mfx.GopPicSize = pv->param.gop.gop_pic_size;
 
-    /* sanitize some settings that affect memory consumption */
-    if (hb_qsv_decode_is_enabled(job))
+    // sanitize some settings that affect memory consumption
+    if (!pv->is_sys_mem)
     {
         // limit these to avoid running out of resources (causes hang)
         pv->param.videoParam->mfx.GopRefDist   = FFMIN(pv->param.videoParam->mfx.GopRefDist,
@@ -737,6 +726,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
      * this is fine since the actual encode will use the same
      * values for all parameters relevant to the H.264 bitstream
      */
+    mfxIMPL impl;
     mfxStatus err;
     mfxVersion version;
     mfxVideoParam videoParam;
@@ -745,9 +735,10 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     mfxExtCodingOption  option1_buf, *option1 = &option1_buf;
     mfxExtCodingOption2 option2_buf, *option2 = &option2_buf;
     mfxExtCodingOptionSPSPPS sps_pps_buf, *sps_pps = &sps_pps_buf;
+    impl          = MFX_IMPL_AUTO_ANY|MFX_IMPL_VIA_ANY;
     version.Major = HB_QSV_MINVERSION_MAJOR;
     version.Minor = HB_QSV_MINVERSION_MINOR;
-    err = MFXInit(MFX_IMPL_AUTO_ANY, &version, &session);
+    err = MFXInit(impl, &version, &session);
     if (err != MFX_ERR_NONE)
     {
         hb_error("encqsvInit: MFXInit failed (%d)", err);
@@ -789,8 +780,6 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         videoParam.ExtParam[videoParam.NumExtParam++] = (mfxExtBuffer*)option2;
     }
     err = MFXVideoENCODE_GetVideoParam(session, &videoParam);
-    MFXVideoENCODE_Close(session);
-    MFXClose(session);
     if (err == MFX_ERR_NONE)
     {
         // remove 32-bit NAL prefix (0x00 0x00 0x00 0x01)
@@ -804,8 +793,25 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     else
     {
         hb_error("encqsvInit: MFXVideoENCODE_GetVideoParam failed (%d)", err);
+        MFXVideoENCODE_Close(session);
+        MFXClose            (session);
         return -1;
     }
+
+    // log implementation details before closing this session
+    if (pv->is_sys_mem)
+    {
+        hb_log("encqsvInit: using encode-only path");
+    }
+    if ((MFXQueryIMPL   (session, &impl)    == MFX_ERR_NONE) &&
+        (MFXQueryVersion(session, &version) == MFX_ERR_NONE))
+    {
+        hb_log("encqsvInit: using %s implementation (%"PRIu16".%"PRIu16")",
+               impl == MFX_IMPL_SOFTWARE ? "software" : "hardware",
+               version.Major, version.Minor);
+    }
+    MFXVideoENCODE_Close(session);
+    MFXClose            (session);
 
     // log main output settings
     hb_log("encqsvInit: TargetUsage %"PRIu16" AsyncDepth %"PRIu16"",
@@ -815,10 +821,10 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     if (videoParam.mfx.RateControlMethod == MFX_RATECONTROL_CQP)
     {
         char qpi[7], qpp[9], qpb[9];
-        snprintf(qpi, sizeof(qpi),   "QPI %"PRIu16"", videoParam.mfx.QPI);
-        snprintf(qpp, sizeof(qpp), ", QPP %"PRIu16"", videoParam.mfx.QPP);
-        snprintf(qpb, sizeof(qpb), ", QPB %"PRIu16"", videoParam.mfx.QPB);
-        hb_log("encqsvInit: MFX_RATECONTROL_CQP with %s%s%s", qpi,
+        snprintf(qpi, sizeof(qpi),  "QPI %"PRIu16"", videoParam.mfx.QPI);
+        snprintf(qpp, sizeof(qpp), " QPP %"PRIu16"", videoParam.mfx.QPP);
+        snprintf(qpb, sizeof(qpb), " QPB %"PRIu16"", videoParam.mfx.QPB);
+        hb_log("encqsvInit: RateControlMethod CQP with %s%s%s", qpi,
                videoParam.mfx.GopPicSize > 1 ? qpp : "",
                videoParam.mfx.GopRefDist > 1 ? qpb : "");
     }
@@ -827,19 +833,18 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         switch (videoParam.mfx.RateControlMethod)
         {
             case MFX_RATECONTROL_AVBR:
-                hb_log("encqsvInit: MFX_RATECONTROL_AVBR with TargetKbps %"PRIu16"",
+                hb_log("encqsvInit: RateControlMethod AVBR TargetKbps %"PRIu16"",
                        videoParam.mfx.TargetKbps);
                 break;
             case MFX_RATECONTROL_LA:
-                hb_log("encqsvInit: MFX_RATECONTROL_LA with TargetKbps %"PRIu16", LookAheadDepth %"PRIu16"",
+                hb_log("encqsvInit: RateControlMethod LA TargetKbps %"PRIu16" LookAheadDepth %"PRIu16"",
                        videoParam.mfx.TargetKbps, option2->LookAheadDepth);
                 break;
             case MFX_RATECONTROL_CBR:
             case MFX_RATECONTROL_VBR:
-                hb_log("encqsvInit: MFX_RATECONTROL_%s with TargetKbps %"PRIu16", MaxKbps %"PRIu16"",
+                hb_log("encqsvInit: RateControlMethod %s TargetKbps %"PRIu16" MaxKbps %"PRIu16" BufferSizeInKB %"PRIu16" InitialDelayInKB %"PRIu16"",
                        videoParam.mfx.RateControlMethod == MFX_RATECONTROL_CBR ? "CBR" : "VBR",
-                       videoParam.mfx.TargetKbps, videoParam.mfx.MaxKbps);
-                hb_log("encqsvInit: VBV enabled with BufferSizeInKB %"PRIu16" and InitialDelayInKB %"PRIu16"",
+                       videoParam.mfx.TargetKbps,     videoParam.mfx.MaxKbps,
                        videoParam.mfx.BufferSizeInKB, videoParam.mfx.InitialDelayInKB);
                 break;
             default:
