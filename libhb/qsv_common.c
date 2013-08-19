@@ -166,7 +166,6 @@ int hb_qsv_info_init()
     {
         if (HB_CHECK_MFX_VERSION(qsv_software_version, 1, 6))
         {
-            hb_qsv_info->capabilities |= HB_QSV_CAP_OPTION2_BRC;
             hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_API_1_6;
             hb_qsv_info->capabilities |= HB_QSV_CAP_H264_BPYRAMID;
         }
