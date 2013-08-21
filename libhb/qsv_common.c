@@ -7,6 +7,8 @@
  * For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
  */
 
+#include "hb.h"
+#include "ports.h"
 #include "common.h"
 #include "hb_dict.h"
 #include "qsv_common.h"
@@ -28,7 +30,6 @@ static mfxVersion qsv_software_version;
 static mfxVersion qsv_minimum_version;
 static int qsv_hardware_available = 0;
 static int qsv_software_available = 0;
-static char cpu_name_buf[48];
 
 // check available Intel Media SDK version against a minimum
 #define HB_CHECK_MFX_VERSION(MFX_VERSION, MAJOR, MINOR) \
@@ -52,68 +53,6 @@ int hb_qsv_info_init()
     {
         hb_error("hb_qsv_info_init: alloc failure");
         return -1;
-    }
-
-    hb_qsv_info->cpu_name = NULL;
-    // detect the CPU platform to check for hardware-specific capabilities
-    if (av_get_cpu_flags() & AV_CPU_FLAG_SSE)
-    {
-        int eax, ebx, ecx, edx;
-        int family = 0, model = 0;
-
-        ff_cpu_cpuid(1, &eax, &ebx, &ecx, &edx);
-        family = ((eax >> 8) & 0xf) + ((eax >> 20) & 0xff);
-        model  = ((eax >> 4) & 0xf) + ((eax >> 12) & 0xf0);
-
-        // Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 2A
-        // Figure 3-8: Determination of Support for the Processor Brand String
-        // Table 3-17: Information Returned by CPUID Instruction
-        ff_cpu_cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
-        if ((eax & 0x80000004) < 0x80000004)
-        {
-            ff_cpu_cpuid(0x80000002,
-                         (int*)&cpu_name_buf[ 0], (int*)&cpu_name_buf[ 4],
-                         (int*)&cpu_name_buf[ 8], (int*)&cpu_name_buf[12]);
-            ff_cpu_cpuid(0x80000003,
-                         (int*)&cpu_name_buf[16], (int*)&cpu_name_buf[20],
-                         (int*)&cpu_name_buf[24], (int*)&cpu_name_buf[28]);
-            ff_cpu_cpuid(0x80000004,
-                         (int*)&cpu_name_buf[32], (int*)&cpu_name_buf[36],
-                         (int*)&cpu_name_buf[40], (int*)&cpu_name_buf[44]);
-
-            cpu_name_buf[47]      = '\0'; // just in case
-            hb_qsv_info->cpu_name = (const char*)cpu_name_buf;
-            while (isspace(*hb_qsv_info->cpu_name))
-            {
-                // skip leading whitespace to prettify
-                hb_qsv_info->cpu_name++;
-            }
-        }
-
-        // Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 3C
-        // Table 35-1: CPUID Signature Values of DisplayFamily_DisplayModel
-        if (family == 0x06)
-        {
-            switch (model)
-            {
-                case 0x2A:
-                case 0x2D:
-                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_SNB;
-                    break;
-                case 0x3A:
-                case 0x3E:
-                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_IVB;
-                    break;
-                case 0x3C:
-                case 0x45:
-                case 0x46:
-                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_INTEL_HSW;
-                    break;
-                default:
-                    hb_qsv_info->cpu_platform = HB_CPU_PLATFORM_UNSPECIFIED;
-                    break;
-            }
-        }
     }
 
     mfxSession session;
@@ -149,7 +88,7 @@ int hb_qsv_info_init()
             hb_qsv_info->capabilities |= HB_QSV_CAP_OPTION2_BRC;
             hb_qsv_info->capabilities |= HB_QSV_CAP_MSDK_API_1_6;
         }
-        if (hb_qsv_info->cpu_platform == HB_CPU_PLATFORM_INTEL_HSW)
+        if (hb_get_cpu_platform() == HB_CPU_PLATFORM_INTEL_HSW)
         {
             if (HB_CHECK_MFX_VERSION(qsv_hardware_version, 1, 7))
             {
@@ -193,25 +132,6 @@ void hb_qsv_info_print()
     // is QSV available?
     hb_log("Intel Quick Sync Video support: %s",
            hb_qsv_available() ? "yes": "no");
-
-    // print the hardware summary too
-    hb_log(" - CPU name: %s", hb_qsv_info->cpu_name);
-    switch (hb_qsv_info->cpu_platform)
-    {
-        // Intel 64 and IA-32 Architectures Software Developer's Manual, Vol. 3C
-        // Table 35-1: CPUID Signature Values of DisplayFamily_DisplayModel
-        case HB_CPU_PLATFORM_INTEL_SNB:
-            hb_log(" - Intel microarchitecture Sandy Bridge");
-            break;
-        case HB_CPU_PLATFORM_INTEL_IVB:
-            hb_log(" - Intel microarchitecture Ivy Bridge");
-            break;
-        case HB_CPU_PLATFORM_INTEL_HSW:
-            hb_log(" - Intel microarchitecture Haswell");
-            break;
-        default:
-            break;
-    }
 
     // if we have Quick Sync Video support, also print the details
     if (hb_qsv_available())

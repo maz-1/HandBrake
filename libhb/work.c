@@ -218,6 +218,7 @@ void hb_display_job_info(hb_job_t *job)
         case HB_MUX_MP4V2:
             if (job->largeFileSize)
                 hb_log("     + 64-bit chunk offsets");
+        case HB_MUX_AV_MP4:
             if (job->mp4_optimize)
                 hb_log("     + optimized for HTTP streaming (fast start)");
             if (job->ipod_atom)
@@ -332,9 +333,10 @@ void hb_display_job_info(hb_job_t *job)
             hb_log("     + h264 level: %s", job->h264_level);
         }
 
-        if( job->vquality >= 0 )
+        if (job->vquality >= 0)
         {
-            hb_log( "     + quality: %.2f %s", job->vquality, job->vcodec == HB_VCODEC_X264 ? "(RF)" : "(QP)" );
+            hb_log("     + quality: %.2f (%s)", job->vquality,
+                   hb_video_quality_get_name(job->vcodec));
         }
         else
         {

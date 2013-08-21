@@ -188,13 +188,13 @@ hb_encoder_t *hb_video_encoders_last_item  = NULL;
 hb_encoder_internal_t hb_video_encoders[]  =
 {
     // legacy encoders, back to HB 0.9.4 whenever possible (disabled)
-    { { "FFmpeg",            "ffmpeg",  HB_VCODEC_FFMPEG_MPEG4, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 0, HB_GID_VCODEC_MPEG4,  },
+    { { "FFmpeg",            "ffmpeg",    HB_VCODEC_FFMPEG_MPEG4, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 0, HB_GID_VCODEC_MPEG4,  },
     { { "MPEG-4 (FFmpeg)",   "ffmpeg4",   HB_VCODEC_FFMPEG_MPEG4, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 0, HB_GID_VCODEC_MPEG4,  },
     { { "MPEG-2 (FFmpeg)",   "ffmpeg2",   HB_VCODEC_FFMPEG_MPEG2, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 0, HB_GID_VCODEC_MPEG2,  },
     { { "VP3 (Theora)",      "libtheora", HB_VCODEC_THEORA,                       HB_MUX_MASK_MKV, }, NULL, 0, HB_GID_VCODEC_THEORA, },
     // actual encoders
-    { { "H.264 (x264)",      "x264",    HB_VCODEC_X264,         HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
-    { { "H.264 (Intel QSV)", "qsv_h264",HB_VCODEC_QSV_H264,     HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
+    { { "H.264 (x264)",      "x264",      HB_VCODEC_X264,         HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
+    { { "H.264 (Intel QSV)", "qsv_h264",  HB_VCODEC_QSV_H264,     HB_MUX_MP4V2   |  HB_MUX_LIBMKV, }, NULL, 1, HB_GID_VCODEC_H264,   },
     { { "MPEG-4",            "mpeg4",     HB_VCODEC_FFMPEG_MPEG4, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_MPEG4,  },
     { { "MPEG-2",            "mpeg2",     HB_VCODEC_FFMPEG_MPEG2, HB_MUX_MASK_MP4|HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_MPEG2,  },
     { { "Theora",            "theora",    HB_VCODEC_THEORA,                       HB_MUX_MASK_MKV, }, NULL, 1, HB_GID_VCODEC_THEORA, },
@@ -309,25 +309,30 @@ hb_container_t *hb_containers_last_item  = NULL;
 hb_container_internal_t hb_containers[]  =
 {
     // legacy muxers, back to HB 0.9.4 whenever possible (disabled)
-    { { "M4V file",          "m4v",    "m4v",             0, }, NULL, 0, HB_GID_MUX_MP4, },
-    { { "MP4 file",          "mp4",    "mp4",             0, }, NULL, 0, HB_GID_MUX_MP4, },
-    { { "MKV file",          "mkv",    "mkv",             0, }, NULL, 0, HB_GID_MUX_MKV, },
+    { { "M4V file",            "m4v",    "m4v",             0, }, NULL, 0, HB_GID_MUX_MP4, },
+    { { "MP4 file",            "mp4",    "mp4",             0, }, NULL, 0, HB_GID_MUX_MP4, },
+    { { "MKV file",            "mkv",    "mkv",             0, }, NULL, 0, HB_GID_MUX_MKV, },
     // actual muxers
-    { { "MPEG-4 (mp4v2)",    "mp4v2",  "mp4", HB_MUX_MP4V2,  }, NULL, 1, HB_GID_MUX_MP4, },
-    { { "Matroska (libmkv)", "libmkv", "mkv", HB_MUX_LIBMKV, }, NULL, 1, HB_GID_MUX_MKV, },
+    { { "MPEG-4 (mp4v2)",      "mp4v2",  "mp4", HB_MUX_MP4V2,  }, NULL, 1, HB_GID_MUX_MP4, },
+    { { "Matroska (libmkv)",   "libmkv", "mkv", HB_MUX_LIBMKV, }, NULL, 1, HB_GID_MUX_MKV, },
+    { { "MPEG-4 (avformat)",   "av_mp4", "mp4", HB_MUX_AV_MP4, }, NULL, 1, HB_GID_MUX_MP4, },
+    { { "Matroska (avformat)", "av_mkv", "mkv", HB_MUX_AV_MKV, }, NULL, 1, HB_GID_MUX_MKV, },
 };
 int hb_containers_count = sizeof(hb_containers) / sizeof(hb_containers[0]);
 static int hb_container_is_enabled(int format)
 {
     switch (format)
     {
-#if 1 //#ifdef USE_MP4V2
+#ifdef USE_MP4V2
         case HB_MUX_MP4V2:
-            return 1;
 #endif
-
-        // the following muxers are always enabled
+#ifdef USE_LIBMKV
         case HB_MUX_LIBMKV:
+#endif
+#ifdef USE_AVFORMAT
+        case HB_MUX_AV_MP4:
+        case HB_MUX_AV_MKV:
+#endif
             return 1;
 
         default:
@@ -1082,6 +1087,55 @@ const hb_rate_t* hb_audio_bitrate_get_next(const hb_rate_t *last)
         return hb_audio_bitrates_first_item;
     }
     return ((hb_rate_internal_t*)last)->next;
+}
+
+// Get limits and hints for the UIs.
+//
+// granularity sets the minimum step increments that should be used
+// (it's ok to round up to some nice multiple if you like)
+//
+// direction says whether 'low' limit is highest or lowest
+// quality (direction 0 == lowest value is worst quality)
+void hb_video_quality_get_limits(uint32_t codec, float *low, float *high,
+                                 float *granularity, int *direction)
+{
+    switch (codec)
+    {
+        case HB_VCODEC_X264:
+            *direction   = 1;
+            *granularity = 0.1;
+            *low         = 0.;
+            *high        = 51.;
+            break;
+
+        case HB_VCODEC_THEORA:
+            *direction   = 0;
+            *granularity = 1.;
+            *low         = 0.;
+            *high        = 63.;
+            break;
+
+        case HB_VCODEC_FFMPEG_MPEG2:
+        case HB_VCODEC_FFMPEG_MPEG4:
+        default:
+            *direction   = 1;
+            *granularity = 1.;
+            *low         = 1.;
+            *high        = 31.;
+            break;
+    }
+}
+
+const char* hb_video_quality_get_name(uint32_t codec)
+{
+    switch (codec)
+    {
+        case HB_VCODEC_X264:
+            return "RF";
+
+        default:
+            return "QP";
+    }
 }
 
 // Get limits and hints for the UIs.
@@ -3526,46 +3580,50 @@ int hb_subtitle_can_burn( int source )
 
 int hb_subtitle_can_pass( int source, int mux )
 {
-    if ( mux == HB_MUX_MKV )
+    switch (mux)
     {
-        switch( source )
-        {
-            case PGSSUB:
-            case VOBSUB:
-            case SSASUB:
-            case SRTSUB:
-            case UTF8SUB:
-            case TX3GSUB:
-            case CC608SUB:
-            case CC708SUB:
-                return 1;
+        case HB_MUX_AV_MKV:
+        case HB_MUX_LIBMKV:
+            switch( source )
+            {
+                case PGSSUB:
+                case VOBSUB:
+                case SSASUB:
+                case SRTSUB:
+                case UTF8SUB:
+                case TX3GSUB:
+                case CC608SUB:
+                case CC708SUB:
+                    return 1;
 
-            default:
-                return 0;
-        }
-    }
-    else if ( mux == HB_MUX_MP4 )
-    {
-        switch( source )
-        {
-            case VOBSUB:
-            case SSASUB:
-            case SRTSUB:
-            case UTF8SUB:
-            case TX3GSUB:
-            case CC608SUB:
-            case CC708SUB:
-                return 1;
+                default:
+                    return 0;
+            } break;
 
-            default:
-                return 0;
-        }
-    }
-    else
-    {
-        // Internal error. Should never get here.
-        hb_error("internel error.  Bad mux %d\n", mux);
-        return 0;
+        case HB_MUX_MP4V2:
+            if (source == VOBSUB)
+            {
+                return 1;
+            } // fall through to next case...
+        case HB_MUX_AV_MP4:
+            switch( source )
+            {
+                case SSASUB:
+                case SRTSUB:
+                case UTF8SUB:
+                case TX3GSUB:
+                case CC608SUB:
+                case CC708SUB:
+                    return 1;
+
+                default:
+                    return 0;
+            } break;
+
+        default:
+            // Internal error. Should never get here.
+            hb_error("internel error.  Bad mux %d\n", mux);
+            return 0;
     }
 }
 

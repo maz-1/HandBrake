@@ -2728,7 +2728,7 @@ static int HandleEvents( hb_handle_t * h )
                                     }
                                     sub_config = subtitle->config;
 
-                                    if( mux == HB_MUX_MKV || subtitle->format == TEXTSUB)
+                                    if ((mux & HB_MUX_MASK_MKV) || subtitle->format == TEXTSUB)
                                     {
                                         sub_config.dest = PASSTHRUSUB;
                                     }

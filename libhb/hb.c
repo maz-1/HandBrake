@@ -620,9 +620,20 @@ void hb_scan( hb_handle_t * h, const char * path, int title_index,
         hb_title_close( &title );
     }
 
+    /* Print CPU info here so that it's in all scan and encode logs */
+    hb_log("hb_scan: CPU count: %i", hb_get_cpu_count());
+    if (hb_get_cpu_name() != NULL)
+    {
+        hb_log("hb_scan: CPU name:  %s", hb_get_cpu_name());
+    }
+    if (hb_get_cpu_platform_name() != NULL)
+    {
+        hb_log("hb_scan: CPU type:  %s", hb_get_cpu_platform_name());
+    }
+
     hb_log( "hb_scan: path=%s, title_index=%d", path, title_index );
-    h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index,
-                                   &h->title_set, preview_count,
+    h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index, 
+                                   &h->title_set, preview_count, 
                                    store_previews, min_duration );
 }
 

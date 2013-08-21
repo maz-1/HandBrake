@@ -36,18 +36,6 @@ typedef struct hb_qsv_info_s
 #define HB_QSV_CAP_OPTION2_LOOKAHEAD (1 << 3) // mfxExtCodingOption2: LookAhead
 #define HB_QSV_CAP_OPTION2_TRELLIS   (1 << 4) // mfxExtCodingOption2: Trellis
 
-    // if a feature depends on the cpu generation
-    enum
-    {
-        // list of microarchitecture codenames
-        HB_CPU_PLATFORM_UNSPECIFIED = 0,
-        HB_CPU_PLATFORM_INTEL_SNB,
-        HB_CPU_PLATFORM_INTEL_IVB,
-        HB_CPU_PLATFORM_INTEL_HSW,
-    }
-    cpu_platform;
-    const char *cpu_name;
-
     // TODO: add available decoders, filters, encoders,
     //       maximum decode and encode resolution, etc.
 } hb_qsv_info_t;

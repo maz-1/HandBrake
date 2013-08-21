@@ -51,6 +51,15 @@ endif
 ifeq (1,$(FEATURE.faac))
 LIBHB.GCC.D += USE_FAAC
 endif
+ifeq (1,$(FEATURE.mp4v2))
+LIBHB.GCC.D += USE_MP4V2
+endif
+ifeq (1,$(FEATURE.libmkv))
+LIBHB.GCC.D += USE_LIBMKV
+endif
+ifeq (1,$(FEATURE.avformat))
+LIBHB.GCC.D += USE_AVFORMAT
+endif
 LIBHB.GCC.D += __LIBHB__ USE_PTHREAD
 LIBHB.GCC.D += __LIBHB__ USE_PTHREAD HAVE_THREADS=1
 LIBHB.GCC.I += $(LIBHB.build/) $(CONTRIB.build/)include
@@ -66,7 +75,7 @@ else ifeq ($(BUILD.system),mingw)
     LIBHB.GCC.D += SYS_MINGW PTW32_STATIC_LIB
 	LIBHB.GCC.args.extra.dylib++ += -Wl,--enable-auto-import -static
 else ifeq ($(BUILD.system),solaris)
-    LIBHB.GCC.D += SYS_SunOS _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64
+    LIBHB.GCC.D += SYS_SunOS _LARGEFILE_SOURCE _FILE_OFFSET_BITS=64 _POSIX_C_SOURCE=200112L __EXTENSIONS__
 else
     LIBHB.platform.D = SYS_UNKNOWN
 endif
@@ -112,7 +121,7 @@ LIBHB.lib = $(LIBHB.build/)hb.lib
 
 LIBHB.dll.libs = $(foreach n, \
         a52 ass avcodec avformat avutil avresample dvdnav dvdread \
-        fontconfig freetype mkv mpeg2 mp3lame mp4v2 \
+        fontconfig freetype mpeg2 mp3lame \
         ogg samplerate swscale theora vorbis vorbisenc x264 xml2 bluray, \
         $(CONTRIB.build/)lib/lib$(n).a )
 
@@ -126,6 +135,14 @@ endif
 
 ifeq (1,$(FEATURE.qsv))
 LIBHB.dll.libs += $(CONTRIB.build/)lib/libmfx.a
+endif
+
+ifeq (1,$(FEATURE.mp4v2))
+LIBHB.dll.libs += $(CONTRIB.build/)lib/libmp4v2.a
+endif
+
+ifeq (1,$(FEATURE.libmkv))
+LIBHB.dll.libs += $(CONTRIB.build/)lib/libmkv.a
 endif
 
 ifneq ($(HAS.iconv),1)
