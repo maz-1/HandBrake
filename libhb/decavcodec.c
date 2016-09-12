@@ -1777,11 +1777,20 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
 
     info->video_decode_support = HB_DECODE_SUPPORT_SW;
 
-#ifdef USE_QSV
+#ifdef USE_QSV // TODO: query QSV for resolution limits, 10-bit decoding support
     if (avcodec_find_decoder_by_name(hb_qsv_decode_get_codec_name(pv->context->codec_id)))
     {
         switch (pv->context->codec_id)
         {
+//            // decoder seems highly unreliable, further investigation required
+//            case AV_CODEC_ID_MPEG2VIDEO:
+//                if (pv->context->pix_fmt == AV_PIX_FMT_YUV420P ||
+//                    pv->context->pix_fmt == AV_PIX_FMT_YUVJ420P)
+//                {
+//                    info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
+//                }
+//                break;
+
             case AV_CODEC_ID_H264:
                 if (pv->context->pix_fmt == AV_PIX_FMT_YUV420P ||
                     pv->context->pix_fmt == AV_PIX_FMT_YUVJ420P)
@@ -1789,6 +1798,15 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
                     info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
                 }
                 break;
+
+//            // seemingly doesn't work at all: :-( further investigation required
+//            case AV_CODEC_ID_HEVC:
+//                if (pv->context->pix_fmt == AV_PIX_FMT_YUV420P ||
+//                    pv->context->pix_fmt == AV_PIX_FMT_YUVJ420P)
+//                {
+//                    info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
+//                }
+//                break;
 
             default:
                 break;
