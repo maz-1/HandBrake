@@ -1687,7 +1687,7 @@ int hb_global_init()
     hb_register(&hb_encvobsub);
     hb_register(&hb_encavcodec);
     hb_register(&hb_encavcodeca);
-#ifdef __APPLE__
+#if defined (__APPLE__) || defined (USE_CA_WRAPPER)
     hb_register(&hb_encca_aac);
     hb_register(&hb_encca_haac);
 #endif

@@ -63,6 +63,12 @@ namespace HandBrakeWPF.Converters.Audio
                     encoders.Remove(AudioEncoder.fdkaac);
                     encoders.Remove(AudioEncoder.fdkheaac);
                 }
+                
+                if (!HandBrakeEncoderHelpers.AudioEncoders.Any(a => a.ShortName.Contains("ca_aac")))
+                {
+                    encoders.Remove(AudioEncoder.CaAac);
+                    encoders.Remove(AudioEncoder.CaHaac);
+                }
 
                 if (task != null && task.OutputFormat != OutputFormat.Mkv)
                 {

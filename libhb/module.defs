@@ -3,6 +3,10 @@ __deps__ := A52DEC BZIP2 LIBVPX FFMPEG FREETYPE LAME LIBASS LIBDCA \
     LIBXML2 PTHREADW32 X264 X265 ZLIB LIBBLURAY FDKAAC LIBMFX LIBGNURX JANSSON \
     HARFBUZZ LIBOPUS LIBSPEEX
 
+ifeq (1,$(FEATURE.audiotoolboxwrapper))
+    __deps__ += AUDIOTOOLBOXWRAPPER
+endif
+
 ifeq (,$(filter $(BUILD.system),darwin cygwin mingw))
     __deps__ += FONTCONFIG
 endif
@@ -78,6 +82,11 @@ else
     LIBHB.platform.D = SYS_UNKNOWN
 endif
 
+ifeq (1,$(FEATURE.audiotoolboxwrapper))
+    LIBHB.c += $(LIBHB.src/)platform/macosx/encca_aac.c
+    LIBHB.GCC.D += USE_CA_WRAPPER
+endif
+
 ifeq (1,$(FEATURE.qsv))
     LIBHB.GCC.D += USE_QSV HAVE_THREADS=1
 endif
@@ -122,6 +131,11 @@ LIBHB.dll.libs = $(foreach n, \
 
 ifeq (1,$(FEATURE.fdk_aac))
 LIBHB.dll.libs += $(CONTRIB.build/)lib/libfdk-aac.a
+endif
+
+ifeq (1,$(FEATURE.audiotoolboxwrapper))
+LIBHB.dll.libs += $(CONTRIB.build/)lib/libAudioToolboxWrapper.a
+LIBHB.GCC.l += shlwapi
 endif
 
 ifeq (1,$(FEATURE.qsv))

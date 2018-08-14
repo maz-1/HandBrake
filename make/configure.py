@@ -1314,6 +1314,10 @@ def createCLI():
     h = IfHost( 'enable FDK AAC audio encoder', '*-*-*', none=optparse.SUPPRESS_HELP ).value
     grp.add_option( '--enable-fdk-aac', dest="enable_fdk_aac", default=False, action='store_true', help=h )
     grp.add_option( '--disable-fdk-aac', dest="enable_fdk_aac", action='store_false' )
+    
+    h = IfHost( 'enable CoreAudioToolboxWrapper', '*-*-*', none=optparse.SUPPRESS_HELP ).value
+    grp.add_option( '--enable-audiotoolboxwrapper', dest="enable_audiotoolboxwrapper", default=False, action='store_true', help=h )
+    grp.add_option( '--disable-audiotoolboxwrapper', dest="enable_audiotoolboxwrapper", action='store_false' )
 
     h = IfHost( 'enable FFmpeg AAC audio encoder', '*-*-*', none=optparse.SUPPRESS_HELP ).value
     grp.add_option( '--enable-ffmpeg-aac', dest="enable_ffmpeg_aac", default=not host.match( '*-*-darwin*' ), action='store_true', help=h )
@@ -1844,6 +1848,7 @@ int main()
     doc.add( 'FEATURE.gtk.mingw',  int( options.enable_gtk_mingw ))
     doc.add( 'FEATURE.gst',        int( not options.disable_gst ))
     doc.add( 'FEATURE.fdk_aac',    int( options.enable_fdk_aac ))
+    doc.add( 'FEATURE.audiotoolboxwrapper',    int( options.enable_audiotoolboxwrapper ))
     doc.add( 'FEATURE.ffmpeg_aac', int( options.enable_ffmpeg_aac or build.system == 'mingw' ))
     doc.add( 'FEATURE.qsv',        int( options.enable_qsv ))
     doc.add( 'FEATURE.vce',        int( options.enable_vce ))
