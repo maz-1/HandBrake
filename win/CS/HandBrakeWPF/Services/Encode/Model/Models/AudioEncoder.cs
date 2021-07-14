@@ -32,6 +32,15 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
         [ShortName("fdk_haac")]
         fdkheaac,
 
+ 
+        [DisplayName("AAC (Apple)")]
+        [ShortName("ca_aac")]
+        CaAac,
+
+        [DisplayName("HE-AAC (Apple)")]
+        [ShortName("ca_haac")]
+        CaHaac,
+
         [DisplayName("MP3")]
         [ShortName("mp3")]
         Lame,

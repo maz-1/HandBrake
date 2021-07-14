@@ -43,6 +43,37 @@
 #include "platform/macosx/vt_common.h"
 #endif
 
+#if defined (__APPLE__) || defined (USE_CA_WRAPPER)
+#include <AudioToolbox/AudioToolbox.h>
+#ifdef USE_CA_WRAPPER
+#define NSExecutableLoadError 3587
+static int checkCoreAudioToolbox() {
+  AudioStreamBasicDescription in_format = {
+       .mSampleRate = 48000,
+       .mFormatID = kAudioFormatLinearPCM,
+       .mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+       .mBytesPerPacket = 4,
+       .mFramesPerPacket = 1,
+       .mBytesPerFrame = 4,
+       .mChannelsPerFrame = 2,
+       .mBitsPerChannel = 16,
+   };
+  AudioStreamBasicDescription out_format = {
+       .mSampleRate = 44100,
+       .mFormatID = kAudioFormatLinearPCM,
+       .mChannelsPerFrame = in_format.mChannelsPerFrame,
+  };
+  AudioConverterRef converter;
+  int ret = AudioConverterNew(&in_format, &out_format, &converter);
+  AudioConverterDispose(converter);
+  if (ret != NSExecutableLoadError)
+    return 1;
+  else
+    return 0;
+}
+#endif
+#endif
+
 static int mixdown_get_opus_coupled_stream_count(int mixdown);
 
 /**********************************************************************
@@ -420,10 +451,14 @@ static int hb_audio_encoder_is_enabled(int encoder)
     }
     switch (encoder)
     {
-#ifdef __APPLE__
+#if defined (__APPLE__) || defined (USE_CA_WRAPPER)
         case HB_ACODEC_CA_AAC:
         case HB_ACODEC_CA_HAAC:
+#ifdef __APPLE__
             return 1;
+#else
+            return checkCoreAudioToolbox();
+#endif
 #endif
 
 #if HB_PROJECT_FEATURE_FFMPEG_AAC
