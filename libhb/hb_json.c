@@ -1,6 +1,6 @@
 /* json.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -235,8 +235,8 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
         "s:{s:o, s:o, s:{s:o, s:o}},"
         // Crop[Top, Bottom, Left, Right]}
         "s:[oooo],"
-        // Color {Format, Range, Primary, Transfer, Matrix}
-        "s:{s:o, s:o, s:o, s:o, s:o},"
+        // Color {Format, Range, Primary, Transfer, Matrix, ChromaLocation}
+        "s:{s:o, s:o, s:o, s:o, s:o, s:o},"
         // FrameRate {Num, Den}
         "s:{s:o, s:o},"
         // InterlaceDetected, VideoCodec
@@ -271,6 +271,7 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
         "Primary",          hb_value_int(title->color_prim),
         "Transfer",         hb_value_int(title->color_transfer),
         "Matrix",           hb_value_int(title->color_matrix),
+        "ChromaLocation",   hb_value_int(title->chroma_location),
     "FrameRate",
         "Num",              hb_value_int(title->vrate.num),
         "Den",              hb_value_int(title->vrate.den),
@@ -478,15 +479,12 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     json_error_t error;
     int subtitle_search_burn;
     int ii;
-    int adapter_index;
+    int adapter_index = 0;
 
 #if HB_PROJECT_FEATURE_QSV
     if (job->qsv.ctx){
         adapter_index = job->qsv.ctx->dx_index;
     }
-    
-#else
-    adapter_index = 0;
 #endif
 
     if (job == NULL || job->title == NULL)
@@ -620,8 +618,10 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     hb_dict_set(source_dict, "Range", range_dict);
 
     hb_dict_t *video_dict = hb_dict_get(dict, "Video");
-    hb_dict_set(video_dict, "ColorFormat",
-                hb_value_int(job->pix_fmt));
+    hb_dict_set(video_dict, "ColorInputFormat",
+                hb_value_int(job->input_pix_fmt));
+    hb_dict_set(video_dict, "ColorOutputFormat",
+                hb_value_int(job->output_pix_fmt));
     hb_dict_set(video_dict, "ColorRange",
                 hb_value_int(job->color_range));
     hb_dict_set(video_dict, "ColorPrimaries",
@@ -630,6 +630,8 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
                 hb_value_int(job->color_transfer));
     hb_dict_set(video_dict, "ColorMatrix",
                 hb_value_int(job->color_matrix));
+    hb_dict_set(video_dict, "ChromaLocation",
+                hb_value_int(job->chroma_location));
     if (job->color_prim_override != HB_COLR_PRI_UNDEF)
     {
         hb_dict_set(video_dict, "ColorPrimariesOverride",
@@ -1015,16 +1017,16 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     "s?{s:i, s:i},"
     // Video {Codec, Quality, Bitrate, Preset, Tune, Profile, Level, Options
     //       TwoPass, Turbo,
-    //       ColorFormat, ColorRange,
-    //       ColorPrimaries, ColorTransfer, ColorMatrix,
+    //       ColorInputFormat, ColorOutputFormat, ColorRange,
+    //       ColorPrimaries, ColorTransfer, ColorMatrix, ChromaLocation,
     //       Mastering,
     //       ContentLightLevel,
     //       ColorPrimariesOverride, ColorTransferOverride, ColorMatrixOverride,
     //       QSV {Decode, AsyncDepth, AdapterIndex}}
     "s:{s:o, s?F, s?i, s?s, s?s, s?s, s?s, s?s,"
     "   s?b, s?b,"
-    "   s?i, s?i,"
     "   s?i, s?i, s?i,"
+    "   s?i, s?i, s?i, s?i,"
     "   s?o,"
     "   s?o,"
     "   s?i, s?i, s?i,"
@@ -1070,11 +1072,13 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "Options",              unpack_s(&video_options),
             "TwoPass",              unpack_b(&job->twopass),
             "Turbo",                unpack_b(&job->fastfirstpass),
-            "ColorFormat",          unpack_i(&job->pix_fmt),
+            "ColorInputFormat",     unpack_i(&job->input_pix_fmt),
+            "ColorOutputFormat",    unpack_i(&job->output_pix_fmt),
             "ColorRange",           unpack_i(&job->color_range),
             "ColorPrimaries",       unpack_i(&job->color_prim),
             "ColorTransfer",        unpack_i(&job->color_transfer),
             "ColorMatrix",          unpack_i(&job->color_matrix),
+            "ChromaLocation",       unpack_i(&job->chroma_location),
             "Mastering",            unpack_o(&mastering_dict),
             "ContentLightLevel",    unpack_o(&coll_dict),
             "ColorPrimariesOverride", unpack_i(&job->color_prim_override),
@@ -1106,6 +1110,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     }
     if (meta_dict != NULL)
     {
+        hb_value_free(&job->metadata->dict);
         job->metadata->dict = hb_value_dup(meta_dict);
     }
     // Lookup mux id
@@ -1461,7 +1466,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             }
             if (name != NULL)
             {
-                audio.out.name = strdup(name);
+                audio.out.name = name;
             }
             if (audio.in.track >= 0)
             {
@@ -1531,7 +1536,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                     sub_config = subtitle->config;
                     if (name != NULL)
                     {
-                        sub_config.name = strdup(name);
+                        sub_config.name = name;
                     }
                     result = json_unpack_ex(subtitle_dict, &error, 0,
                         "{s?b, s?b, s?b, s?I}",
@@ -1582,7 +1587,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 }
                 if (name != NULL)
                 {
-                    sub_config.name = strdup(name);
+                    sub_config.name = name;
                 }
                 sub_config.offset = offset;
                 sub_config.dest = burn ? RENDERSUB : PASSTHRUSUB;

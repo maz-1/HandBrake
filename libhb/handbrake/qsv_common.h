@@ -1,6 +1,6 @@
 /* qsv_common.h
  *
- * Copyright (c) 2003-2021 HandBrake Team
+ * Copyright (c) 2003-2022 HandBrake Team
  * This file is part of the HandBrake source code.
  * Homepage: <http://handbrake.fr/>.
  * It may be used under the terms of the GNU General Public License v2.
@@ -23,8 +23,15 @@ void hb_qsv_force_workarounds(); // for developers only
 #ifdef __LIBHB__
 // Private API
 
-#include "mfx/mfxvideo.h"
-#include "mfx/mfxplugin.h"
+#include "vpl/mfxvideo.h"
+
+#define HB_QSV_VERSION_ATLEAST(MAJOR, MINOR)   \
+    (MFX_VERSION_MAJOR > (MAJOR) ||         \
+     MFX_VERSION_MAJOR == (MAJOR) && MFX_VERSION_MINOR >= (MINOR))
+#define HB_QSV_ONEVPL HB_QSV_VERSION_ATLEAST(2, 0)
+#if !HB_QSV_ONEVPL
+    #include "mfx/mfxplugin.h"
+#endif
 #include "handbrake/hb_dict.h"
 #include "handbrake/qsv_libav.h"
 
@@ -59,6 +66,13 @@ typedef struct hb_qsv_info_s
 #define HB_QSV_CAP_LOWPOWER_ENCODE   (1LL <<  2)
     // mfxExtVideoSignalInfo
 #define HB_QSV_CAP_VUI_VSINFO        (1LL <<  3)
+    // mfxExtChromaLocInfo
+#define HB_QSV_CAP_VUI_CHROMALOCINFO (1LL <<  4)
+    // mfxExtMasteringDisplayColourVolume
+#define HB_QSV_CAP_VUI_MASTERINGINFO (1LL <<  5)
+    // mfxExtContentLightLevelInfo
+#define HB_QSV_CAP_VUI_CLLINFO       (1LL <<  6)
+
     // optional rate control methods
 #define HB_QSV_CAP_RATECONTROL_LA    (1LL << 10)
 #define HB_QSV_CAP_RATECONTROL_LAi   (1LL << 11)
@@ -93,9 +107,11 @@ int            hb_qsv_get_platform(int adapter_index);
 int            hb_qsv_get_adapter_index();
 int            hb_qsv_implementation_is_hardware(mfxIMPL implementation);
 
+#if !HB_QSV_ONEVPL
 /* Automatically load and unload any required MFX plug-ins */
 hb_list_t* hb_qsv_load_plugins  (int adapter_index, hb_qsv_info_t *info, mfxSession session, mfxVersion version);
 void       hb_qsv_unload_plugins(hb_list_t     **_l,  mfxSession session, mfxVersion version);
+#endif
 
 /* Intel Quick Sync Video DECODE utilities */
 const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id);
@@ -151,6 +167,9 @@ typedef struct
      * MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION
      * MFX_EXTBUFF_PICTURE_TIMING_SEI
      * MFX_EXTBUFF_VIDEO_SIGNAL_INFO
+     * MFX_EXTBUFF_CHROMA_LOC_INFO
+     * MFX_EXTBUFF_MASTERING_DISPLAY_COLOUR_VOLUME
+     * MFX_EXTBUFF_CONTENT_LIGHT_LEVEL_INFO
      *
      * This should cover all encode-compatible extended
      * buffers that can be attached to an mfxVideoParam.
@@ -160,6 +179,9 @@ typedef struct
     mfxExtCodingOption    codingOption;
     mfxExtCodingOption2   codingOption2;
     mfxExtVideoSignalInfo videoSignalInfo;
+    mfxExtChromaLocInfo   chromaLocInfo;
+    mfxExtMasteringDisplayColourVolume masteringDisplayColourVolume;
+    mfxExtContentLightLevelInfo        contentLightLevelInfo;
     struct
     {
         int b_pyramid;
@@ -186,6 +208,7 @@ static const char* const hb_qsv_preset_names2[] = { "speed", "balanced", "qualit
 const char* const* hb_qsv_preset_get_names();
 const char* const* hb_qsv_profile_get_names(int encoder);
 const char* const* hb_qsv_level_get_names(int encoder);
+const int* hb_qsv_get_pix_fmts(int encoder);
 
 const char* hb_qsv_video_quality_get_name(uint32_t codec);
 void hb_qsv_video_quality_get_limits(uint32_t codec, float *low, float *high, float *granularity, int *direction);

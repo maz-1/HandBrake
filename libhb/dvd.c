@@ -1,6 +1,6 @@
 /* dvd.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -113,13 +113,21 @@ hb_dvd_t * hb_dvdread_init( hb_handle_t * h, const char * path )
     hb_dvd_t * e;
     hb_dvdread_t * d;
     int region_mask;
+    char * path_ccp;
 
     e = calloc( sizeof( hb_dvd_t ), 1 );
     d = &(e->dvdread);
     d->h = h;
 
+    /*
+     * Convert UTF-8 path to current code page on Windows
+     * hb_utf8_to_cp() is the same as strdup on non-Windows,
+     * so no #ifdef required here
+     */
+    path_ccp = hb_utf8_to_cp( path );
+
 	/* Log DVD drive region code */
-    if ( hb_dvd_region( path, &region_mask ) == 0 )
+    if ( hb_dvd_region( path_ccp, &region_mask ) == 0 )
     {
         hb_log( "dvd: Region mask 0x%02x", region_mask );
         if ( region_mask == 0xFF )
@@ -129,7 +137,7 @@ hb_dvd_t * hb_dvdread_init( hb_handle_t * h, const char * path )
     }
 
     /* Open device */
-    if( !( d->reader = DVDOpen( path ) ) )
+    if( !( d->reader = DVDOpen( path_ccp ) ) )
     {
         /*
          * Not an error, may be a stream - which we'll try in a moment.
@@ -145,7 +153,8 @@ hb_dvd_t * hb_dvdread_init( hb_handle_t * h, const char * path )
         goto fail;
     }
 
-    d->path = strdup( path );
+    d->path = strdup( path ); /* hb_dvdread_title_scan assumes UTF-8 path, so not path_ccp here */
+    free( path_ccp );
 
     return e;
 
@@ -153,6 +162,7 @@ fail:
     if( d->vmg )    ifoClose( d->vmg );
     if( d->reader ) DVDClose( d->reader );
     free( e );
+    free( path_ccp );
     return NULL;
 }
 
@@ -507,6 +517,7 @@ static hb_title_t * hb_dvdread_title_scan( hb_dvd_t * e, int t, uint64_t min_dur
         }
         if( !audio->id )
         {
+            free(audio);
             continue;
         }
 
@@ -851,6 +862,11 @@ static int hb_dvdread_seek( hb_dvd_t * e, float f )
     int i;
 
     count = f * d->title_block_count;
+
+    if (d->file == NULL)
+    {
+        return 1;
+    }
 
     for( i = d->cell_start; i <= d->cell_end; i++ )
     {
@@ -1445,4 +1461,3 @@ void hb_dvd_set_dvdnav( int enable )
     else
         dvd_methods = hb_dvdread_methods();
 }
-

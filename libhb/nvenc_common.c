@@ -1,6 +1,6 @@
 /* nvenc_common.c
  *
- * Copyright (c) 2003-2021 HandBrake Team
+ * Copyright (c) 2003-2022 HandBrake Team
  * This file is part of the HandBrake source code.
  * Homepage: <http://handbrake.fr/>.
  * It may be used under the terms of the GNU General Public License v2.
@@ -16,24 +16,6 @@
 #endif
 
 static int is_nvenc_available = -1;
-
-int hb_nvenc_h264_available()
-{
-    #if HB_PROJECT_FEATURE_NVENC
-        return hb_check_nvenc_available();
-    #else
-        return is_nvenc_available;
-    #endif
-}
-
-int hb_nvenc_h265_available()
-{
-    #if HB_PROJECT_FEATURE_NVENC
-        return hb_check_nvenc_available();
-    #else
-        return is_nvenc_available;
-    #endif
-}
 
 int hb_check_nvenc_available()
 {
@@ -73,7 +55,30 @@ int hb_check_nvenc_available()
     #endif
 }
 
-char * hb_map_nvenc_preset_name (char * preset){
+int hb_nvenc_h264_available()
+{
+    #if HB_PROJECT_FEATURE_NVENC
+        return hb_check_nvenc_available();
+    #else
+        return is_nvenc_available;
+    #endif
+}
+
+int hb_nvenc_h265_available()
+{
+    #if HB_PROJECT_FEATURE_NVENC
+        return hb_check_nvenc_available();
+    #else
+        return is_nvenc_available;
+    #endif
+}
+
+char * hb_map_nvenc_preset_name (const char * preset){
+
+    if (preset == NULL)
+    {
+        return "p4";
+    }
 
     if (strcmp(preset, "fastest") == 0) {
       return "p1";

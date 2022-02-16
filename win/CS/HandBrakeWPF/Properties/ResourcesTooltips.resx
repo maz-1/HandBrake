@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="FilterView_Deblock" xml:space="preserve">
     <value>Deblock reduces blocky artifacts caused by low quality video compression.</value>
@@ -141,7 +141,7 @@ HQDN3D is an adaptive low-pass filter, faster than NLMeans but less effective at
     <value>Detelecine removes comb artifacts that are the result of telecine, a process for converting film frame rates to television frame rates.</value>
   </data>
   <data name="FilterView_Grayscale" xml:space="preserve">
-    <value>Grayscale removes the color component of the video. Often referred to as Black &amp;amp; White video.</value>
+    <value>Grayscale removes the color component of the video. Often referred to as Black &amp; White video.</value>
   </data>
   <data name="MainView_Destination" xml:space="preserve">
     <value>Destination path, including directory and file name. This is where your new video will be created, and what it will be named.</value>
@@ -329,7 +329,9 @@ VFR is not compatible with some players.</value>
     <value>Remove the selected preset.</value>
   </data>
   <data name="SourceSelection_TitleSpecific" xml:space="preserve">
-    <value>Scan only the specified title instead of all titles.</value>
+    <value>Some Sources may contain more than one video clip, or a collection of Titles. Blu-ray and DVD Sources often have multiple Titles.
+
+If you know the specific title you wish to encode you can enter it here and HandBrake will scan only that title rather than every title in the source file. Otherwise, leave the field blank.</value>
   </data>
   <data name="FilterView_CustomDenoiseParams" xml:space="preserve">
     <value>Custom Denoise parameters.
@@ -480,5 +482,43 @@ When disabled, it will use the path in the destination box on the main window if
 Note, this will be automatically selected if the source subtitle track format is not supported in the output file type.
 
 For example, PGS subtitles are not supported in MP4</value>
+  </data>
+  <data name="OptionsView_PresetDisplayModes" xml:space="preserve">
+    <value>Flat - Presets are displayed as a flat list.
+Partially Flat - The last 8 user presets are displayed as a flat list followed by all presets being shown in category listing.
+Categories - All presets are shown under a sub menu per category.</value>
+  </data>
+  <data name="AudioView_AudioDefaults" xml:space="preserve">
+    <value>Setup behaviours that dictate how this tab automatically adds audio tracks when selecting a new source or title.</value>
+  </data>
+  <data name="BehavioursReload" xml:space="preserve">
+    <value>Refresh the list below based on the behaviours configured. </value>
+  </data>
+  <data name="SubtitleView_SubtitleDefaults" xml:space="preserve">
+    <value>Setup behaviours that dictate how this tab automatically adds subtitle tracks when selecting a new source or title.</value>
+  </data>
+  <data name="OptionsView_SendFileToArguments" xml:space="preserve">
+    <value>The following environment variables are always set:
+HB_SOURCE
+HB_DESTINATION
+HB_EXIT_CODE
+
+Possible Exit Codes are as follows:
+0 : Successful
+2 : Input Arguments Error
+3 : Failed to Initialise 
+4 : Unknown Error
+5 : Error reading source file.
+
+Please note, errors codes are best effort and may not always be accurate.
+It is recommended the output file is validated before performing actions on it.</value>
+  </data>
+  <data name="Options_AdditionalFormatOptions" xml:space="preserve">
+    <value>The format of the output file. In addition to any supported file system character, you can use the any of the placeholders that will be replaced when you change title or scan a source or update certain settings.</value>
+  </data>
+  <data name="OptionsView_RightToleftMode" xml:space="preserve">
+    <value>For languages that are right to left, you can enable one of two modes.   "Text Only" will only render the text in right to left style.  "Entire User Interface" will render all controls in right to left.
+
+Please note, there may be inperfections in the UI layout when using these modes. Depending on the language, it may be worth trying both modes to find the best fit.</value>
   </data>
 </root>

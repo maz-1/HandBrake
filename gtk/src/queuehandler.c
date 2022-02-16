@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * queuehandler.c
- * Copyright (C) John Stebbins 2008-2021 <stebbins@stebbins>
+ * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
  *
  * queuehandler.c is free software.
  *
@@ -1456,45 +1456,40 @@ ghb_update_all_status(signal_user_data_t *ud, int status)
 static void
 save_queue_file(signal_user_data_t *ud)
 {
-    int ii, count;
-    GhbValue *queue = ghb_value_dup(ud->queue);
-
-    count = ghb_array_len(queue);
-    for (ii = 0; ii < count; ii++)
-    {
-        GhbValue *queueDict, *uiDict;
-
-        queueDict = ghb_array_get(ud->queue, ii);
-        uiDict = ghb_dict_get(queueDict, "uiSettings");
-        if (uiDict == NULL)
-            continue;
-        ghb_dict_set_int(uiDict, "job_status", GHB_QUEUE_PENDING);
-    }
-
     GtkWidget *dialog;
     GtkWindow *hb_window;
 
     hb_window = GTK_WINDOW(GHB_WIDGET(ud->builder, "hb_window"));
-    dialog = gtk_file_chooser_dialog_new("Queue Destination",
+    dialog = gtk_file_chooser_dialog_new(_("Export Queue"),
                       hb_window,
                       GTK_FILE_CHOOSER_ACTION_SAVE,
                       GHB_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                       GHB_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
                       NULL);
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), "queue.json");
-    if (gtk_dialog_run(GTK_DIALOG (dialog)) != GTK_RESPONSE_ACCEPT)
+    if (gtk_dialog_run(GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT)
     {
+        char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER (dialog));
+ 
+        int ii, count;
+        GhbValue *queue = ghb_value_dup(ud->queue);
+        count = ghb_array_len(queue);
+        for (ii = 0; ii < count; ii++)
+        {
+            GhbValue *queueDict, *uiDict;
+
+            queueDict = ghb_array_get(queue, ii);
+            uiDict = ghb_dict_get(queueDict, "uiSettings");
+            if (uiDict == NULL)
+                continue;
+            ghb_dict_set_int(uiDict, "job_status", GHB_QUEUE_PENDING);
+        }
+
+        ghb_write_settings_file(filename, queue);
+        g_free (filename); 
         ghb_value_free(&queue);
-        gtk_widget_destroy(dialog);
-        return;
     }
-
-    char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER (dialog));
     gtk_widget_destroy(dialog);
-
-    ghb_write_settings_file(filename, queue);
-    g_free (filename);
-    ghb_value_free(&queue);
 }
 
 static void
@@ -1610,7 +1605,7 @@ open_queue_file(signal_user_data_t *ud)
     GtkWindow *hb_window;
 
     hb_window = GTK_WINDOW(GHB_WIDGET(ud->builder, "hb_window"));
-    dialog = gtk_file_chooser_dialog_new("Queue Destination",
+    dialog = gtk_file_chooser_dialog_new(_("Import Queue"),
                       hb_window,
                       GTK_FILE_CHOOSER_ACTION_OPEN,
                       GHB_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -1934,10 +1929,13 @@ void ghb_finalize_job(GhbValue *settings)
     job    = ghb_dict_get(settings, "Job");
 
     // Add scale filter since the above does not
-    GhbValue *filter_list, *filter_dict;
+    GhbValue *filter_settings, *filter_list, *filter_dict;
     int width, height, crop[4];
 
-    filter_list = ghb_get_job_filter_list(settings);
+    filter_settings = ghb_get_job_filter_settings(settings);
+    filter_list = ghb_array_new();
+    ghb_dict_set(filter_settings, "FilterList", filter_list);
+
     width = ghb_dict_get_int(settings, "scale_width");
     height = ghb_dict_get_int(settings, "scale_height");
 

@@ -1,6 +1,6 @@
 /* muxavformat.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -8,6 +8,7 @@
  */
 
 #include <ogg/ogg.h>
+#include "libavcodec/bsf.h"
 #include "libavformat/avformat.h"
 #include "libavutil/avstring.h"
 #include "libavutil/intreadwrite.h"
@@ -160,7 +161,6 @@ static int avformatInit( hb_mux_object_t * m )
     m->pkt = av_packet_alloc();
     m->empty_pkt = av_packet_alloc();
 
-    m->pkt = av_packet_alloc();
     if (m->pkt == NULL || m->empty_pkt == NULL)
     {
         hb_error("muxavformat: av_packet_alloc failed");
@@ -260,6 +260,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
         case HB_VCODEC_QSV_H264:
+        case HB_VCODEC_VT_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
             {
@@ -305,7 +306,6 @@ static int avformatInit( hb_mux_object_t * m )
 
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_NVENC_H264:
-        case HB_VCODEC_FFMPEG_VT_H264:
         case HB_VCODEC_FFMPEG_MF_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
@@ -417,6 +417,8 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_X265_16BIT:
         case HB_VCODEC_QSV_H265:
         case HB_VCODEC_QSV_H265_10BIT:
+        case HB_VCODEC_VT_H265:
+        case HB_VCODEC_VT_H265_10BIT:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
             {
@@ -442,8 +444,7 @@ static int avformatInit( hb_mux_object_t * m )
 
         case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265:
-        case HB_VCODEC_FFMPEG_VT_H265:
-        case HB_VCODEC_FFMPEG_VT_H265_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
         case HB_VCODEC_FFMPEG_MF_H265:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
@@ -484,10 +485,11 @@ static int avformatInit( hb_mux_object_t * m )
     track->st->codecpar->height                  = job->height;
     track->st->disposition |= AV_DISPOSITION_DEFAULT;
 
-    track->st->codecpar->color_primaries = job->color_prim;
-    track->st->codecpar->color_trc       = job->color_transfer;
-    track->st->codecpar->color_space     = job->color_matrix;
+    track->st->codecpar->color_primaries = hb_output_color_prim(job);
+    track->st->codecpar->color_trc       = hb_output_color_transfer(job);
+    track->st->codecpar->color_space     = hb_output_color_matrix(job);
     track->st->codecpar->color_range     = job->color_range;
+    track->st->codecpar->chroma_location = job->chroma_location;
 
     if (job->color_transfer == HB_COLR_TRA_SMPTEST2084)
     {
@@ -937,6 +939,12 @@ static int avformatInit( hb_mux_object_t * m )
             case DVBSUB:
             {
                 track->st->codecpar->codec_id = AV_CODEC_ID_DVB_SUBTITLE;
+                if (subtitle->extradata != NULL)
+                {
+                    priv_size = subtitle->extradata_size;
+                    priv_data = av_malloc(priv_size + AV_INPUT_BUFFER_PADDING_SIZE);
+                    memcpy(priv_data, subtitle->extradata, priv_size);
+                }
             } break;
 
             case CC608SUB:

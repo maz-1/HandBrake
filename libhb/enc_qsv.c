@@ -1,3 +1,4 @@
+
 /* ********************************************************************* *\
 
 Copyright (C) 2013 Intel Corporation.  All rights reserved.
@@ -40,7 +41,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libavutil/hwcontext_qsv.h"
 #include "libavutil/hwcontext.h"
-#include <mfx/mfxvideo.h>
+#include "vpl/mfxvideo.h"
 
 /*
  * The frame info struct remembers information about each frame across calls to
@@ -96,6 +97,7 @@ struct hb_work_private_s
 
     int                  async_depth;
     int                  max_async_depth;
+    int                  max_buffer_size;
 
     // if encode-only, system memory used
     int                  is_sys_mem;
@@ -153,6 +155,11 @@ static int64_t get_frame_duration(hb_work_private_t *pv, hb_buffer_t *buf)
 {
     int i = (buf->s.start >> FRAME_INFO_MAX2) & FRAME_INFO_MASK;
     return pv->frame_duration[i];
+}
+
+static inline int64_t rescale(hb_rational_t q, int b)
+{
+    return av_rescale(q.num, b, q.den);
 }
 
 static void qsv_handle_breftype(hb_work_private_t *pv)
@@ -850,7 +857,7 @@ int qsv_enc_init(hb_work_private_t *pv)
         {
             pv->sws_context_to_nv12 = hb_sws_get_context(
                                         job->width, job->height,
-                                        AV_PIX_FMT_YUV420P, job->color_range,
+                                        job->output_pix_fmt, job->color_range,
                                         job->width, job->height,
                                         AV_PIX_FMT_P010LE, job->color_range,
                                         SWS_LANCZOS|SWS_ACCURATE_RND,
@@ -860,7 +867,7 @@ int qsv_enc_init(hb_work_private_t *pv)
         {
             pv->sws_context_to_nv12 = hb_sws_get_context(
                                         job->width, job->height,
-                                        AV_PIX_FMT_YUV420P, job->color_range,
+                                        job->output_pix_fmt, job->color_range,
                                         job->width, job->height,
                                         AV_PIX_FMT_NV12, job->color_range,
                                         SWS_LANCZOS|SWS_ACCURATE_RND,
@@ -869,7 +876,7 @@ int qsv_enc_init(hb_work_private_t *pv)
     }
 
     // allocate tasks
-    qsv_encode->p_buf_max_size = HB_QSV_BUF_SIZE_DEFAULT;
+    qsv_encode->p_buf_max_size = pv->max_buffer_size * 1000;
     qsv_encode->tasks          = hb_qsv_list_init(HAVE_THREADS);
     for (i = 0; i < pv->max_async_depth; i++)
     {
@@ -882,6 +889,7 @@ int qsv_enc_init(hb_work_private_t *pv)
         hb_qsv_list_add(qsv_encode->tasks, task);
     }
 
+#if !HB_QSV_ONEVPL
     // plugins should be loaded before querying for surface allocation
     if (pv->loaded_plugins == NULL)
     {
@@ -901,6 +909,7 @@ int qsv_enc_init(hb_work_private_t *pv)
             return -1;
         }
     }
+#endif
 
     // setup surface allocation
     pv->param.videoParam->IOPattern = (pv->is_sys_mem                 ?
@@ -1002,7 +1011,6 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
 {
     const mfxExtCodingOption  *option1 = NULL;
     const mfxExtCodingOption2 *option2 = NULL;
-    const mfxExtVideoSignalInfo *extVideoSignalInfo = NULL;
 
     // log code path and main output settings
     hb_log("encqsvInit: using %s%s path",
@@ -1034,11 +1042,7 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
     for (int i = 0; i < videoParam->NumExtParam; i++)
     {
         mfxExtCodingOption *option = (mfxExtCodingOption*)videoParam->ExtParam[i];
-        if (option->Header.BufferId == MFX_EXTBUFF_VIDEO_SIGNAL_INFO)
-        {
-            extVideoSignalInfo = (mfxExtVideoSignalInfo*)videoParam->ExtParam[i];
-        }
-        else if (option->Header.BufferId == MFX_EXTBUFF_CODING_OPTION)
+        if (option->Header.BufferId == MFX_EXTBUFF_CODING_OPTION)
         {
             option1 = (mfxExtCodingOption*)videoParam->ExtParam[i];
         }
@@ -1046,7 +1050,10 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
         {
             option2 = (mfxExtCodingOption2*)videoParam->ExtParam[i];
         }
-        else
+        else if (option->Header.BufferId != MFX_EXTBUFF_VIDEO_SIGNAL_INFO &&
+                 option->Header.BufferId != MFX_EXTBUFF_CHROMA_LOC_INFO &&
+                 option->Header.BufferId != MFX_EXTBUFF_MASTERING_DISPLAY_COLOUR_VOLUME &&
+                 option->Header.BufferId != MFX_EXTBUFF_CONTENT_LIGHT_LEVEL_INFO)
         {
             hb_log("Unknown Header.BufferId=%d", option->Header.BufferId);
         }
@@ -1083,8 +1090,8 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
         switch (videoParam->mfx.RateControlMethod)
         {
             case MFX_RATECONTROL_LA:
-                hb_log("encqsvInit: RateControlMethod LA TargetKbps %"PRIu16" LookAheadDepth %"PRIu16"",
-                       videoParam->mfx.TargetKbps, (option2 != NULL) ? option2->LookAheadDepth : 0);
+                hb_log("encqsvInit: RateControlMethod LA TargetKbps %"PRIu16" BRCParamMultiplier %"PRIu16" LookAheadDepth %"PRIu16"",
+                       videoParam->mfx.TargetKbps, videoParam->mfx.BRCParamMultiplier, (option2 != NULL) ? option2->LookAheadDepth : 0);
                 break;
             case MFX_RATECONTROL_LA_ICQ:
                 hb_log("encqsvInit: RateControlMethod LA_ICQ ICQQuality %"PRIu16" LookAheadDepth %"PRIu16"",
@@ -1096,10 +1103,10 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
                 break;
             case MFX_RATECONTROL_CBR:
             case MFX_RATECONTROL_VBR:
-                hb_log("encqsvInit: RateControlMethod %s TargetKbps %"PRIu16" MaxKbps %"PRIu16" BufferSizeInKB %"PRIu16" InitialDelayInKB %"PRIu16"",
+                hb_log("encqsvInit: RateControlMethod %s TargetKbps %"PRIu16" MaxKbps %"PRIu16" BufferSizeInKB %"PRIu16" InitialDelayInKB %"PRIu16" BRCParamMultiplier %"PRIu16"",
                        videoParam->mfx.RateControlMethod == MFX_RATECONTROL_CBR ? "CBR" : "VBR",
                        videoParam->mfx.TargetKbps,     videoParam->mfx.MaxKbps,
-                       videoParam->mfx.BufferSizeInKB, videoParam->mfx.InitialDelayInKB);
+                       videoParam->mfx.BufferSizeInKB, videoParam->mfx.InitialDelayInKB, videoParam->mfx.BRCParamMultiplier);
                 break;
             default:
                 hb_log("encqsvInit: invalid rate control method %"PRIu16"",
@@ -1198,6 +1205,7 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
  **********************************************************************/
 int encqsvInit(hb_work_object_t *w, hb_job_t *job)
 {
+    int brc_param_multiplier;
     hb_work_private_t *pv = calloc(1, sizeof(hb_work_private_t));
     w->private_data       = pv;
 
@@ -1226,6 +1234,44 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     pv->param.videoSignalInfo.TransferCharacteristics  = hb_output_color_transfer(job);
     pv->param.videoSignalInfo.MatrixCoefficients       = hb_output_color_matrix(job);
     pv->param.videoSignalInfo.ColourDescriptionPresent = 1;
+
+    if (job->chroma_location != AVCHROMA_LOC_UNSPECIFIED)
+    {
+        pv->param.chromaLocInfo.ChromaSampleLocTypeBottomField =
+        pv->param.chromaLocInfo.ChromaSampleLocTypeTopField = job->chroma_location - 1;
+        pv->param.chromaLocInfo.ChromaLocInfoPresentFlag = 1;
+    }
+
+    /* HDR10 Static metadata */
+    if (job->color_transfer == HB_COLR_TRA_SMPTEST2084)
+    {
+        const int masteringChromaDen = 50000;
+        const int masteringLumaDen = 10000;
+
+        /* Mastering display metadata */
+        if (job->mastering.has_primaries && job->mastering.has_luminance)
+        {
+            pv->param.masteringDisplayColourVolume.InsertPayloadToggle = MFX_PAYLOAD_IDR;
+            pv->param.masteringDisplayColourVolume.DisplayPrimariesX[0] = rescale(job->mastering.display_primaries[0][0], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.DisplayPrimariesY[0] = rescale(job->mastering.display_primaries[0][1], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.DisplayPrimariesX[1] = rescale(job->mastering.display_primaries[1][0], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.DisplayPrimariesY[1] = rescale(job->mastering.display_primaries[1][1], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.DisplayPrimariesX[2] = rescale(job->mastering.display_primaries[2][0], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.DisplayPrimariesY[2] = rescale(job->mastering.display_primaries[2][1], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.WhitePointX = rescale(job->mastering.white_point[0], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.WhitePointY = rescale(job->mastering.white_point[1], masteringChromaDen);
+            pv->param.masteringDisplayColourVolume.MaxDisplayMasteringLuminance = rescale(job->mastering.max_luminance, masteringLumaDen);
+            pv->param.masteringDisplayColourVolume.MinDisplayMasteringLuminance = rescale(job->mastering.min_luminance, masteringLumaDen);
+        }
+
+        /*  Content light level */
+        if (job->coll.max_cll && job->coll.max_fall)
+        {
+            pv->param.contentLightLevelInfo.InsertPayloadToggle = MFX_PAYLOAD_IDR;
+            pv->param.contentLightLevelInfo.MaxContentLightLevel  = job->coll.max_cll;
+            pv->param.contentLightLevelInfo.MaxPicAverageLightLevel = job->coll.max_fall;
+        }
+    }
 
     // parse user-specified encoder options, if present
     if (job->encoder_options != NULL && *job->encoder_options)
@@ -1419,6 +1465,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         job->qsv.ctx->la_is_enabled = pv->param.rc.lookahead ? 1 : 0;
     }
 #endif
+    //libmfx BRC parameters are 16 bits thus maybe overflow, then BRCParamMultiplier is needed
+    brc_param_multiplier = (FFMAX(FFMAX3(job->vbitrate, pv->param.rc.vbv_max_bitrate, pv->param.rc.vbv_buffer_size / 8),
+                            pv->param.rc.vbv_buffer_init / 8) + 0x10000) / 0x10000;
     // set VBV here (this will be overridden for CQP and ignored for LA)
     // only set BufferSizeInKB, InitialDelayInKB and MaxKbps if we have
     // them - otherwise Media SDK will pick values for us automatically
@@ -1426,18 +1475,20 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     {
         if (pv->param.rc.vbv_buffer_init > 1.0)
         {
-            pv->param.videoParam->mfx.InitialDelayInKB = (pv->param.rc.vbv_buffer_init / 8);
+            pv->param.videoParam->mfx.InitialDelayInKB = (pv->param.rc.vbv_buffer_init / 8) / brc_param_multiplier;
         }
         else if (pv->param.rc.vbv_buffer_init > 0.0)
         {
             pv->param.videoParam->mfx.InitialDelayInKB = (pv->param.rc.vbv_buffer_size *
-                                                          pv->param.rc.vbv_buffer_init / 8);
+                                                          pv->param.rc.vbv_buffer_init / 8) / brc_param_multiplier;
         }
-        pv->param.videoParam->mfx.BufferSizeInKB = (pv->param.rc.vbv_buffer_size / 8);
+        pv->param.videoParam->mfx.BufferSizeInKB       = (pv->param.rc.vbv_buffer_size / 8) / brc_param_multiplier;
+        pv->param.videoParam->mfx.BRCParamMultiplier   = brc_param_multiplier;
     }
     if (pv->param.rc.vbv_max_bitrate > 0)
     {
-        pv->param.videoParam->mfx.MaxKbps = pv->param.rc.vbv_max_bitrate;
+        pv->param.videoParam->mfx.MaxKbps              = pv->param.rc.vbv_max_bitrate / brc_param_multiplier;
+        pv->param.videoParam->mfx.BRCParamMultiplier   = brc_param_multiplier;
     }
 
     // set rate control parameters
@@ -1481,8 +1532,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         if (pv->param.rc.lookahead)
         {
             // introduced in API 1.7
-            pv->param.videoParam->mfx.RateControlMethod = MFX_RATECONTROL_LA;
-            pv->param.videoParam->mfx.TargetKbps        = job->vbitrate;
+            pv->param.videoParam->mfx.RateControlMethod  = MFX_RATECONTROL_LA;
+            pv->param.videoParam->mfx.TargetKbps         = job->vbitrate / brc_param_multiplier;
+            pv->param.videoParam->mfx.BRCParamMultiplier = brc_param_multiplier;
             // ignored, but some drivers will change AsyncDepth because of it
             pv->param.codingOption2.ExtBRC = MFX_CODINGOPTION_OFF;
         }
@@ -1497,7 +1549,8 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
             {
                 pv->param.videoParam->mfx.RateControlMethod = MFX_RATECONTROL_VBR;
             }
-            pv->param.videoParam->mfx.TargetKbps = job->vbitrate;
+            pv->param.videoParam->mfx.TargetKbps            = job->vbitrate / brc_param_multiplier;
+            pv->param.videoParam->mfx.BRCParamMultiplier    = brc_param_multiplier;
         }
     }
     else
@@ -1590,7 +1643,8 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
      * this is fine since the actual encode will use the same
      * values for all parameters relevant to the output bitstream
      */
-    mfxStatus err;
+    int err;
+    mfxStatus sts;
     mfxVersion version;
     mfxVideoParam videoParam;
     mfxExtBuffer *extParamArray[3];
@@ -1600,10 +1654,10 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     mfxExtCodingOptionSPSPPS sps_pps_buf, *sps_pps = &sps_pps_buf;
     version.Major = HB_QSV_MINVERSION_MAJOR;
     version.Minor = HB_QSV_MINVERSION_MINOR;
-    err = MFXInit(pv->qsv_info->implementation, &version, &session);
-    if (err != MFX_ERR_NONE)
+    sts = MFXInit(pv->qsv_info->implementation, &version, &session);
+    if (sts != MFX_ERR_NONE)
     {
-        hb_error("encqsvInit: MFXInit failed (%d) with implementation %d", err, pv->qsv_info->implementation);
+        hb_error("encqsvInit: MFXInit failed (%d) with implementation %d", sts, pv->qsv_info->implementation);
         return -1;
     }
 
@@ -1620,14 +1674,15 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     }
 
     /* Query the API version for hb_qsv_load_plugins */
-    err = MFXQueryVersion(session, &version);
-    if (err != MFX_ERR_NONE)
+    sts = MFXQueryVersion(session, &version);
+    if (sts != MFX_ERR_NONE)
     {
-        hb_error("encqsvInit: MFXQueryVersion failed (%d)", err);
+        hb_error("encqsvInit: MFXQueryVersion failed (%d)", sts);
         MFXClose(session);
         return -1;
     }
 
+#if !HB_QSV_ONEVPL
     /* Load required MFX plug-ins */
     pv->loaded_plugins = hb_qsv_load_plugins(hb_qsv_get_adapter_index(), pv->qsv_info, session, version);
     if (pv->loaded_plugins == NULL)
@@ -1636,25 +1691,32 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         MFXClose(session);
         return -1;
     }
+#endif
 
-    err = MFXVideoENCODE_Init(session, pv->param.videoParam);
+    sts = MFXVideoENCODE_Init(session, pv->param.videoParam);
 // workaround for the early 15.33.x driver, should be removed later
 #define HB_DRIVER_FIX_33
 #ifdef  HB_DRIVER_FIX_33
     int la_workaround = 0;
-    if (err < MFX_ERR_NONE &&
+    if (sts < MFX_ERR_NONE &&
         pv->param.videoParam->mfx.RateControlMethod == MFX_RATECONTROL_LA)
     {
         pv->param.videoParam->mfx.RateControlMethod = MFX_RATECONTROL_CBR;
-        err = MFXVideoENCODE_Init(session, pv->param.videoParam);
+        sts = MFXVideoENCODE_Init(session, pv->param.videoParam);
         la_workaround = 1;
     }
 #endif
-    if (err < MFX_ERR_NONE) // ignore warnings
+    if (sts < MFX_ERR_NONE) // ignore warnings
     {
-        hb_error("encqsvInit: MFXVideoENCODE_Init failed (%d)", err);
-        log_encoder_params(pv, pv->param.videoParam);
+        hb_error("encqsvInit: MFXVideoENCODE_Init failed (%d)", sts);
+        err = log_encoder_params(pv, pv->param.videoParam);
+        if (err < 0)
+        {
+            hb_error("encqsvInit: log_encoder_params failed (%d)", err);
+        }
+#if !HB_QSV_ONEVPL
         hb_qsv_unload_plugins(&pv->loaded_plugins, session, version);
+#endif
         MFXClose(session);
         return -1;
     }
@@ -1691,11 +1753,13 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     {
         videoParam.ExtParam[videoParam.NumExtParam++] = (mfxExtBuffer*)option2;
     }
-    err = MFXVideoENCODE_GetVideoParam(session, &videoParam);
-    if (err != MFX_ERR_NONE)
+    sts = MFXVideoENCODE_GetVideoParam(session, &videoParam);
+    if (sts != MFX_ERR_NONE)
     {
-        hb_error("encqsvInit: MFXVideoENCODE_GetVideoParam failed (%d)", err);
+        hb_error("encqsvInit: MFXVideoENCODE_GetVideoParam failed (%d)", sts);
+#if !HB_QSV_ONEVPL
         hb_qsv_unload_plugins(&pv->loaded_plugins, session, version);
+#endif
         MFXClose(session);
         return -1;
     }
@@ -1716,7 +1780,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         if (qsv_hevc_make_header(w, session) < 0)
         {
             hb_error("encqsvInit: qsv_hevc_make_header failed");
+#if !HB_QSV_ONEVPL
             hb_qsv_unload_plugins(&pv->loaded_plugins, session, version);
+#endif
             MFXVideoENCODE_Close(session);
             MFXClose(session);
             return -1;
@@ -1743,7 +1809,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     }
     else
     {
+#if !HB_QSV_ONEVPL
         hb_qsv_unload_plugins(&pv->loaded_plugins, session, version);
+#endif
         MFXClose(session);
     }
 
@@ -1768,7 +1836,13 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         pv->list_dts = hb_list_init();
     }
 
-    log_encoder_params(pv, &videoParam);
+    err = log_encoder_params(pv, &videoParam);
+    if (err < 0)
+    {
+        hb_error("encqsvInit: log_encoder_params failed (%d)", err);
+        return -1;
+    }
+    pv->max_buffer_size = videoParam.mfx.BufferSizeInKB;
     // AsyncDepth has now been set and/or modified by Media SDK
     // fall back to default if zero
     pv->max_async_depth = videoParam.AsyncDepth ? videoParam.AsyncDepth : HB_QSV_ASYNC_DEPTH_DEFAULT;
@@ -1792,12 +1866,13 @@ void encqsvClose(hb_work_object_t *w)
 
         if (qsv_ctx != NULL)
         {
+#if !HB_QSV_ONEVPL
             /* Unload MFX plug-ins */
             if (MFXQueryVersion(qsv_ctx->mfx_session, &version) == MFX_ERR_NONE)
             {
                 hb_qsv_unload_plugins(&pv->loaded_plugins, qsv_ctx->mfx_session, version);
             }
-
+#endif
             hb_qsv_uninit_enc(pv->job);
 
             hb_display_close(&pv->display);

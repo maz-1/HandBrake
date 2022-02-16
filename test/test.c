@@ -1,6 +1,6 @@
 /* test.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -4246,11 +4246,13 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "PictureForceWidth", hb_value_int(width));
         hb_dict_set(preset, "PictureUseMaximumSize", hb_value_bool(0));
+        hb_dict_set(preset, "PictureAllowUpscaling", hb_value_bool(1));
     }
     if (height > 0)
     {
         hb_dict_set(preset, "PictureForceHeight", hb_value_int(height));
         hb_dict_set(preset, "PictureUseMaximumSize", hb_value_bool(0));
+        hb_dict_set(preset, "PictureAllowUpscaling", hb_value_bool(1));
     }
     if (crop[0] >= 0 || crop[1] >= 0 || crop[2] >= 0 || crop[3] >= 0)
     {

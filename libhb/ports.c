@@ -1,6 +1,6 @@
 /* ports.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -147,7 +147,7 @@ char * hb_utf8_to_cp(const char *src)
     return dst;
 }
 
-int hb_dvd_region(const char *device, int *region_mask)
+int hb_dvd_region(char *device, int *region_mask)
 {
 #if defined( DVD_LU_SEND_RPC_STATE ) && defined( DVD_AUTH )
     struct stat  st;

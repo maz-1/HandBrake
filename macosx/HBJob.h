@@ -29,12 +29,13 @@ extern NSString *HBChaptersChangedNotification;
  */
 @interface HBJob : NSObject <NSSecureCoding, NSCopying, HBPresetCoding, HBSecurityScope>
 
-- (instancetype)initWithTitle:(HBTitle *)title andPreset:(HBPreset *)preset;
-
-- (void)applyPreset:(HBPreset *)preset;
+- (nullable instancetype)initWithTitle:(HBTitle *)title preset:(HBPreset *)preset;
 
 @property (nonatomic, readwrite, weak, nullable) HBTitle *title;
 @property (nonatomic, readonly) int titleIdx;
+
+// Whether the source is a single file or a DVD-Video/Blu-ray
+@property (nonatomic, readonly, getter=isStream) BOOL stream;
 
 @property (nonatomic, readwrite, copy) NSString *presetName;
 
@@ -42,13 +43,13 @@ extern NSString *HBChaptersChangedNotification;
 @property (nonatomic, readonly) NSURL *fileURL;
 
 /// The file URL at which the new file will be created.
-@property (nonatomic, readwrite, copy, nullable) NSURL *outputURL;
+@property (nonatomic, readwrite, copy, nullable) NSURL *destinationFolderURL;
 
 /// The name of the new file that will be created.
-@property (nonatomic, readwrite, copy, nullable) NSString *outputFileName;
+@property (nonatomic, readwrite, copy, nullable) NSString *destinationFileName;
 
 /// The URL at which the new file will be created.
-@property (nonatomic, readonly, nullable) NSURL *completeOutputURL;
+@property (nonatomic, readonly, nullable) NSURL *destinationURL;
 
 // Job settings
 @property (nonatomic, readwrite) int container;

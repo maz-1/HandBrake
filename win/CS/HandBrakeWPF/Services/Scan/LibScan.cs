@@ -16,15 +16,12 @@ namespace HandBrakeWPF.Services.Scan
 
     using HandBrake.Interop.Interop;
     using HandBrake.Interop.Interop.Interfaces;
-    using HandBrake.Interop.Interop.Interfaces.Model;
-    using HandBrake.Interop.Interop.Interfaces.Model.Picture;
     using HandBrake.Interop.Interop.Interfaces.Model.Preview;
     using HandBrake.Interop.Interop.Json.Encode;
     using HandBrake.Interop.Interop.Json.Scan;
 
     using HandBrakeWPF.Factories;
     using HandBrakeWPF.Instance;
-    using HandBrakeWPF.Model.Filters;
     using HandBrakeWPF.Services.Encode.Factories;
     using HandBrakeWPF.Services.Encode.Model;
     using HandBrakeWPF.Services.Interfaces;
@@ -82,6 +79,11 @@ namespace HandBrakeWPF.Services.Scan
         /// </param>
         public void Scan(string sourcePath, int title, Action<bool, Source> postAction)
         {
+            if (this.IsScanning)
+            {
+                return;
+            }
+
             // Try to cleanup any previous scan instances.
             if (this.instance != null)
             {
@@ -196,7 +198,7 @@ namespace HandBrakeWPF.Services.Scan
         /// </param>
         protected void ServiceLogMessage(string message)
         {
-            this.log.LogMessage(string.Format("{0} # {1}{0}", Environment.NewLine, message));
+            this.log.LogMessage(string.Format("{1} # {0}{1}", message, Environment.NewLine));
         }
 
         /// <summary>
@@ -250,7 +252,6 @@ namespace HandBrakeWPF.Services.Scan
         {
             try
             {
-                this.ServiceLogMessage("Processing Scan Information ...");
                 bool cancelled = this.isCancelled;
                 this.isCancelled = false;
 
@@ -265,7 +266,7 @@ namespace HandBrakeWPF.Services.Scan
                 Source sourceData = null;
                 if (this.instance?.Titles != null)
                 {
-                    sourceData = new Source { Titles = this.ConvertTitles(this.instance.Titles), ScanPath = path };
+                    sourceData = new Source(path, this.ConvertTitles(this.instance.Titles), null);
                 }
 
                 this.IsScanning = false;
@@ -294,6 +295,7 @@ namespace HandBrakeWPF.Services.Scan
             }
             finally
             {
+                this.IsScanning = false;
                 var handBrakeInstance = this.instance;
                 if (handBrakeInstance != null)
                 {

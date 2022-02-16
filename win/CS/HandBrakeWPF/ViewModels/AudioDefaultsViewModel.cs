@@ -284,6 +284,12 @@ namespace HandBrakeWPF.ViewModels
                 {
                     return;
                 }
+
+                foreach (var item in this.BehaviourTracks)
+                {
+                    item.SetFallbackEncoder(value);
+                }
+
                 this.audioBehaviours.AllowedPassthruOptions.AudioEncoderFallback = value;
                 this.NotifyOfPropertyChange(() => this.AudioEncoderFallback);
             }
@@ -351,7 +357,11 @@ namespace HandBrakeWPF.ViewModels
         /// </summary>
         public void AddTrack()
         {
-            this.BehaviourTracks.AddNew();
+            this.BehaviourTracks.Add(new AudioBehaviourTrack(this.AudioEncoderFallback));
+            foreach (var item in this.BehaviourTracks)
+            {
+                item.SetFallbackEncoder(this.AudioEncoderFallback);
+            }
         }
 
         /// <summary>

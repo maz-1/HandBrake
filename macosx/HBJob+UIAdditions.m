@@ -105,12 +105,21 @@ static HBMixdownTransformer    *mixdownTransformer;
 {
     if (!detailAttr)
     {
+        
+        CGFloat indent = 100;
+        NSBundle *bundle = [NSBundle bundleForClass:[HBJob class]];
+        NSString *currentLocalization = bundle.preferredLocalizations.firstObject;
+        if ([currentLocalization hasPrefix:@"de"])
+        {
+            indent = 120;
+        }
+        
         // Attributes
         NSMutableParagraphStyle *ps = [NSParagraphStyle.defaultParagraphStyle mutableCopy];
-        ps.headIndent = 88.0;
+        ps.headIndent = indent;
         ps.paragraphSpacing = 1.0;
-        ps.tabStops = @[[[NSTextTab alloc] initWithType:NSRightTabStopType location:88],
-                        [[NSTextTab alloc] initWithType:NSLeftTabStopType location:90]];
+        ps.tabStops = @[[[NSTextTab alloc] initWithType:NSRightTabStopType location:indent - 2],
+                        [[NSTextTab alloc] initWithType:NSLeftTabStopType location:indent]];
 
         detailAttr = @{NSFontAttributeName: [NSFont systemFontOfSize:NSFont.smallSystemFontSize],
                        NSParagraphStyleAttributeName: ps,
@@ -212,7 +221,27 @@ static HBMixdownTransformer    *mixdownTransformer;
     NSMutableAttributedString *attrString = [[NSMutableAttributedString alloc] init];
     NSMutableString *options = [NSMutableString string];
 
-    [options appendString:@(hb_container_get_name(self.container))];
+    NSString *containerName;
+
+    if (self.container & HB_MUX_MASK_MP4)
+    {
+        containerName = @"MP4";
+    }
+    else if (self.container & HB_MUX_MASK_MKV)
+    {
+        containerName = @"MKV";
+    }
+    else if (self.container & HB_MUX_MASK_WEBM)
+    {
+        containerName = @"WebM";
+    }
+    else
+    {
+        containerName = @(hb_container_get_name(self.container));
+    }
+
+    [options appendString:containerName];
+
 
     if (self.chaptersEnabled)
     {
@@ -268,7 +297,7 @@ static HBMixdownTransformer    *mixdownTransformer;
     [attrString appendString:@"\t"                          withAttributes:detailAttr];
     [attrString appendString:HBKitLocalizedString(@"Destination:", @"Destination description") withAttributes:detailBoldAttr];
     [attrString appendString:@" \t"                         withAttributes:detailAttr];
-    [attrString appendString:self.completeOutputURL.path    withAttributes:detailAttr];
+    [attrString appendString:self.destinationURL.path    withAttributes:detailAttr];
     [attrString appendString:@"\n"                          withAttributes:detailAttr];
 
     return attrString;

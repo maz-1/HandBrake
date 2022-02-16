@@ -1,6 +1,6 @@
 /* decavsub.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -344,7 +344,7 @@ int decavsubWork( hb_avsub_context_t * ctx,
         if (usedBytes == 0)
         {
             // We expect avcodec_decode_subtitle2 to return the number
-            // of bytes consumed, or an error.  If for some unforseen reason
+            // of bytes consumed, or an error.  If for some unforeseen reason
             // it returns 0, lets not get stuck in an infinite loop!
             usedBytes = ctx->pkt->size;
         }

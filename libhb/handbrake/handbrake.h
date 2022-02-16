@@ -1,6 +1,6 @@
 /* handbrake.h
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -120,6 +120,10 @@ typedef struct hb_interjob_s
     hb_rational_t vrate;     /* measured output vrate              */
 
     hb_subtitle_t *select_subtitle; /* foreign language scan subtitle */
+
+#ifdef __APPLE__
+     void *vt_context;
+ #endif
 } hb_interjob_t;
 
 hb_interjob_t * hb_interjob_get( hb_handle_t * );

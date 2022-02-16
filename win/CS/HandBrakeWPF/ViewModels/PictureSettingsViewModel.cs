@@ -22,6 +22,7 @@ namespace HandBrakeWPF.ViewModels
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
 
     using HandBrakeWPF.EventArgs;
+    using HandBrakeWPF.Model.Filters;
     using HandBrakeWPF.Model.Picture;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Presets.Model;
@@ -205,6 +206,8 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.Task.OptimalSize = value;
                 this.UpdateVisibleControls();
+                this.Task.Width = this.sourceResolution.Width;
+
                 this.NotifyOfPropertyChange(() => this.OptimalSize);
                 this.RecalculatePictureSettingsProperties(ChangedPictureField.OptimalSize);
             }
@@ -318,12 +321,25 @@ namespace HandBrakeWPF.ViewModels
                     this.NotifyOfPropertyChange(() => this.CropTop);
                     this.NotifyOfPropertyChange(() => this.CropBottom);
                 }
+
+                this.RecalculatePictureSettingsProperties(ChangedPictureField.Crop);
             }
         }
 
         public int DisplayWidth
         {
-            get => this.Task.DisplayWidth.HasValue ? int.Parse(Math.Round(this.Task.DisplayWidth.Value, 0).ToString(CultureInfo.InvariantCulture)) : 0;
+            get
+            {
+                if (this.Task.DisplayWidth.HasValue && !double.IsInfinity(this.Task.DisplayWidth.Value))
+                {
+                   if (int.TryParse(Math.Round(this.Task.DisplayWidth.Value, 0).ToString(CultureInfo.InvariantCulture), out int value))
+                   {
+                       return value;
+                   }
+                }
+
+                return 0;
+            } 
 
             set
             {
@@ -335,6 +351,8 @@ namespace HandBrakeWPF.ViewModels
                 }
             }
         }
+
+        public int DisplayHeight { get; set; }
 
         public int Width
         {
@@ -465,9 +483,9 @@ namespace HandBrakeWPF.ViewModels
             // Set the Maintain Aspect ratio.
             this.MaintainAspectRatio = preset.Task.KeepDisplayAspect;
 
-            // Setup the Maximum Width / Height with sane 4K fallback.
-            this.MaxWidth = preset.Task.MaxWidth ?? 3840;
-            this.MaxHeight = preset.Task.MaxHeight ?? 2160;
+            // Setup the Maximum Width / Height
+            this.MaxWidth = preset.Task.MaxWidth;
+            this.MaxHeight = preset.Task.MaxHeight;
             this.SetSelectedPictureSettingsResLimitMode();
 
             // Set the width, then check the height doesn't breach the max height and correct if necessary.
@@ -490,8 +508,8 @@ namespace HandBrakeWPF.ViewModels
             if (preset.Task.Anamorphic == Anamorphic.Custom)
             {
                 this.DisplayWidth = preset.Task.DisplayWidth != null ? int.Parse(preset.Task.DisplayWidth.ToString()) : 0;
-                this.ParWidth = preset.Task.PixelAspectX;
-                this.ParHeight = preset.Task.PixelAspectY;
+                this.ParWidth = preset.Task.PixelAspectX == 0 ? 1 : preset.Task.PixelAspectX;
+                this.ParHeight = preset.Task.PixelAspectY == 0 ? 1 : preset.Task.PixelAspectY;
             }
 
             this.NotifyOfPropertyChange(() => this.Task);
@@ -641,10 +659,7 @@ namespace HandBrakeWPF.ViewModels
 
         protected virtual void OnFilterChanged(TabStatusEventArgs e)
         {
-            if (delayedPreviewprocessor != null && this.Task != null && this.StaticPreviewViewModel != null && this.StaticPreviewViewModel.IsOpen)
-            {
-                delayedPreviewprocessor.PerformTask(() => this.StaticPreviewViewModel.UpdatePreviewFrame(this.Task, this.scannedSource), 800);
-            }
+            RecalculatePictureSettingsProperties(ChangedPictureField.Padding);
 
             this.TabStatusChanged?.Invoke(this, e);
         }
@@ -697,7 +712,8 @@ namespace HandBrakeWPF.ViewModels
                 Pad = new Padding(this.PaddingFilter.Top, this.PaddingFilter.Bottom, this.PaddingFilter.Left, this.PaddingFilter.Right),
                 RotateAngle = this.RotateFlipFilter.SelectedRotation,
                 Hflip = this.RotateFlipFilter.FlipVideo ? 1 : 0,
-                DarWidth = this.DisplayWidth
+                DarWidth = this.DisplayWidth,
+                DarHeight = this.DisplayHeight
             };
 
             if (this.SelectedAnamorphicMode == Anamorphic.Custom)
@@ -756,30 +772,19 @@ namespace HandBrakeWPF.ViewModels
             {
                 case ChangedPictureField.Width:
                     setting = HandBrakePictureHelpers.KeepSetting.HB_KEEP_WIDTH;
-                    if (SelectedAnamorphicMode == Anamorphic.None)
-                    {
-                        setting |= HandBrakePictureHelpers.KeepSetting.HB_KEEP_DISPLAY_ASPECT;
-                    }
                     break;
                 case ChangedPictureField.Height:
                     setting = HandBrakePictureHelpers.KeepSetting.HB_KEEP_HEIGHT;
-                    if (SelectedAnamorphicMode == Anamorphic.None)
-                    {
-                        setting |= HandBrakePictureHelpers.KeepSetting.HB_KEEP_DISPLAY_ASPECT;
-                    }
                     break;
                 case ChangedPictureField.DisplayWidth:
                     setting = HandBrakePictureHelpers.KeepSetting.HB_KEEP_DISPLAY_WIDTH;
                     break;
-                case ChangedPictureField.MaintainAspectRatio:
-                    if (!this.MaintainAspectRatio)
-                    {
-                        setting = HandBrakePictureHelpers.KeepSetting.HB_KEEP_DISPLAY_WIDTH;
-                    }
-                    break;
                 case ChangedPictureField.ParW:
                 case ChangedPictureField.ParH:
                     setting = HandBrakePictureHelpers.KeepSetting.HB_KEEP_HEIGHT;
+                    break;
+                case ChangedPictureField.Padding:
+                    setting = HandBrakePictureHelpers.KeepSetting.HB_KEEP_PAD;
                     break;
             }
 
@@ -795,22 +800,33 @@ namespace HandBrakeWPF.ViewModels
                 flag = HandBrakePictureHelpers.FlagsSetting.HB_GEO_SCALE_UP;
             }
 
-            if (this.OptimalSize) 
+            if (this.OptimalSize)
             {
                 flag |= HandBrakePictureHelpers.FlagsSetting.HB_GEO_SCALE_BEST;
             }
 
             AnamorphicResult result = HandBrakePictureHelpers.GetAnamorphicSize(this.GetPictureSettings(changedField), this.GetPictureTitleInfo(), setting, flag);
-
-            double dispWidth = Math.Round((result.OutputWidth * result.OutputParWidth / result.OutputParHeight), 0);
-
+            
             this.Task.Width = result.OutputWidth;
             this.Task.Height = result.OutputHeight;
-            long x, y;
-            HandBrakeUtils.Reduce((int)Math.Round(result.OutputParWidth, 0), (int)Math.Round(result.OutputParHeight, 0), out x, out y);
-            this.Task.PixelAspectX = (int)Math.Round(result.OutputParWidth, 0);
-            this.Task.PixelAspectY = (int)Math.Round(result.OutputParHeight, 0);
+            this.Task.PixelAspectX = result.OutputParWidth;
+            this.Task.PixelAspectY = result.OutputParHeight;
+
+            if (this.Task.PixelAspectX == 0)
+            {
+                this.Task.PixelAspectX = 1;
+            }
+
+            if (this.Task.PixelAspectY == 0)
+            {
+                this.Task.PixelAspectY = 1;
+            }
+            
+            this.ApplyPad(this.PaddingFilter.Mode, result); // Update for display purposes. 
+            double dispWidth = Math.Round((double)result.OutputWidth * result.OutputParWidth / result.OutputParHeight, 0);
             this.Task.DisplayWidth = dispWidth;
+            this.DisplayHeight = result.OutputHeight;
+            
 
             // Step 3, Set the display width label to indicate the output.
             this.DisplaySize = this.sourceResolution == null || this.sourceResolution.IsEmpty
@@ -839,7 +855,16 @@ namespace HandBrakeWPF.ViewModels
             {
                 delayedPreviewprocessor.PerformTask(() => this.StaticPreviewViewModel.UpdatePreviewFrame(this.Task, this.scannedSource), 800);
             }
-        } 
+        }
+
+        private void ApplyPad(PaddingMode mode, AnamorphicResult result)
+        {
+            if (mode == PaddingMode.Custom)
+            {
+                result.OutputWidth = result.OutputWidth + this.PaddingFilter.Left + this.PaddingFilter.Right;
+                result.OutputHeight = result.OutputHeight + this.PaddingFilter.Top + this.PaddingFilter.Bottom;
+            }
+        }
 
         private void UpdateVisibleControls()
         {
@@ -876,6 +901,12 @@ namespace HandBrakeWPF.ViewModels
 
         private void SetSelectedPictureSettingsResLimitMode()
         {
+            if (this.MaxWidth == null && this.MaxHeight == null)
+            {
+                this.SelectedPictureSettingsResLimitMode = PictureSettingsResLimitModes.None;
+                return;
+            }
+
             // Look for a matching resolution.
             foreach (PictureSettingsResLimitModes limit in EnumHelper<PictureSettingsResLimitModes>.GetEnumList())
             {

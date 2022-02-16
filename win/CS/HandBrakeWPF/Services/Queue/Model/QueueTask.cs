@@ -17,6 +17,7 @@ namespace HandBrakeWPF.Services.Queue.Model
     using HandBrake.Interop.Interop.Interfaces.Model;
 
     using HandBrakeWPF.Services.Presets.Model;
+    using HandBrakeWPF.Services.Scan.Model;
     using HandBrakeWPF.Utilities;
 
     using EncodeTask = Encode.Model.EncodeTask;
@@ -36,8 +37,17 @@ namespace HandBrakeWPF.Services.Queue.Model
             this.JobProgress = new QueueProgressStatus();
         }
 
-        public QueueTask(EncodeTask task, HBConfiguration configuration, string scannedSourcePath, Preset currentPreset, bool isPresetModified)
+        public QueueTask(QueueTaskType type)
         {
+            this.TaskType = type;
+            id = id + 1;
+            this.Id = string.Format("{0}.{1}", GeneralUtilities.ProcessId, id);
+            this.NotifyOfPropertyChange(() => this.IsBreakpointTask);
+        }
+
+        public QueueTask(EncodeTask task, HBConfiguration configuration, string scannedSourcePath, Preset currentPreset, bool isPresetModified, Title selectedTitle)
+        {
+            this.SourceTitleInfo = selectedTitle;
             this.Task = task;
             this.Configuration = configuration;
             this.Status = QueueItemStatus.Waiting;
@@ -50,24 +60,35 @@ namespace HandBrakeWPF.Services.Queue.Model
                     this.presetKey = this.presetKey + " (Modified)";
                 }
             }
-
             id = id + 1;
             this.Id = string.Format("{0}.{1}", GeneralUtilities.ProcessId, id);
+            this.SelectedPresetKey = this.presetKey;
 
             this.Statistics = new QueueStats();
             this.TaskId = Guid.NewGuid().ToString();
             this.JobProgress = new QueueProgressStatus();
+            this.TaskType = QueueTaskType.EncodeTask;
         }
+        
+        [JsonIgnore]
+        public string Id { get; }
 
         public string TaskId { get; set; }
 
-        [JsonIgnore]
-        public string Id { get; }
+        public QueueTaskType TaskType { get; set; }
+
+        /* Breakpoint Task */
+
+        public bool IsBreakpointTask => TaskType == QueueTaskType.Breakpoint;
+
+        /* Encode Task*/
 
         public string ScannedSourcePath { get; set; }
 
         [JsonIgnore]
         public Guid? TaskToken { get; set; }
+
+        public Title SourceTitleInfo { get; }
 
         public QueueItemStatus Status
         {
@@ -88,6 +109,8 @@ namespace HandBrakeWPF.Services.Queue.Model
 
         public QueueStats Statistics { get; set; }
 
+        public string SelectedPresetKey { get; set; }
+
         [JsonIgnore]
         public QueueProgressStatus JobProgress { get; set; }
 
@@ -95,10 +118,10 @@ namespace HandBrakeWPF.Services.Queue.Model
         public bool IsJobStatusVisible => this.Status == QueueItemStatus.InProgress;
         
         [JsonIgnore]
-        public string SelectedPresetKey => this.presetKey;
+        public bool ShowEncodeProgress => this.Status == QueueItemStatus.InProgress;
 
-        [JsonIgnore]
-        public bool ShowEncodeProgress => this.Status == QueueItemStatus.InProgress && SystemInfo.IsWindows10();
+
+        /* Overrides */
 
         public override bool Equals(object obj)
         {
@@ -115,7 +138,7 @@ namespace HandBrakeWPF.Services.Queue.Model
 
         public override string ToString()
         {
-            return string.Format("Encode Task.  Title: {0}, Source: {1}, Destination: {2}", this.Task.Title, this.Task.Source, this.Task.Destination);
+            return string.Format("Encode Task.  Title: {0}, Source: {1}, Destination: {2}", this.Task?.Title, this.Task?.Source, this.Task?.Destination);
         }
 
         protected bool Equals(QueueTask other)

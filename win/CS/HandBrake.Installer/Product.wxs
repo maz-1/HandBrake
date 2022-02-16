@@ -23,7 +23,7 @@
     <?define packagePath = "..\HandBrakeWPF\bin\publish" ?>
   <?endif ?>
 
-  <Product Id="$(var.msiProductId)" Name="$(var.productName)" Language="1033" Version="1.4.0.0" Manufacturer="HandBrake Team" UpgradeCode="$(var.msiProductId)">
+  <Product Id="$(var.msiProductId)" Name="$(var.productName)" Language="1033" Version="1.5.0.0" Manufacturer="HandBrake Team" UpgradeCode="$(var.msiProductId)">
     <Package InstallerVersion="200" Platform="x64" Compressed="yes" InstallScope="perMachine" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -49,8 +49,11 @@
     <WixVariable Id="WixUINewIco" Value="..\HandBrakeWPF\handbrakepineapple.ico" />
 
     <!-- System Requirement Checks -->
-    <Condition Message="This application is only supported on Windows 7 SP1, 8.1 or 10.">
-      <![CDATA[Installed OR (VersionNT64 >= 603) OR (VersionNT64 = 601)]]>
+    <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
+	    <RegistrySearch Id="BuildNumberSearch" Root="HKLM" Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion" Name="CurrentBuildNumber" Type="raw" />
+    </Property>
+    <Condition Message="HandBrake is only supported on Windows 10 version 1909 (build 18363) or higher.">
+	    <![CDATA[(WINDOWSBUILDNUMBER >= 18363)]]>
     </Condition>
     
     <!-- Install Files -->

@@ -11,9 +11,9 @@ namespace HandBrakeWPF.Utilities
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
+    using System.Globalization;
     using System.Management;
-    using System.Windows.Forms;
+    using System.Runtime.InteropServices;
 
     using Microsoft.Win32;
 
@@ -22,12 +22,6 @@ namespace HandBrakeWPF.Utilities
     /// </summary>
     public class SystemInfo
     {
-        private static int cpuCoreCount = -1;
-
-        /// <summary>
-        /// Gets the total physical ram in a system
-        /// </summary>
-        /// <returns>The total memory in the system</returns>
         public static ulong TotalPhysicalMemory
         {
             get
@@ -50,46 +44,43 @@ namespace HandBrakeWPF.Utilities
             }
         }
 
-        public static int GetCpuCoreCount
+        public static bool IsArmDevice => RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
+
+        public static int GetCpuLogicalCount
+        {
+            get => Environment.ProcessorCount;
+        }
+
+        public static int MaximumSimultaneousInstancesSupported
+        {
+            get => Math.Min((int)Math.Round((decimal)SystemInfo.GetCpuLogicalCount / 2, 0), 8);
+        }
+
+        public static string ScreenBounds
         {
             get
             {
-                if (cpuCoreCount != -1)
-                {
-                    return cpuCoreCount;
-                }
+                string screenWidth = System.Windows.SystemParameters.PrimaryScreenWidth.ToString(CultureInfo.InvariantCulture);
+                string screenHeight = System.Windows.SystemParameters.PrimaryScreenHeight.ToString(CultureInfo.InvariantCulture);
 
-                int coreCount = 0;
-                var cpuList = new System.Management.ManagementObjectSearcher("Select NumberOfCores from Win32_Processor").Get();
-
-                foreach (var item in cpuList)
-                {
-                    coreCount += int.Parse(item["NumberOfCores"].ToString());
-                }
-
-                cpuCoreCount = coreCount;
-
-                return cpuCoreCount;
+                return string.Format("{0}x{1}", screenWidth, screenHeight);
             }
         }
 
-        /// <summary>
-        /// Gets the System screen size information.
-        /// </summary>
-        /// <returns>System.Windows.Forms.Scree</returns>
-        public static Screen ScreenBounds
-        {
-            get { return Screen.PrimaryScreen; }
-        }
-
-      /// <summary>
-        /// Gets the get gpu driver version.
-        /// </summary>
         public static List<string> GetGPUInfo
         {
             get
             {
                 List<string> gpuInfo = new List<string>();
+
+                if (IsArmDevice)
+                {
+                    // We don't have .NET Framework on ARM64 devices so cannot use System.Management
+                    // Default to ARM Chipset for now.
+                    gpuInfo.Add("ARM Chipset");
+
+                    return gpuInfo;
+                }
 
                 try
                 {
@@ -131,7 +122,7 @@ namespace HandBrakeWPF.Utilities
             }
         }
 
-        public static bool IsWindows10()
+        public static bool IsWindows10OrLater()
         {
             OperatingSystem os = Environment.OSVersion;
             if (os.Version.Major >= 10)

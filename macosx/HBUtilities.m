@@ -35,14 +35,14 @@ static BOOL hb_resolveBookmarks = YES;
     return appSupportURL;
 }
 
-+ (NSURL *)defaultDestinationURL
++ (NSURL *)defaultDestinationFolderURL
 {
     return [[NSFileManager.defaultManager URLsForDirectory:NSMoviesDirectory inDomains:NSUserDomainMask] firstObject];
 }
 
 + (NSURL *)documentationURL
 {
-    return [NSURL URLWithString:@"https://handbrake.fr/docs/en/1.3.0/"];
+    return [NSURL URLWithString:@"https://handbrake.fr/docs/"];
 }
 
 + (void)writeToActivityLog:(const char *)format, ...
@@ -235,12 +235,6 @@ static BOOL hb_resolveBookmarks = YES;
     return @"Unknown";
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < __MAC_10_14
-enum {
-    errAEEventWouldRequireUserConsent = -1744,
-};
-#endif
-
 + (HBPrivacyConsentState)determinePermissionToAutomateTarget:(NSString *)bundleIdentifier promptIfNeeded:(BOOL)promptIfNeeded
 {
     if (@available(macOS 10.14, *))
@@ -269,7 +263,7 @@ enum {
 
             switch (permission)
             {
-                case errAEEventWouldRequireUserConsent:
+                case -1744: //errAEEventWouldRequireUserConsent: 10.14 or later
                     [HBUtilities writeToActivityLog:"Automation: request user consent for %s.", bundleIdentifier.UTF8String];
                     result = HBPrivacyConsentStateUnknown;
                     break;

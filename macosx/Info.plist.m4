@@ -58,7 +58,7 @@ dnl
 	<key>LSMinimumSystemVersion</key>
 	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2003-2021 __HB_name Team.
+	<string>Copyright © 2003-2022 __HB_name Team.
 GPLv2 license.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
@@ -70,6 +70,10 @@ GPLv2 license.</string>
 	<string>dsa_pub.pem</string>
 	<key>SUAllowsAutomaticUpdates</key>
 	<false/>
+	<key>SUEnableDownloaderService</key>
+	<true />
+	<key>SUEnableInstallerLauncherService</key>
+	<true />
 	<key>NSUserNotificationAlertStyle</key>
 	<string>alert</string>
 	<key>NSAppleEventsUsageDescription</key>

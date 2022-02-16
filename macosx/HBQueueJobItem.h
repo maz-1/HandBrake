@@ -25,19 +25,19 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) NSURL *fileURL;
 
 /// The directory URL at which the new file will be created.
-@property (nonatomic, readonly, copy) NSURL *outputURL;
+@property (nonatomic, readonly, copy) NSURL *destinationFolderURL;
 
 /// The name of the new file that will be created.
-@property (nonatomic, readonly, copy) NSString *outputFileName;
+@property (nonatomic, readonly, copy) NSString *destinationFileName;
 
 /// The file URL at which the new file will be created.
-@property (nonatomic, readonly, copy) NSURL *completeOutputURL;
+@property (nonatomic, readonly, copy) NSURL *destinationURL;
 
 /// The file URL at which the new file will be created.
 @property (nonatomic, copy, nullable) NSURL *activityLogURL;
 
-@property (nonatomic) NSTimeInterval encodeDuration;
-@property (nonatomic) NSTimeInterval pauseDuration;
+@property (nonatomic, readonly) NSTimeInterval encodeDuration;
+@property (nonatomic, readonly) NSTimeInterval pauseDuration;
 
 @property (nonatomic, nullable) NSDate *startedDate;
 @property (nonatomic, nullable) NSDate *endedDate;
@@ -45,9 +45,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)pausedAtDate:(NSDate *)date;
 - (void)resumedAtDate:(NSDate *)date;
 
+@property (nonatomic, readonly) double avgFps;
 @property (nonatomic, readonly) NSUInteger fileSize;
 @property (nonatomic, readonly) NSAttributedString *attributedDescription;
 @property (nonatomic, readonly, nullable) NSAttributedString *attributedStatistics;
+
+- (void)setDoneWithResult:(HBCoreResult)result;
 
 @end
 

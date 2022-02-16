@@ -11,6 +11,7 @@ namespace HandBrakeWPF.ViewModels
 {
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel;
     using System.Diagnostics;
     using System.Globalization;
     using System.IO;
@@ -19,8 +20,11 @@ namespace HandBrakeWPF.ViewModels
     using System.Windows;
     using System.Windows.Media.Imaging;
 
+    using Caliburn.Micro;
+
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
 
+    using HandBrakeWPF.Exceptions;
     using HandBrakeWPF.Factories;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode.Model.Models;
@@ -36,6 +40,7 @@ namespace HandBrakeWPF.ViewModels
     using EncodeProgressEventArgs = Services.Encode.EventArgs.EncodeProgressEventArgs;
     using EncodeTask = Services.Encode.Model.EncodeTask;
     using IEncode = Services.Encode.Interfaces.IEncode;
+    using ILog = HandBrakeWPF.Services.Logging.Interfaces.ILog;
     using LibEncode = Services.Encode.LibEncode;
     using OutputFormat = Services.Encode.Model.Models.OutputFormat;
     using PointToPointMode = Services.Encode.Model.Models.PointToPointMode;
@@ -467,7 +472,7 @@ namespace HandBrakeWPF.ViewModels
                 encodeTask.SubtitleTracks.Remove(scanTrack);
             }
 
-            QueueTask task = new QueueTask(encodeTask, HBConfigurationFactory.Create(), this.ScannedSource.ScanPath, null, false);
+            QueueTask task = new QueueTask(encodeTask, HBConfigurationFactory.Create(), this.ScannedSource.ScanPath, null, false, null);
             ThreadPool.QueueUserWorkItem(this.CreatePreview, task);
         }
 
@@ -486,31 +491,47 @@ namespace HandBrakeWPF.ViewModels
             {
                 if (File.Exists(this.CurrentlyPlaying))
                 {
+                    string mediaPlayerPath = userSettingService.GetUserSetting<string>(UserSettingConstants.MediaPlayerPath);
                     string args = "\"" + this.CurrentlyPlaying + "\"";
 
                     if (this.UseSystemDefaultPlayer)
                     {
-                        Process.Start(args);
+                        this.logService.LogMessage(string.Format("# VideoPreview: Using system media player. ({0})", args));
+
+                        try
+                        {
+                            Process.Start(args);
+                        }
+                        catch (Win32Exception exc)
+                        {
+                            Execute.OnUIThread(
+                                () => this.errorService.ShowError(
+                                    exc.Message,
+                                    Resources.QueueViewModel_PlayFileErrorSolution,
+                                    exc));
+                        }
                     }
                     else
                     {
-                        if (File.Exists(userSettingService.GetUserSetting<string>(UserSettingConstants.MediaPlayerPath)))
+                        if (File.Exists(mediaPlayerPath))
                         {
-                            ProcessStartInfo process = new ProcessStartInfo(userSettingService.GetUserSetting<string>(UserSettingConstants.MediaPlayerPath), args);
+                            this.logService.LogMessage(string.Format("# Video Preview: Playing file using defined media player. ({0})", args));
+                            this.logService.LogMessage(string.Format("# Video Preview: Media Player Path: {0}", mediaPlayerPath));
+                            ProcessStartInfo process = new ProcessStartInfo(mediaPlayerPath, args);
                             Process.Start(process);
                             return;
                         }
                         else
                         {
                             // Fallback to the System Default
+                            this.logService.LogMessage(string.Format("# Video Preview: Falling back to system media player. ({0})", args));
                             Process.Start(args);
                         }
                     }
                 }
                 else
                 {
-                    this.errorService.ShowMessageBox(Resources.StaticPreviewViewModel_UnableToPlayFile, 
-                                 Resources.Error, MessageBoxButton.OK, MessageBoxImage.Warning);
+                    this.errorService.ShowMessageBox(Resources.StaticPreviewViewModel_UnableToPlayFile, Resources.Error, MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
         }
