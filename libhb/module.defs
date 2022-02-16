@@ -1,6 +1,6 @@
 __deps__ := A52DEC BZIP2 LIBVPX FFMPEG FREETYPE LAME LIBASS LIBDCA \
     LIBDVDREAD LIBDVDNAV LIBICONV LIBSAMPLERATE LIBTHEORA LIBVORBIS LIBOGG \
-    LIBXML2 X264 X265 ZLIB LIBBLURAY FDKAAC LIBMFX LIBGNURX JANSSON \
+    LIBXML2 X264 X265 ZLIB LIBBLURAY FDKAAC LIBVPL LIBGNURX JANSSON \
     HARFBUZZ LIBOPUS LIBSPEEX LIBDAV1D LIBJPEGTURBO
 
 ifeq (,$(filter $(HOST.system),darwin cygwin mingw))
@@ -48,6 +48,10 @@ LIBHB.out += $(LIBHB.a)
 
 LIBHB.GCC.D += __LIBHB__ USE_PTHREAD
 LIBHB.GCC.I += $(LIBHB.build/) $(CONTRIB.build/)include
+
+ifeq (1,$(FEATURE.qsv))
+    LIBHB.GCC.I += $(CONTRIB.build/)include/vpl
+endif
 
 ifneq (,$(filter $(HOST.system),freebsd netbsd))
     LIBHB.GCC.I += $(LOCALBASE)/include
@@ -136,7 +140,7 @@ LIBHB.GCC.l += shlwapi
 endif
 
 ifeq (1,$(FEATURE.qsv))
-LIBHB.dll.libs += $(CONTRIB.build/)lib/libmfx.a
+LIBHB.dll.libs += $(CONTRIB.build/)lib/libvpl.a
 endif
 
 ifeq (1,$(FEATURE.x265))
@@ -184,7 +188,7 @@ else
 endif
 
 LIBHB.GCC.args.extra.dylib++ += -Wl,--out-implib,$(LIBHB.lib)
-LIBHB.GCC.l += bcrypt ws2_32 uuid ole32
+LIBHB.GCC.l += bcrypt ws2_32 uuid ole32 gdi32
 ifeq (1,$(FEATURE.mf))
     LIBHB.GCC.l += mfplat strmiids
 endif

@@ -19,6 +19,7 @@
 #import "NSArray+HBAdditions.h"
 
 @import HandBrakeKit;
+@import QuickLookUI;
 
 @interface HBQueueController () <NSToolbarItemValidation, NSMenuItemValidation, NSUserNotificationCenterDelegate, HBQueueTableViewControllerDelegate, HBQueueDetailsViewControllerDelegate>
 
@@ -91,18 +92,13 @@
 
 - (void)windowDidLoad
 {
-    if (@available (macOS 10.12, *))
-    {
-        self.window.tabbingMode = NSWindowTabbingModeDisallowed;
-    }
+    self.window.tabbingMode = NSWindowTabbingModeDisallowed;
 
-#if defined(__MAC_11_0)
     if (@available (macOS 11, *))
     {
         self.window.toolbarStyle = NSWindowToolbarStyleUnified;
         self.window.titlebarSeparatorStyle = NSTitlebarSeparatorStyleLine;
     }
-#endif
 
     // Set up the child view controllers
     _splitViewController = [[NSSplitViewController alloc] init];
@@ -147,11 +143,8 @@
     [self updateToolbarButtonsState];
     [self.window.toolbar validateVisibleItems];
 
-    if (@available(macOS 10.12.2, *))
-    {
-        [self _touchBar_updateButtonsState];
-        [self _touchBar_validateUserInterfaceItems];
-    }
+    [self _touchBar_updateButtonsState];
+    [self _touchBar_validateUserInterfaceItems];
 
     NSString *subtitle;
     if (self.queue.pendingItemsCount == 0)
@@ -170,22 +163,16 @@
             subtitle = [NSString stringWithFormat: NSLocalizedString(@"%lu encodes pending", @"Queue status"), (unsigned long)self.queue.pendingItemsCount];
         }
 
-#if defined(__MAC_11_0)
         if (@available(macOS 11, *)) {} else
         {
-#endif
             self.window.title = [NSString stringWithFormat: NSLocalizedString(@"Queue (%@)", @"Queue window title"), subtitle];
-#if defined(__MAC_11_0)
         }
-#endif
     }
 
-#if defined(__MAC_11_0)
     if (@available(macOS 11, *))
     {
         self.window.subtitle = subtitle;
     }
-#endif
 }
 
 #pragma mark Toolbar
@@ -328,12 +315,10 @@
             [alert setInformativeText:NSLocalizedString(@"Your movie will be lost if you don't continue encoding.", @"Queue Stop Alert -> stop and remove informative text")];
             [alert addButtonWithTitle:NSLocalizedString(@"Keep Encoding", @"Queue Stop Alert -> stop and remove first button")];
             [alert addButtonWithTitle:NSLocalizedString(@"Stop Encoding and Delete", @"Queue Stop Alert -> stop and remove second button")];
-#if defined(__MAC_11_0)
             if (@available(macOS 11, *))
             {
                 alert.buttons.lastObject.hasDestructiveAction = true;
             }
-#endif
             [alert setAlertStyle:NSAlertStyleCritical];
 
             [alert beginSheetModalForWindow:targetWindow completionHandler:^(NSModalResponse returnCode) {
@@ -396,12 +381,10 @@
         [alert setInformativeText:NSLocalizedString(@"Your movie will be lost if you don't continue encoding.", @"Queue Edit Alert -> stop and edit informative text")];
         [alert addButtonWithTitle:NSLocalizedString(@"Keep Encoding", @"Queue Edit Alert -> stop and edit first button")];
         [alert addButtonWithTitle:NSLocalizedString(@"Stop Encoding and Edit", @"Queue Edit Alert -> stop and edit second button")];
-#if defined(__MAC_11_0)
         if (@available(macOS 11, *))
         {
             alert.buttons.lastObject.hasDestructiveAction = true;
         }
-#endif
         [alert setAlertStyle:NSAlertStyleCritical];
 
         [alert beginSheetModalForWindow:docWindow completionHandler:^(NSModalResponse returnCode) {
@@ -461,12 +444,12 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     // This end of encode action is called as each encode rolls off of the queue
     if ([NSUserDefaults.standardUserDefaults boolForKey:HBSendToAppEnabled] == YES)
     {
-        NSURL *outputURL = item.outputURL;
-        NSString *completeOutputPath = item.completeOutputURL.path;
+        NSURL *destinationFolderURL = item.destinationFolderURL;
+        NSString *destinationPath = item.destinationURL.path;
 
         dispatch_async(_sendQueue, ^{
 #ifdef __SANDBOX_ENABLED__
-            BOOL accessingSecurityScopedResource = [outputURL startAccessingSecurityScopedResource];
+            BOOL accessingSecurityScopedResource = [destinationFolderURL startAccessingSecurityScopedResource];
 #endif
 
             NSWorkspace *workspace = NSWorkspace.sharedWorkspace;
@@ -474,7 +457,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 
             if (app)
             {
-                if (![workspace openFile:completeOutputPath withApplication:app])
+                if (![workspace openFile:destinationPath withApplication:app])
                 {
                     [HBUtilities writeToActivityLog:"Failed to send file to: %s", app];
                 }
@@ -487,7 +470,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 #ifdef __SANDBOX_ENABLED__
             if (accessingSecurityScopedResource)
             {
-                [outputURL stopAccessingSecurityScopedResource];
+                [destinationFolderURL stopAccessingSecurityScopedResource];
             }
 #endif
         });
@@ -514,19 +497,19 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
         {
             title = NSLocalizedString(@"Put down that cocktail…", @"Queue notification alert message");
             description = [NSString stringWithFormat:NSLocalizedString(@"Your encode %@ is done!", @"Queue done notification message"),
-                                     item.outputFileName];
+                                     item.destinationFileName];
 
         }
         else
         {
             title = NSLocalizedString(@"Encode failed", @"Queue done notification failed message");
             description = [NSString stringWithFormat:NSLocalizedString(@"Your encode %@ couldn't be completed.", @"Queue done notification message"),
-                           item.outputFileName];
+                           item.destinationFileName];
         }
 
         [self showNotificationWithTitle:title
                             description:description
-                                    url:item.completeOutputURL
+                                    url:item.destinationURL
                               playSound:playSound];
     }
 }
@@ -677,20 +660,16 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     [alert setInformativeText:NSLocalizedString(@"Select Continue Encoding to dismiss this dialog without making changes.", @"Queue Alert -> cancel rip informative text")];
     [alert addButtonWithTitle:NSLocalizedString(@"Continue Encoding", @"Queue Alert -> cancel rip first button")];
     [alert addButtonWithTitle:NSLocalizedString(@"Skip Current Job", @"Queue Alert -> cancel rip second button")];
-#if defined(__MAC_11_0)
     if (@available(macOS 11, *))
     {
         alert.buttons.lastObject.hasDestructiveAction = true;
     }
-#endif
     [alert addButtonWithTitle:NSLocalizedString(@"Stop After Current Job", @"Queue Alert -> cancel rip third button")];
     [alert addButtonWithTitle:NSLocalizedString(@"Stop All", @"Queue Alert -> cancel rip fourth button")];
-#if defined(__MAC_11_0)
     if (@available(macOS 11, *))
     {
         alert.buttons.lastObject.hasDestructiveAction = true;
     }
-#endif
     [alert setAlertStyle:NSAlertStyleCritical];
 
     [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse returnCode) {
@@ -728,6 +707,18 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 {
     NSSplitViewItem *detailsItem = self.splitViewController.splitViewItems[1];
     detailsItem.animator.collapsed = !detailsItem.isCollapsed;
+}
+
+- (IBAction)toggleQuickLook:(id)sender
+{
+    if (QLPreviewPanel.sharedPreviewPanelExists && QLPreviewPanel.sharedPreviewPanel.isVisible)
+    {
+        [QLPreviewPanel.sharedPreviewPanel orderOut:sender];
+    }
+    else
+    {
+        [QLPreviewPanel.sharedPreviewPanel makeKeyAndOrderFront:sender];
+    }
 }
 
 #pragma mark - table view controller delegate

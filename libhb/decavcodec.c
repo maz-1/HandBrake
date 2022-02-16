@@ -41,6 +41,7 @@
 #include "handbrake/handbrake.h"
 #include "handbrake/hbffmpeg.h"
 #include "handbrake/hbavfilter.h"
+#include "libavcodec/bsf.h"
 #include "libavfilter/avfilter.h"
 #include "libavfilter/buffersrc.h"
 #include "libavfilter/buffersink.h"
@@ -1133,6 +1134,19 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
     return out;
 }
 
+static const char * get_range_name(int color_range)
+{
+    switch (color_range)
+    {
+        case AVCOL_RANGE_UNSPECIFIED:
+        case AVCOL_RANGE_MPEG:
+            return "limited";
+        case AVCOL_RANGE_JPEG:
+            return "full";
+    }
+    return "limited";
+}
+
 int reinit_video_filters(hb_work_private_t * pv)
 {
     int                orig_width;
@@ -1174,7 +1188,7 @@ int reinit_video_filters(hb_work_private_t * pv)
             orig_width = pv->job->title->geometry.width;
             orig_height = pv->job->title->geometry.height;
         }
-        pix_fmt = pv->job->pix_fmt;
+        pix_fmt = pv->job->input_pix_fmt;
         color_range = pv->job->color_range;
     }
 
@@ -1234,14 +1248,8 @@ int reinit_video_filters(hb_work_private_t * pv)
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
             hb_dict_set(settings, "flags", hb_value_string("lanczos+accurate_rnd"));
-            if (color_range == AVCOL_RANGE_JPEG)
-            {
-                hb_dict_set_string(settings, "out_range", "full");
-            }
-            else
-            {
-                hb_dict_set_string(settings, "out_range", "limited");
-            }
+            hb_dict_set_string(settings, "in_range", get_range_name(pv->frame->color_range));
+            hb_dict_set_string(settings, "out_range", get_range_name(color_range));
             hb_avfilter_append_dict(filters, "scale", settings);
 
             settings = hb_dict_init();
@@ -2157,7 +2165,8 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
     info->color_transfer = get_color_transfer(pv->context->color_trc);
     info->color_matrix   = get_color_matrix(pv->context->colorspace,
                                             info->geometry);
-    info->color_range    = pv->context->color_range;
+    info->color_range     = pv->context->color_range;
+    info->chroma_location = pv->context->chroma_sample_location;
 
     info->video_decode_support = HB_DECODE_SUPPORT_SW;
 

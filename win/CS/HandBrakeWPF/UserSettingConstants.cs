@@ -78,5 +78,10 @@ namespace HandBrakeWPF
         public const string SimultaneousEncodes = "SimultaneousEncodes";
         public const string PreviewShowPictureSettingsOverlay = "PreviewShowPictureSettingsOverlay";
         public const string RunCounter = "HandBrakeRunCounter";
+        public const string ForceSoftwareRendering = "ForceSoftwareRendering";
+        public const string PresetMenuDisplayMode = "PresetMenuDisplayMode";
+        public const string NotifyOnEncodeDone = "NotifyOnEncodeDone";
+        public const string NotifyOnQueueDone = "NotifyOnQueueDone";
+        public const string RightToLeftUi = "RightToLeftUi";
     }
 }

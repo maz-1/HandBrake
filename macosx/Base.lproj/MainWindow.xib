@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="18122" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="19529" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="18122"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="19529"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -11,6 +11,7 @@
                 <outlet property="audioTab" destination="1475" id="KFs-lZ-jXC"/>
                 <outlet property="bottomConstrain" destination="Unb-Sk-dKC" id="f1i-gz-VIc"/>
                 <outlet property="chaptersTab" destination="1989" id="Qic-V7-Bqk"/>
+                <outlet property="destinationPathControl" destination="PJi-21-hie" id="AwZ-Ws-K0u"/>
                 <outlet property="filtersTab" destination="0UB-bG-kwS" id="8wc-MY-h6a"/>
                 <outlet property="mainTabView" destination="1474" id="LnD-zT-6M5"/>
                 <outlet property="openSourceToolbarItem" destination="8r8-nZ-dYs" id="cEL-nv-D9F"/>
@@ -215,7 +216,7 @@
                                     <string key="NSValueTransformerName">NSIsNotNil</string>
                                 </dictionary>
                             </binding>
-                            <binding destination="-2" name="value" keyPath="self.job.outputFileName" id="SgW-Bn-bwW">
+                            <binding destination="-2" name="value" keyPath="self.job.destinationFileName" id="0aV-K7-r7w">
                                 <dictionary key="options">
                                     <bool key="NSValidatesImmediately" value="YES"/>
                                 </dictionary>
@@ -330,7 +331,7 @@
                         </connections>
                     </textField>
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="1628">
-                        <rect key="frame" x="470" y="518" width="395" height="5"/>
+                        <rect key="frame" x="470" y="517" width="395" height="5"/>
                     </box>
                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="3205">
                         <rect key="frame" x="127" y="575" width="738" height="5"/>
@@ -491,11 +492,13 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
                         </pathCell>
                         <accessibility description="Destination folder path"/>
                         <connections>
-                            <binding destination="-2" name="value" keyPath="self.job.outputURL" id="FQU-UV-RCI"/>
+                            <binding destination="-2" name="value" keyPath="self.job.destinationFolderURL" id="fjI-2f-31v"/>
+                            <outlet property="delegate" destination="-2" id="jfV-bp-JaV"/>
+                            <outlet property="menu" destination="my5-n7-OFP" id="CXO-BG-nnJ"/>
                         </connections>
                     </pathControl>
                     <button toolTip="Browse to select a new destination path for your encode." horizontalHuggingPriority="1000" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1562">
-                        <rect key="frame" x="795" y="56" width="76" height="27"/>
+                        <rect key="frame" x="795" y="55" width="76" height="27"/>
                         <buttonCell key="cell" type="push" title="Browse…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" inset="2" id="4920">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="message" size="11"/>
@@ -611,8 +614,8 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
                             <binding destination="-2" name="textColor" keyPath="self.labelColor" id="NpP-Z0-hPs"/>
                         </connections>
                     </textField>
-                    <button toolTip="Reload the encoding settings for the currently selected preset. Modifications will be discarded." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="AhR-pK-Oz4">
-                        <rect key="frame" x="275" y="505" width="64" height="27"/>
+                    <button toolTip="Reload the encoding settings for the currently selected preset. Modifications will be discarded." verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="AhR-pK-Oz4">
+                        <rect key="frame" x="275" y="504" width="64" height="27"/>
                         <buttonCell key="cell" type="push" title="Reload" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="cgS-BU-Nfd">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="message" size="11"/>
@@ -627,8 +630,8 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
                             <binding destination="5676" name="hidden" keyPath="values.HBHideButtons" previousBinding="pER-xA-jjU" id="wOC-Ys-6ZR"/>
                         </connections>
                     </button>
-                    <button toolTip="Save New Preset…" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="2vD-zN-YMe">
-                        <rect key="frame" x="335" y="505" width="126" height="27"/>
+                    <button toolTip="Save New Preset…" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="2vD-zN-YMe">
+                        <rect key="frame" x="335" y="504" width="126" height="27"/>
                         <buttonCell key="cell" type="push" title="Save New Preset…" bezelStyle="rounded" alignment="center" controlSize="small" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="IOU-3L-nvB">
                             <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
                             <font key="font" metaFont="message" size="11"/>
@@ -654,7 +657,6 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
                     <constraint firstItem="1548" firstAttribute="baseline" secondItem="1553" secondAttribute="baseline" id="5U2-Lr-4Qc"/>
                     <constraint firstItem="5180" firstAttribute="baseline" secondItem="5181" secondAttribute="baseline" id="7rI-Pr-24u"/>
                     <constraint firstItem="5181" firstAttribute="leading" secondItem="5180" secondAttribute="trailing" constant="8" id="88n-hD-lCW"/>
-                    <constraint firstItem="AhR-pK-Oz4" firstAttribute="top" secondItem="1541" secondAttribute="bottom" constant="13" id="9np-TF-f0W"/>
                     <constraint firstItem="bWH-Lp-mKY" firstAttribute="baseline" secondItem="1627" secondAttribute="baseline" id="A8O-c5-J59"/>
                     <constraint firstItem="d0E-xw-bxh" firstAttribute="leading" secondItem="2" secondAttribute="leading" constant="-4" id="ANc-YO-rUk"/>
                     <constraint firstItem="5523" firstAttribute="leading" secondItem="1548" secondAttribute="leading" id="BFc-Em-mCW"/>
@@ -684,7 +686,6 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
                     <constraint firstItem="1561" firstAttribute="leading" secondItem="1552" secondAttribute="trailing" constant="8" id="TLF-qk-2Eq"/>
                     <constraint firstItem="bWH-Lp-mKY" firstAttribute="top" secondItem="1541" secondAttribute="bottom" constant="13" id="Tex-Li-ACD"/>
                     <constraint firstItem="5513" firstAttribute="baseline" secondItem="1545" secondAttribute="baseline" id="TiQ-ye-MeD"/>
-                    <constraint firstItem="2vD-zN-YMe" firstAttribute="top" secondItem="5181" secondAttribute="bottom" constant="13" id="UJb-D1-3pm"/>
                     <constraint firstItem="1539" firstAttribute="leading" secondItem="1538" secondAttribute="trailing" constant="8" id="Ue2-hw-ZPH"/>
                     <constraint firstItem="1562" firstAttribute="leading" secondItem="PJi-21-hie" secondAttribute="trailing" constant="2" id="UgJ-hP-CRv"/>
                     <constraint firstAttribute="bottom" secondItem="d0E-xw-bxh" secondAttribute="bottom" id="Unb-Sk-dKC"/>
@@ -855,7 +856,7 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
             <connections>
                 <outlet property="delegate" destination="-2" id="M3v-Rc-7Ca"/>
             </connections>
-            <point key="canvasLocation" x="2346" y="-994"/>
+            <point key="canvasLocation" x="2330" y="-1079"/>
         </window>
         <userDefaultsController representsSharedInstance="YES" id="5676"/>
         <customView id="lZQ-gl-3wX" userLabel="Open Panel View">
@@ -920,6 +921,17 @@ Blu-ray and DVD sources often have multiple titles, the longest of which is typi
             </constraints>
             <point key="canvasLocation" x="458.5" y="-571"/>
         </customView>
+        <menu id="my5-n7-OFP">
+            <items>
+                <menuItem title="Reveal in Finder" id="rK6-EB-N9Z">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="revealPathItemInFinder:" target="-2" id="f0R-px-ugx"/>
+                    </connections>
+                </menuItem>
+            </items>
+            <point key="canvasLocation" x="2190" y="-1537"/>
+        </menu>
     </objects>
     <resources>
         <image name="activity" width="32" height="32"/>

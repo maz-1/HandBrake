@@ -116,9 +116,7 @@
 
 - (BOOL)twoPassSupported
 {
-    return !((self.encoder & HB_VCODEC_FFMPEG_VT_H264) ||
-            (self.encoder & HB_VCODEC_FFMPEG_VT_H265) ||
-            (self.encoder & HB_VCODEC_FFMPEG_VT_H265_10BIT));
+    return hb_video_twopass_is_supported(self.encoder);
 }
 
 + (NSSet<NSString *> *)keyPathsForValuesAffectingConstantQualityLabel

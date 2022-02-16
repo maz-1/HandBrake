@@ -73,7 +73,6 @@ namespace HandBrakeWPF.Services.Presets.Factories
             preset.Task.KeepDisplayAspect = importedPreset.PictureKeepRatio;
             preset.Task.AllowUpscaling = importedPreset.PictureAllowUpscaling;
             preset.Task.OptimalSize = importedPreset.PictureUseMaximumSize;
-
             preset.Task.Padding = new PaddingFilter();
             preset.Task.Padding.Set(importedPreset.PicturePadTop, importedPreset.PicturePadBottom, importedPreset.PicturePadLeft, importedPreset.PicturePadRight, importedPreset.PicturePadColor, importedPreset.PicturePadMode);
             
@@ -82,6 +81,8 @@ namespace HandBrakeWPF.Services.Presets.Factories
                 case "custom":
                     preset.Task.Anamorphic = Anamorphic.Custom;
                     preset.Task.DisplayWidth = importedPreset.PictureDARWidth;
+                    preset.Task.PixelAspectX = importedPreset.PicturePARWidth == 0 ? 1 : importedPreset.PicturePARWidth;
+                    preset.Task.PixelAspectY = importedPreset.PicturePARHeight == 0 ? 1 : importedPreset.PicturePARHeight;
                     break;
                 case "auto":
                 case "loose":
@@ -423,7 +424,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
             {
                 foreach (var audioTrack in importedPreset.AudioList)
                 {
-                    AudioBehaviourTrack track = new AudioBehaviourTrack();
+                    AudioBehaviourTrack track = new AudioBehaviourTrack(EnumHelper<AudioEncoder>.GetValue(importedPreset.AudioEncoderFallback));
                     
                     // track.CompressionLevel = audioTrack.AudioCompressionLevel;
                     // track.AudioDitherMethod = audioTrack.AudioDitherMethod;
@@ -481,7 +482,6 @@ namespace HandBrakeWPF.Services.Presets.Factories
 
             /* Not Supported Yet */
             // public int VideoColorMatrixCode { get; set; }
-            // public string VideoScaler { get; set; }
             // public bool VideoQSVDecode { get; set; }
             // public int VideoQSVAsyncDepth { get; set; }
             // public bool SubtitleAddForeignAudioSubtitle { get; set; }
@@ -489,8 +489,6 @@ namespace HandBrakeWPF.Services.Presets.Factories
             // public bool SubtitleBurnDVDSub { get; set; }
             // public bool PictureItuPAR { get; set; }
             // public bool PictureLooseCrop { get; set; }
-            // public int PicturePARWidth { get; set; }
-            // public int PicturePARHeight { get; set; }
             // public int PictureForceHeight { get; set; }
             // public int PictureForceWidth { get; set; }
             // public List<object> ChildrenArray { get; set; }
@@ -690,7 +688,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
             preset.VideoQualitySlider = export.Task.Quality.HasValue ? export.Task.Quality.Value : 0;
             preset.VideoQualityType = (int)export.Task.VideoEncodeRateType;
             preset.VideoScaler = EnumHelper<VideoScaler>.GetShortName(VideoScaler.Lanczos);
-            preset.VideoTune = export.Task.VideoTunes.Aggregate(string.Empty, (current, item) => !string.IsNullOrEmpty(current) ? string.Format("{0}, {1}", current, item.ShortName) : item.ShortName);
+            preset.VideoTune = export.Task.VideoTunes.Aggregate(string.Empty, (current, item) => !string.IsNullOrEmpty(current) ? string.Format("{0},{1}", current, item.ShortName) : item.ShortName);
             preset.VideoAvgBitrate = export.Task.VideoBitrate ?? 0;
             preset.VideoColorMatrixCode = 0; // TODO not supported.
             preset.VideoTurboTwoPass = export.Task.TurboFirstPass;

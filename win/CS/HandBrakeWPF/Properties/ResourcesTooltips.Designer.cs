@@ -19,7 +19,7 @@ namespace HandBrakeWPF.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class ResourcesTooltips {
@@ -57,6 +57,24 @@ namespace HandBrakeWPF.Properties {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Setup behaviours that dictate how this tab automatically adds audio tracks when selecting a new source or title..
+        /// </summary>
+        public static string AudioView_AudioDefaults {
+            get {
+                return ResourceManager.GetString("AudioView_AudioDefaults", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Refresh the list below based on the behaviours configured. .
+        /// </summary>
+        public static string BehavioursReload {
+            get {
+                return ResourceManager.GetString("BehavioursReload", resourceCulture);
             }
         }
         
@@ -240,7 +258,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Grayscale removes the color component of the video. Often referred to as Black &amp;amp; White video..
+        ///   Looks up a localized string similar to Grayscale removes the color component of the video. Often referred to as Black &amp; White video..
         /// </summary>
         public static string FilterView_Grayscale {
             get {
@@ -482,12 +500,65 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The format of the output file. In addition to any supported file system character, you can use the any of the placeholders that will be replaced when you change title or scan a source or update certain settings..
+        /// </summary>
+        public static string Options_AdditionalFormatOptions {
+            get {
+                return ResourceManager.GetString("Options_AdditionalFormatOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to When enabled the auto name system will always use the default path. 
         ///When disabled, it will use the path in the destination box on the main window if populated, otherwise it will use the default path..
         /// </summary>
         public static string OptionsView_AlwaysUseDefaultPath {
             get {
                 return ResourceManager.GetString("OptionsView_AlwaysUseDefaultPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Flat - Presets are displayed as a flat list.
+        ///Partially Flat - The last 8 user presets are displayed as a flat list followed by all presets being shown in category listing.
+        ///Categories - All presets are shown under a sub menu per category..
+        /// </summary>
+        public static string OptionsView_PresetDisplayModes {
+            get {
+                return ResourceManager.GetString("OptionsView_PresetDisplayModes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to For languages that are right to left, you can enable one of two modes.   &quot;Text Only&quot; will only render the text in right to left style.  &quot;Entire User Interface&quot; will render all controls in right to left.
+        ///
+        ///Please note, there may be inperfections in the UI layout when using these modes. Depending on the language, it may be worth trying both modes to find the best fit..
+        /// </summary>
+        public static string OptionsView_RightToleftMode {
+            get {
+                return ResourceManager.GetString("OptionsView_RightToleftMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The following environment variables are always set:
+        ///HB_SOURCE
+        ///HB_DESTINATION
+        ///HB_EXIT_CODE
+        ///
+        ///Possible Exit Codes are as follows:
+        ///0 : Successful
+        ///2 : Input Arguments Error
+        ///3 : Failed to Initialise 
+        ///4 : Unknown Error
+        ///5 : Error reading source file.
+        ///
+        ///Please note, errors codes are best effort and may not always be accurate.
+        ///It is recommended the output file is validated before performing actions on it..
+        /// </summary>
+        public static string OptionsView_SendFileToArguments {
+            get {
+                return ResourceManager.GetString("OptionsView_SendFileToArguments", resourceCulture);
             }
         }
         
@@ -649,7 +720,9 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Scan only the specified title instead of all titles..
+        ///   Looks up a localized string similar to Some Sources may contain more than one video clip, or a collection of Titles. Blu-ray and DVD Sources often have multiple Titles.
+        ///
+        ///If you know the specific title you wish to encode you can enter it here and HandBrake will scan only that title rather than every title in the source file. Otherwise, leave the field blank..
         /// </summary>
         public static string SourceSelection_TitleSpecific {
             get {
@@ -667,6 +740,15 @@ namespace HandBrakeWPF.Properties {
         public static string SubtitlesView_BurnIn {
             get {
                 return ResourceManager.GetString("SubtitlesView_BurnIn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Setup behaviours that dictate how this tab automatically adds subtitle tracks when selecting a new source or title..
+        /// </summary>
+        public static string SubtitleView_SubtitleDefaults {
+            get {
+                return ResourceManager.GetString("SubtitleView_SubtitleDefaults", resourceCulture);
             }
         }
         

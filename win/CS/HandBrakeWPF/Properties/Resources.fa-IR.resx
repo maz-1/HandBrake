@@ -59,7 +59,7 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -2157,7 +2157,7 @@ Where supported, any user presets will have been imported.</value>
     <value>نسخه‌ی جدید HandBrake در دسترس است!</value>
   </data>
   <data name="About_Copyright" xml:space="preserve">
-    <value>حق نشر(C) 2003-2021 برای گروه HandBrake محفوظ است</value>
+    <value>حق نشر(C) 2003-2022 برای گروه HandBrake محفوظ است</value>
   </data>
   <data name="Options_LowBatteryLevel" xml:space="preserve">
     <value>Low battery level:</value>
@@ -2251,9 +2251,6 @@ Please choose a different preset.</value>
   <data name="PictureSettingsView_RotateAndCrop" xml:space="preserve">
     <value>Orientation and Cropping:</value>
   </data>
-  <data name="OptionsView_Win10Only" xml:space="preserve">
-    <value>(فقط ویندوز 10!)</value>
-  </data>
   <data name="QueueView_FilterSettings" xml:space="preserve">
     <value>پالایه‌ها</value>
   </data>
@@ -2324,7 +2321,7 @@ Please choose a different preset.</value>
     <value>توقف</value>
   </data>
   <data name="String1" xml:space="preserve">
-    <value/>
+    <value />
   </data>
   <data name="PresetService_CategoryAlreadyExists" xml:space="preserve">
     <value>نام دسته‌ای که وارد  کردید از قبل وجود دارد. لطفاً یک نام دیگر را وارد کنید.</value>
@@ -2478,5 +2475,8 @@ This warning will display only twice.</value>
   </data>
   <data name="SummaryView_MetadataPassthru" xml:space="preserve">
     <value>Passthru Common Metadata</value>
+  </data>
+  <data name="QueueView_SelectedPresets" xml:space="preserve">
+    <value>پیش‌نشانده:</value>
   </data>
 </root>

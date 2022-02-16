@@ -156,7 +156,7 @@ namespace HandBrake.Worker.Routing
 
             if (!command.AllowDisconnectedWorker)
             {
-                Console.WriteLine("Worker: Disconnected worker monitoring enabled!");
+                ConsoleOutput.WriteLine("Worker: Disconnected worker monitoring enabled!", ConsoleColor.White, true);
                 this.instanceWatcher = new InstanceWatcher(this);
                 this.instanceWatcher.Start(5000);
             }
@@ -166,9 +166,9 @@ namespace HandBrake.Worker.Routing
             this.handbrakeInstance.Initialize(command.LogVerbosity, !command.EnableHardwareAcceleration);
             this.handbrakeInstance.EncodeCompleted += this.HandbrakeInstance_EncodeCompleted;
 
-            if (command.DisableLibDvdNav)
+            if (command.EnableLibDvdNav)
             {
-                HandBrakeUtils.SetDvdNav(true); // TODO check this is correct
+                HandBrakeUtils.SetDvdNav(true);
             }
         }
     }

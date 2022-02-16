@@ -1,7 +1,7 @@
 /* unsharp.c
 
    Copyright (c) 2002 Rémi Guyomarch <rguyom at pobox.com>
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -326,10 +326,11 @@ static int unsharp_work_thread(hb_filter_object_t *filter,
     }
 
     out = hb_frame_buffer_init(pv->output.pix_fmt, in->f.width, in->f.height);
-    out->f.color_prim     = pv->output.color_prim;
-    out->f.color_transfer = pv->output.color_transfer;
-    out->f.color_matrix   = pv->output.color_matrix;
-    out->f.color_range    = pv->output.color_range ;
+    out->f.color_prim      = pv->output.color_prim;
+    out->f.color_transfer  = pv->output.color_transfer;
+    out->f.color_matrix    = pv->output.color_matrix;
+    out->f.color_range     = pv->output.color_range;
+    out->f.chroma_location = pv->output.chroma_location;
 
     int c;
     for (c = 0; c < 3; c++)

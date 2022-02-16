@@ -34,6 +34,7 @@
         _state = HBStateIdle;
         _stdoutRedirect = HBRedirect.stdoutRedirect;
         _stderrRedirect = HBRedirect.stderrRedirect;
+        _automaticallyPreventSleep = NO;
         _level = 1;
         _name = @"HandBrakeXPC";
         _serviceName = @"fr.handbrake.HandBrakeXPCService";
@@ -112,7 +113,9 @@
 
     if (handler)
     {
-        handler(HBCoreResultFailed);
+        HBCoreResult result = {0, HBCoreResultCodeUnknown};
+        result.code = HBCoreResultCodeUnknown;
+        handler(result);
     }
 
     [self forwardError:@"XPC: Service did crash\n"];
@@ -207,7 +210,7 @@
         }
     }
 
-    NSData *bookmark = [job.outputURL bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:NULL];
+    NSData *bookmark = [job.destinationFolderURL bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:NULL];
     if (bookmark)
     {
         [bookmarks addObject:bookmark];

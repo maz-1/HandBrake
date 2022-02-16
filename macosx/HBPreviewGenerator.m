@@ -248,8 +248,8 @@
 
     HBJob *job = [self.job copy];
     job.title = self.job.title;
-    job.outputFileName = destURL.lastPathComponent;
-    job.outputURL = destURL.URLByDeletingLastPathComponent;
+    job.destinationFileName = destURL.lastPathComponent;
+    job.destinationFolderURL = destURL.URLByDeletingLastPathComponent;
 
     job.range.type = HBRangePreviewIndex;
     job.range.previewIndex = (int)index + 1;;
@@ -263,6 +263,7 @@
     // Init the libhb core
     NSInteger level = [NSUserDefaults.standardUserDefaults integerForKey:HBLoggingLevel];
     self.core = [[HBCore alloc] initWithLogLevel:level name:@"PreviewCore"];
+    self.core.automaticallyPreventSleep = YES;
 
     HBStateFormatter *formatter = [[HBStateFormatter alloc] init];
     formatter.twoLines = NO;
@@ -279,7 +280,7 @@
          }
        completionHandler:^(HBCoreResult result) {
            // Encode done, call the delegate and close libhb handle
-           if (result == HBCoreResultDone)
+           if (result.code == HBCoreResultCodeDone)
            {
                [self.delegate didCreateMovieAtURL:destURL];
            }

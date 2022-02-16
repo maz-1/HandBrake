@@ -183,7 +183,7 @@
 
 #pragma mark - HBPresetCoding
 
-- (void)applyPreset:(HBPreset *)preset
+- (BOOL)applyPreset:(HBPreset *)preset error:(NSError * __autoreleasing *)outError
 {
     // Track selection behavior
     if ([preset[@"AudioTrackSelectionBehavior"] isEqualToString:@"first"])
@@ -300,11 +300,13 @@
         newTrack.gain = [track[@"AudioTrackGainSlider"] doubleValue];
         [self insertObject:newTrack inTracksArrayAtIndex:[self countOfTracksArray]];
     }
+
+    return YES;
 }
 
 - (void)applyPreset:(HBPreset *)preset jobSettings:(NSDictionary *)settings
 {
-    [self applyPreset:preset];
+    [self applyPreset:preset error:NULL];
 }
 
 - (void)writeToPreset:(HBMutablePreset *)preset
@@ -368,7 +370,7 @@
 
     preset[@"AudioSecondaryEncoderMode"] = @(self.secondaryEncoderMode);
 
-    NSMutableArray *audioList = [[NSMutableArray alloc] init];
+    NSMutableArray<NSDictionary *> *audioList = [[NSMutableArray alloc] init];
 
     for (HBAudioTrackPreset *track in self.tracksArray)
     {
@@ -377,14 +379,19 @@
         {
             sampleRate = @(hb_audio_samplerate_get_name(track.sampleRate));
         }
-        NSDictionary *newTrack = @{@"AudioEncoder": @(hb_audio_encoder_get_short_name(track.encoder)),
-                                   @"AudioMixdown": @(hb_mixdown_get_short_name(track.mixdown)),
-                                   @"AudioSamplerate": sampleRate,
-                                   @"AudioBitrate": @(track.bitRate),
-                                   @"AudioTrackDRCSlider": @(track.drc),
-                                   @"AudioTrackGainSlider": @(track.gain)};
+        const char *encoderShortName = hb_audio_encoder_get_short_name(track.encoder);
+        const char *mixdownShortName = hb_mixdown_get_short_name(track.mixdown);
+        if (encoderShortName && mixdownShortName)
+        {
+            NSDictionary *newTrack = @{@"AudioEncoder": @(encoderShortName),
+                                       @"AudioMixdown": @(mixdownShortName),
+                                       @"AudioSamplerate": sampleRate,
+                                       @"AudioBitrate": @(track.bitRate),
+                                       @"AudioTrackDRCSlider": @(track.drc),
+                                       @"AudioTrackGainSlider": @(track.gain)};
 
-        [audioList addObject:newTrack];
+            [audioList addObject:newTrack];
+        }
     }
 
     preset[@"AudioList"] = audioList;

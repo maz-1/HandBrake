@@ -1,6 +1,6 @@
 /*
  * hb-backend.c
- * Copyright (C) John Stebbins 2008-2021 <stebbins@stebbins>
+ * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
  *
  * hb-backend.c is free software.
  *
@@ -3522,7 +3522,6 @@ void
 ghb_backend_init(gint debug)
 {
     /* Init libhb */
-    hb_global_init();
     h_scan = hb_init( debug );
     h_queue = hb_init( debug );
     h_live = hb_init( debug );

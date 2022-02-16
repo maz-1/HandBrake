@@ -15,7 +15,7 @@ X265_10.CONFIGURE.args.prefix = -DCMAKE_INSTALL_PREFIX="$(X265_10.CONFIGURE.pref
 X265_10.CONFIGURE.deps        =
 X265_10.CONFIGURE.static      =
 X265_10.CONFIGURE.shared      = -DENABLE_SHARED=OFF
-X265_10.CONFIGURE.extra       = -DENABLE_CLI=OFF -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
+X265_10.CONFIGURE.extra       = -DENABLE_CLI=OFF -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy -DCMAKE_CXX_FLAGS=-flax-vector-conversions
 
 ifneq (1,$(FEATURE.numa))
     X265_10.CONFIGURE.extra  += -DENABLE_LIBNUMA=OFF
@@ -39,6 +39,10 @@ else
     endif
 endif
 
+ifeq (aarch64,$(HOST.machine))
+    X265_10.CONFIGURE.extra += -DCMAKE_CXX_FLAGS=-flax-vector-conversions
+endif
+
 ifeq (1,$(HOST.cross))
     ifeq (mingw,$(HOST.system))
         X265_10.CONFIGURE.extra += -DWIN32=ON
@@ -50,6 +54,7 @@ ifeq (1,$(HOST.cross))
         X265_10.CONFIGURE.extra += -DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -static"
         X265_10.CONFIGURE.extra += -DCMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS="-static-libgcc -static-libstdc++ -static"
         X265_10.CONFIGURE.extra += -DCMAKE_RC_COMPILER=$(HOST.cross.prefix)windres
+        X265_10.CONFIGURE.args.host  = -DCMAKE_HOST_SYSTEM="$(X265_10.CONFIGURE.host)"
     else ifeq ($(HOST.system),darwin)
         X265_10.CONFIGURE.args.host  = -DCMAKE_HOST_SYSTEM="$(X265_10.CONFIGURE.host)"
     else

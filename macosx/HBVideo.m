@@ -291,9 +291,7 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
         self.qualityType = 0;
     }
 
-    if ((self.encoder & HB_VCODEC_FFMPEG_VT_H264) ||
-        (self.encoder & HB_VCODEC_FFMPEG_VT_H265) ||
-        (self.encoder & HB_VCODEC_FFMPEG_VT_H265_10BIT))
+    if (!hb_video_twopass_is_supported(self.encoder))
     {
         self.twoPass = NO;
     }
@@ -302,8 +300,13 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 - (void)validatePresetsSettings
 {
     NSArray *presets = self.presets;
-    if (presets.count && ![presets containsObject:self.preset]) {
-        if (presets.count > self.mediumPresetIndex)
+    if (presets.count && ![presets containsObject:self.preset])
+    {
+        if (self.encoder & HB_VCODEC_VT_MASK)
+        {
+            self.preset = self.presets.lastObject;
+        }
+        else if (presets.count > self.mediumPresetIndex)
         {
             self.preset = presets[self.mediumPresetIndex];
         }
@@ -357,7 +360,7 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
     return [NSSet setWithObjects:@"encoder", nil];
 }
 
-- (NSArray *)presets
+- (NSArray<NSString *> *)presets
 {
     NSMutableArray *temp = [NSMutableArray array];
 

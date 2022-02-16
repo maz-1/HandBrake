@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * callbacks.c
- * Copyright (C) John Stebbins 2008-2021 <stebbins@stebbins>
+ * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
  *
  * callbacks.c is free software.
  *
@@ -1349,7 +1349,7 @@ dvd_device_changed_cb(GtkComboBoxText *combo, signal_user_data_t *ud)
 
         dialog = GHB_WIDGET(ud->builder, "source_dialog");
         device = gtk_combo_box_text_get_active_text(combo);
-        // Protext against unexpected NULL return value
+        // Protects against unexpected NULL return value
         if (device != NULL)
         {
             name = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER(dialog));
@@ -3668,6 +3668,8 @@ generic_entry_changed_cb(GtkEntry *entry, signal_user_data_t *ud)
     }
 }
 
+gboolean prefs_require_restart = FALSE;
+
 G_MODULE_EXPORT void
 preferences_action_cb(GSimpleAction *action, GVariant *param,
                       signal_user_data_t *ud)
@@ -3678,6 +3680,27 @@ preferences_action_cb(GSimpleAction *action, GVariant *param,
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_hide(dialog);
     ghb_prefs_store();
+
+    if (prefs_require_restart)
+    {
+        GtkWidget * dialog;
+        GtkWindow * hb_window;
+
+        hb_window = GTK_WINDOW(GHB_WIDGET(ud->builder, "hb_window"));
+
+        // Toss up a warning dialog
+        dialog = gtk_message_dialog_new(hb_window,   GTK_DIALOG_MODAL,
+                                GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE,
+                                "You must restart HandBrake now");
+        gtk_dialog_add_buttons( GTK_DIALOG(dialog),
+                               "Exit HandBrake", GTK_RESPONSE_YES, NULL);
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy (dialog);
+
+        ghb_hb_cleanup(FALSE);
+        prune_logs(ud);
+        g_application_quit(G_APPLICATION(ud->app));
+    }
 }
 
 typedef struct
@@ -4976,6 +4999,40 @@ use_m4v_changed_cb(GtkWidget *widget, signal_user_data_t *ud)
 }
 
 G_MODULE_EXPORT void
+tmp_dir_enable_changed_cb(GtkWidget *widget, signal_user_data_t *ud)
+{
+    pref_changed_cb(widget, ud);
+    prefs_require_restart = TRUE;
+}
+
+G_MODULE_EXPORT void
+temp_dir_changed_cb(GtkWidget *widget, signal_user_data_t *ud)
+{
+    char * orig_tmp_dir = NULL;
+    const char * tmp_dir;
+
+    tmp_dir = ghb_dict_get_string(ud->prefs, "CustomTmpDir");
+    if (tmp_dir != NULL)
+    {
+        orig_tmp_dir = g_strdup(tmp_dir);
+    }
+    ghb_widget_to_setting (ud->prefs, widget);
+    ghb_check_dependency(ud, widget, NULL);
+
+    tmp_dir = ghb_dict_get_string(ud->prefs, "CustomTmpDir");
+    if (tmp_dir == NULL)
+    {
+        tmp_dir = "";
+    }
+    if (orig_tmp_dir == NULL ||
+        strcmp(orig_tmp_dir, tmp_dir))
+    {
+        ghb_pref_set(ud->prefs, "CustomTmpDir");
+        prefs_require_restart = TRUE;
+    }
+}
+
+G_MODULE_EXPORT void
 vqual_granularity_changed_cb(GtkWidget *widget, signal_user_data_t *ud)
 {
     g_debug("vqual_granularity_changed_cb");
@@ -5395,7 +5452,7 @@ easter_egg_cb(
 
             case 3:
             {
-                // Its a tripple left mouse button click
+                // It's a triple left mouse button click
                 GtkWidget *widget;
                 widget = GHB_WIDGET(ud->builder, "allow_tweaks");
                 gtk_widget_show(widget);

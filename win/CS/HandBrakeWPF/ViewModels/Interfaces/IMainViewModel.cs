@@ -14,20 +14,23 @@ namespace HandBrakeWPF.ViewModels.Interfaces
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Services.Queue.Model;
 
-    using EncodeTask = HandBrakeWPF.Services.Encode.Model.EncodeTask;
-
     /// <summary>
     /// The Main Window View Model
     /// </summary>
     public interface IMainViewModel
     {
         /// <summary>
+        /// Add a new preset
+        /// </summary>
+        void PresetAdd();
+
+        /// <summary>
         /// The preset select.
         /// </summary>
         /// <param name="tag">
         /// The tag.
         /// </param>
-        void PresetSelect(object tag);
+        bool PresetSelect(object tag);
 
         /// <summary>
         /// Shutdown the Application
@@ -81,6 +84,11 @@ namespace HandBrakeWPF.ViewModels.Interfaces
         /// Stop an Encode.
         /// </summary>
         void StopEncode();
+
+        /// <summary>
+        /// Pause any active encodes.
+        /// </summary>
+        void PauseEncode();
 
         /// <summary>
         /// Start an Encode

@@ -1110,8 +1110,9 @@ class VersionProbe( Action ):
             self.rexprs.insert(0,rexpr)
 
     def _action( self ):
-        ## pipe and redirect stderr to stdout; effects communicate result
-        pipe = subprocess.Popen( self.command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT )
+        with open(os.devnull, 'w') as devnull:
+            ## pipe and redirect stderr to dev/null; effects communicate result
+            pipe = subprocess.Popen( self.command, stdout=subprocess.PIPE, stderr=devnull )
 
         ## read data into memory buffers
         data = pipe.communicate()
@@ -1653,7 +1654,7 @@ try:
         else:
             gmake  = ToolProbe( 'GMAKE.exe',      'make',       'gmake', 'make', abort=True )
 
-        autoconf   = ToolProbe( 'AUTOCONF.exe',   'autoconf',   'autoconf', abort=True, minversion=[2,69,0] )
+        autoconf   = ToolProbe( 'AUTOCONF.exe',   'autoconf',   'autoconf', abort=True, minversion=([2,71,0] if build_tuple.match('*-*-darwin*') else [2,69,0]) )
         automake   = ToolProbe( 'AUTOMAKE.exe',   'automake',   'automake', abort=True, minversion=[1,13,0] )
         libtool    = ToolProbe( 'LIBTOOL.exe',    'libtool',    'libtool', abort=True )
         lipo       = ToolProbe( 'LIPO.exe',       'lipo',       'lipo', abort=False )
@@ -1750,11 +1751,8 @@ try:
     #####################################
     ## Additional library and tool checks
     #####################################
-    if options.flatpak or host_tuple.match('*-*-darwin*', '*-*-mingw'):
-        # Requires Jansson which requires CMake 3.1.0 or later
-        Tools.cmake = ToolProbe('CMAKE.exe', 'cmake', 'cmake', abort=True, minversion=[3,1,0])
-    else:
-        Tools.cmake = ToolProbe('CMAKE.exe', 'cmake', 'cmake', abort=True, minversion=[2,8,12])
+    # Requires oneVPL which requires CMake 3.16.3 or later
+    Tools.cmake = ToolProbe('CMAKE.exe', 'cmake', 'cmake', abort=True, minversion=[3,16,3])
     Tools.cmake.__init__( Tools.cmake.var, Tools.cmake.option, Tools.cmake.name, **Tools.cmake.kwargs )
     Tools.cmake.run()
     for action in Action.actions:

@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Video_EncoderExtraArgs" xml:space="preserve">
     <value>The full list of encoder parameters: 
@@ -204,7 +204,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.<
     <value>There are jobs on the queue with the same destination path. Please choose a different path for this job.</value>
   </data>
   <data name="Main_JobsPending_addon" xml:space="preserve">
-    <value>   Pending Jobs {0}</value>
+    <value>Pending Jobs {0}</value>
   </data>
   <data name="Main_NewDefaultPreset" xml:space="preserve">
     <value>New Default Preset Set: {0}</value>
@@ -325,12 +325,6 @@ Do you wish to proceed?</value>
   <data name="PictureSettings_OutputResolution" xml:space="preserve">
     <value>Output: {0}</value>
   </data>
-  <data name="Options_AdditionalFormatOptions" xml:space="preserve">
-    <value>The format of the output file. In addition to any supported file system character, you can use the following placeholders that will be replaced when you change title or scan a source.
-
-Live Update Options: {source} {title} {chapters} 
-Non-Live Options: {date} {time} {creation-date} {creation-time} {quality} {bitrate} (These only change if you scan a new source, change title or chapters)</value>
-  </data>
   <data name="Options_DefaultPathAdditionalParams" xml:space="preserve">
     <value>Available additional Options: {source_path} or {source_folder_name} or {source}</value>
   </data>
@@ -373,10 +367,11 @@ If you continue, your non-burned subtitles will be lost.</value>
     <value>No valid source or titles found.</value>
   </data>
   <data name="Main_ScanNoTitlesFoundMessage" xml:space="preserve">
-    <value>HandBrake will not be able to encode the selected source as it did not find a valid source with titles to encode. 
-This could be due to one of the following reasons:
+    <value>HandBrake will not be able to encode the selected source as it did not find a valid source with titles to encode. This could be due to one of the following reasons:
+
 - The duration of each source title is below the "Minimum Title Duration" threshold option in 'Preferences &gt; Advanced'. 
 - The source file is not a valid video file or is in a format that HandBrake does not support.
+- You may not have read access to the file or another application may have a lock on the file. 
 - The source may be copy protected or include DRM. Please note that HandBrake does not support the removal of copy protections.
 
 The Activity log may have further information.</value>
@@ -424,7 +419,7 @@ The Activity log may have further information.</value>
     <value>Audio Tracks</value>
   </data>
   <data name="AudioViewModel_ConfigureDefaults" xml:space="preserve">
-    <value>Selection Behavior</value>
+    <value>Selection Behavior ...</value>
   </data>
   <data name="AudioViewModel_SwitchBackToTracks" xml:space="preserve">
     <value>Switch Back To Tracks</value>
@@ -552,7 +547,7 @@ Are you sure you wish to exit HandBrake?</value>
     <value>Switch Back To Tracks</value>
   </data>
   <data name="SubtitlesViewModel_ConfigureDefaults" xml:space="preserve">
-    <value>Selection Behavior</value>
+    <value>Selection Behavior ...</value>
   </data>
   <data name="PresetService_ArchiveFile" xml:space="preserve">
     <value>Archived File:</value>
@@ -710,10 +705,10 @@ Do you wish to continue? </value>
     <value>Preview ({0}% actual size)</value>
   </data>
   <data name="OsBitnessWarning" xml:space="preserve">
-    <value>HandBrake requires a 64bit version of Windows 7 or later to run.</value>
+    <value>HandBrake requires a 64bit version of Windows 10 or later to run.</value>
   </data>
   <data name="OsVersionWarning" xml:space="preserve">
-    <value>HandBrake requires Windows 7 or later to run. Version 0.9.9 (XP) and 0.10.5 (Vista) was the last version to support these versions.</value>
+    <value>HandBrake requires Windows 10 or later to run. Version 0.9.9 (XP), 0.10.5 (Vista), 1.3.3 (7 and 8.x) were the last versions to support these older operating systems.</value>
   </data>
   <data name="Main_ContinueAddingToQueue" xml:space="preserve">
     <value>Do you wish to proceed trying to add the rest?</value>
@@ -1026,7 +1021,7 @@ Would you like to overwrite it?</value>
     <value>Dimensions</value>
   </data>
   <data name="MainView_PresetManage" xml:space="preserve">
-    <value>Rename Preset</value>
+    <value>Edit Preset</value>
   </data>
   <data name="MainView_PresetOptionsContextMenu" xml:space="preserve">
     <value>Preset Options Context Menu</value>
@@ -1110,7 +1105,7 @@ Would you like to overwrite it?</value>
     <value>Title: </value>
   </data>
   <data name="MainView_UpdateSelectedPreset" xml:space="preserve">
-    <value>Update Selected Preset</value>
+    <value>Update Current Preset</value>
   </data>
   <data name="MainView_VideoTab" xml:space="preserve">
     <value>Video</value>
@@ -1251,7 +1246,7 @@ Would you like to overwrite it?</value>
     <value>Number of picture previews to scan:</value>
   </data>
   <data name="Options_PriorityLevel" xml:space="preserve">
-    <value>Priority Level:</value>
+    <value>Work Priority Level:</value>
   </data>
   <data name="Options_QsvDecode" xml:space="preserve">
     <value>Prefer use of Intel QuickSync for decoding video when available. </value>
@@ -1402,7 +1397,7 @@ VLC and MPC-HC are supported. Other players may also work but are not validated.
     <value>Do nothing</value>
   </data>
   <data name="QueueView_Duration" xml:space="preserve">
-    <value>Encode Time:</value>
+    <value>Encode Duration:</value>
   </data>
   <data name="QueueView_Edit" xml:space="preserve">
     <value>Edit</value>
@@ -1414,7 +1409,7 @@ VLC and MPC-HC are supported. Other players may also work but are not validated.
     <value>Export Queue</value>
   </data>
   <data name="QueueView_FileSize" xml:space="preserve">
-    <value>Filesize: </value>
+    <value>Output Filesize: </value>
   </data>
   <data name="WhenDone_Hibernate" xml:space="preserve">
     <value>Hibernate</value>
@@ -1880,11 +1875,10 @@ Time Remaining: {5},  Elapsed: {6} {7}</value>
     <value>HandBrake's engine failed to initialise. This is often caused by out of date GPU drivers.\n  Please update the GPU drivers for any onboard and discrete graphics your system has.</value>
   </data>
   <data name="OptionsView_FormatOptions" xml:space="preserve">
-    <value>Live Update Options: {source} {title} {chapters} 
-Non-Live Options: {date} {time} {creation-date} {creation-time} {quality} {bitrate} (These only change if you scan a new source, change title or chapters)</value>
+    <value>Replacement Placeholders: {source} {title} {chapters} {creation-date} {creation-time} {date} {time} {quality_bitrate}</value>
   </data>
   <data name="OptionsView_PathOptions" xml:space="preserve">
-    <value>Available Options: {source_path} {source_folder_name} {source}</value>
+    <value>Replacement Placeholders: {source_path} {source_folder_name} {source}</value>
   </data>
   <data name="FileOverwriteBehaviours_Ask" xml:space="preserve">
     <value>Ask to overwrite file</value>
@@ -1905,7 +1899,7 @@ Non-Live Options: {date} {time} {creation-date} {creation-time} {quality} {bitra
     <value>Encode Completed</value>
   </data>
   <data name="Options_Notifications" xml:space="preserve">
-    <value>Notifications</value>
+    <value>Sound Notifications</value>
   </data>
   <data name="Options_QueueCompleted" xml:space="preserve">
     <value>Queue Completed</value>
@@ -1985,10 +1979,10 @@ Where supported, any user presets will have been imported.</value>
     <value>Remaining drive storage has dropped below {0} GB on the destination drive. Pausing encode...</value>
   </data>
   <data name="AudioDefaultsView_PaneTitle" xml:space="preserve">
-    <value>Configure Automatic Audio Selections</value>
+    <value>Automatic Audio Selections</value>
   </data>
   <data name="SubtitlesDefaultsView_PaneTitle" xml:space="preserve">
-    <value>Configure Automatic Subtitle Selections</value>
+    <value>Automatic Subtitle Selections</value>
   </data>
   <data name="Options_SystemOptions" xml:space="preserve">
     <value>System</value>
@@ -2150,14 +2144,14 @@ Where supported, any user presets will have been imported.</value>
     <value>Port range must be between 5000 and 32767</value>
   </data>
   <data name="OptionsView_SendFileToArgPlaceholders" xml:space="preserve">
-    <value>Replacement Placeholders: {source} {destination}</value>
-    <comment>Note: {source} and {destination} are not translatable. </comment>
+    <value>Replacement Placeholders: {source} {destination} {exit_code}</value>
+    <comment>Note: {source}, {destination} and {exit_code} are not translatable. </comment>
   </data>
   <data name="SourceSelection_UpdateAvailable" xml:space="preserve">
     <value>A new version of HandBrake is available!</value>
   </data>
   <data name="About_Copyright" xml:space="preserve">
-    <value>Copyright (C) 2003-2021 The HandBrake Team</value>
+    <value>Copyright (C) 2003-2022 The HandBrake Team</value>
   </data>
   <data name="Options_LowBatteryLevel" xml:space="preserve">
     <value>Low battery level:</value>
@@ -2250,9 +2244,6 @@ Please choose a different preset.</value>
   </data>
   <data name="PictureSettingsView_RotateAndCrop" xml:space="preserve">
     <value>Orientation and Cropping:</value>
-  </data>
-  <data name="OptionsView_Win10Only" xml:space="preserve">
-    <value>( Windows 10 Only! )</value>
   </data>
   <data name="QueueView_FilterSettings" xml:space="preserve">
     <value>Filters:</value>
@@ -2428,15 +2419,6 @@ Please choose a different preset.</value>
   <data name="OptionsView_SafeMode" xml:space="preserve">
     <value>Warning: Please note that this is a "Safe Mode" build of HandBrake that does not include support for hardware encoders. If you wish to use hardware encoder support, please download a non-"Safe Mode" build from the website.</value>
   </data>
-  <data name="OldOperatingSystem" xml:space="preserve">
-    <value>Please be aware that HandBrake is no longer supported on any version of Windows 7 or Windows 8.
-
-While you can continue using the application at your own risk, please be aware that certain features are non-functional and there may be other unknown issues. There is no support available when these issues occur. 
-
-Support for Windows 7 and 8 was deprecated in the 1.3 series. This means there will be no further updates to correct issues on these platforms. 
-
-This warning will display only twice.</value>
-  </data>
   <data name="PadColour_Black" xml:space="preserve">
     <value>Black</value>
   </data>
@@ -2489,5 +2471,155 @@ You can change your choice at any time by changing the options in Preferences -&
   </data>
   <data name="FirstRun_EnableUpdateCheckHeader" xml:space="preserve">
     <value>Check for updates?</value>
+  </data>
+  <data name="OptionsViewModel_UpdateNotice" xml:space="preserve">
+    <value>Before Updating:
+- Make sure there are no pending encodes in the queue. 
+- Backup or make a note of any custom presets you have created as they may not be fully compatible with newer versions.</value>
+  </data>
+  <data name="Preset_Default" xml:space="preserve">
+    <value>(Default)</value>
+  </data>
+  <data name="PresetDisplayMode_Category" xml:space="preserve">
+    <value>Categories</value>
+  </data>
+  <data name="PresetDisplayMode_Flat" xml:space="preserve">
+    <value>Flat</value>
+  </data>
+  <data name="PresetDisplayMode_Partial" xml:space="preserve">
+    <value>Partially Flat</value>
+  </data>
+  <data name="OptionsView_PresetDisplayMode" xml:space="preserve">
+    <value>Choose how presets are displayed in menus:</value>
+  </data>
+  <data name="QueueView_SelectedPresets" xml:space="preserve">
+    <value>Preset:</value>
+  </data>
+  <data name="LogViewModel_Complete" xml:space="preserve">
+    <value>[Finished]</value>
+  </data>
+  <data name="QueueViewModel_EditJob" xml:space="preserve">
+    <value>Edit Job?</value>
+  </data>
+  <data name="QueueView_Length" xml:space="preserve">
+    <value>Output Length:</value>
+  </data>
+  <data name="QueueView_MoveToBottom" xml:space="preserve">
+    <value>Move To Bottom</value>
+  </data>
+  <data name="QueueView_MoveToTop" xml:space="preserve">
+    <value>Move To Top</value>
+  </data>
+  <data name="QueueView_VideoOutputBitrate" xml:space="preserve">
+    <value>Output Bitrate:</value>
+  </data>
+  <data name="QueueView_AverageEncodeSpeed" xml:space="preserve">
+    <value>Average Encoding Speed:</value>
+  </data>
+  <data name="QueueViewModel_DifferenceText" xml:space="preserve">
+    <value> of source file</value>
+  </data>
+  <data name="QueueViewModel_NotAvailable" xml:space="preserve">
+    <value>Not Available</value>
+  </data>
+  <data name="QueueView_SourceLength" xml:space="preserve">
+    <value>Source Length:</value>
+  </data>
+  <data name="Options_Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="OptionsViewModel_ResetHandBrakePresetsQuestion" xml:space="preserve">
+    <value>Are you sure you wish to reset all built-in presets?</value>
+  </data>
+  <data name="OptionsView_ResetBuildInPresets" xml:space="preserve">
+    <value>Reset all built-in presets to HandBrake defaults:</value>
+  </data>
+  <data name="OptionsView_ResetBuildInPresetsNotice" xml:space="preserve">
+    <value>(User presets will not be reset)</value>
+  </data>
+  <data name="OptionsView_ResetSettingsToDefaults" xml:space="preserve">
+    <value>Reset all HandBrake settings back to defaults:</value>
+  </data>
+  <data name="Options_BuiltInPresets" xml:space="preserve">
+    <value>Built In Presets</value>
+  </data>
+  <data name="Options_UserSettings" xml:space="preserve">
+    <value>User Settings</value>
+  </data>
+  <data name="PresetDisplayMode_FloatingPanel" xml:space="preserve">
+    <value>Floating Treeview</value>
+  </data>
+  <data name="QueueViewModel_PlayFileErrorSolution" xml:space="preserve">
+    <value>Please make sure you have appropriate file associations setup in Windows to allow it to open this file with a supported video player</value>
+  </data>
+  <data name="QueueViewModel_ImportFail" xml:space="preserve">
+    <value>Unable to read the queue file.</value>
+  </data>
+  <data name="QueueViewModel_ImportFailSolution" xml:space="preserve">
+    <value>The file may be corrupted or from an earlier version of HandBrake. 
+Only queue files from the current version are supported.</value>
+  </data>
+  <data name="Notifications_EncodeDone" xml:space="preserve">
+    <value>Your HandBrake encode is done!</value>
+  </data>
+  <data name="Notifications_QueueDone" xml:space="preserve">
+    <value>Your HandBrake queue is done!</value>
+  </data>
+  <data name="OptionsView_NotificationRemovalSubText" xml:space="preserve">
+    <value>This will also disable the show windows taskbar notifications options on the 'When Done' tab. Re-enable these if you want to re-activate this feature.</value>
+  </data>
+  <data name="OptionsView_NotificationRemovalText" xml:space="preserve">
+    <value>Remove HandBrake from the Windows notifications control panel.</value>
+  </data>
+  <data name="OptionsView_UninstallMessageBoxHeader" xml:space="preserve">
+    <value>Uninstalled</value>
+  </data>
+  <data name="OptionsView_UninstallMessageBoxText" xml:space="preserve">
+    <value>Notification settings have been removed.</value>
+  </data>
+  <data name="OptionsView_UninstallToast" xml:space="preserve">
+    <value>Clear &amp; Uninstall</value>
+  </data>
+  <data name="OptionsView_WindowsNotification" xml:space="preserve">
+    <value>Send a notification to the Windows Taskbar.</value>
+  </data>
+  <data name="OptionsView_WindowsNotificationsBanner" xml:space="preserve">
+    <value>Windows Notifications</value>
+  </data>
+  <data name="Main_QueueMultiJobStatus" xml:space="preserve">
+    <value>{0} jobs completed. {1}Working on {2} jobs with {3} waiting to be processed.</value>
+  </data>
+  <data name="MainView_AutonameRegenerate" xml:space="preserve">
+    <value>Regenerate (Autoname)</value>
+  </data>
+  <data name="MainView_OpenDirectory" xml:space="preserve">
+    <value>Open this Directory</value>
+  </data>
+  <data name="Shared_CollapseAll" xml:space="preserve">
+    <value>Collapse All</value>
+  </data>
+  <data name="Shared_ExpandAll" xml:space="preserve">
+    <value>Expand All</value>
+  </data>
+  <data name="OptionsView_RightToleftMode" xml:space="preserve">
+    <value>Right to Left display mode:</value>
+  </data>
+  <data name="RightToLeft_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="RightToLeft_TextOnly" xml:space="preserve">
+    <value>Text Only</value>
+  </data>
+  <data name="RightToLeft_WholeInterface" xml:space="preserve">
+    <value>Entire User Interface</value>
+  </data>
+  <data name="SourceSelection_NightlyUpdate" xml:space="preserve">
+    <value>The current development build you are running is getting old. You may wish to update!</value>
+  </data>
+  <data name="SourceSelection_NightlyUpdateUrl" xml:space="preserve">
+    <value>Download via Github</value>
+  </data>
+  <data name="MainView_NightlyBuildsUpdate" xml:space="preserve">
+    <value>Download Development Builds (HTTPS)</value>
   </data>
 </root>

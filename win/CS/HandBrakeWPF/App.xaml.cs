@@ -15,9 +15,10 @@ namespace HandBrakeWPF
     using System.IO;
     using System.Linq;
     using System.Threading;
-    using System.Threading.Tasks;
     using System.Windows;
     using System.Windows.Controls;
+    using System.Windows.Interop;
+    using System.Windows.Media;
 
     using Caliburn.Micro;
 
@@ -58,9 +59,8 @@ namespace HandBrakeWPF
         /// </param>
         protected override void OnStartup(StartupEventArgs e)
         {
-            // We don't support Windows XP / 2003 / 2003 R2 / Vista / 2008
-            OperatingSystem os = Environment.OSVersion;
-            if (((os.Platform == PlatformID.Win32NT) && (os.Version.Major == 5)) || ((os.Platform == PlatformID.Win32NT) && (os.Version.Major == 6 && os.Version.Minor < 1)))
+            // We don't support Windows earlier than 10.
+            if (!SystemInfo.IsWindows10OrLater())
             {
                 MessageBox.Show(HandBrakeWPF.Properties.Resources.OsVersionWarning, HandBrakeWPF.Properties.Resources.Warning, MessageBoxButton.OK, MessageBoxImage.Warning);
                 Application.Current.Shutdown();
@@ -121,9 +121,11 @@ namespace HandBrakeWPF
             }
 
             int runCounter = userSettingService.GetUserSetting<int>(UserSettingConstants.RunCounter);
-            if (!SystemInfo.IsWindows10() && runCounter < 2)
+
+            // Software Rendering 
+            if (e.Args.Any(f => f.Equals("--force-software-rendering")) || Portable.IsForcingSoftwareRendering() || userSettingService.GetUserSetting<bool>(UserSettingConstants.ForceSoftwareRendering))
             {
-                MessageBox.Show(HandBrakeWPF.Properties.Resources.OldOperatingSystem, HandBrakeWPF.Properties.Resources.Warning, MessageBoxButton.OK, MessageBoxImage.Warning);
+                RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             }
 
             // Check if the user would like to check for updates AFTER the first run, but only once. 
@@ -137,39 +139,50 @@ namespace HandBrakeWPF
 
             // App Theme
             DarkThemeMode useDarkTheme = (DarkThemeMode)userSettingService.GetUserSetting<int>(UserSettingConstants.DarkThemeMode);
-            if (SystemInfo.IsWindows10())
+            ResourceDictionary dark = new ResourceDictionary { Source = new Uri("pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Blue.xaml") };
+            ResourceDictionary light = new ResourceDictionary { Source = new Uri("pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml") };
+
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Generic.xaml", UriKind.Relative) });
+            bool themed = false;
+            switch (useDarkTheme)
             {
-                ResourceDictionary theme = new ResourceDictionary();
-                switch (useDarkTheme)
-                {
-                    case DarkThemeMode.System:
-                        if (SystemInfo.IsAppsUsingDarkTheme())
-                        {
-                            theme.Source = new Uri("Themes/Dark.xaml", UriKind.Relative);
-                            Application.Current.Resources.MergedDictionaries.Add(theme);
-                        }
-                        else if (!SystemParameters.HighContrast)
-                        {
-                            theme.Source = new Uri("Themes/Light.xaml", UriKind.Relative);
-                            Application.Current.Resources.MergedDictionaries.Add(theme);
-                        }
+                case DarkThemeMode.System:
+                    if (SystemParameters.HighContrast)
+                    {
                         break;
-                    case DarkThemeMode.Dark:
-                        theme.Source = new Uri("Themes/Dark.xaml", UriKind.Relative);
-                        Application.Current.Resources.MergedDictionaries.Add(theme);
-                        break;
-                    case DarkThemeMode.Light:
-                        if (!SystemParameters.HighContrast)
-                        {
-                            theme.Source = new Uri("Themes/Light.xaml", UriKind.Relative);
-                            Application.Current.Resources.MergedDictionaries.Add(theme);
-                        }
+                    }
 
-                        break;
+                    if (SystemInfo.IsAppsUsingDarkTheme())
+                    {
+                        Application.Current.Resources.MergedDictionaries.Add(dark);
+                        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Dark.xaml", UriKind.Relative) });
+                    }
+                    else
+                    {
+                        Application.Current.Resources.MergedDictionaries.Add(light);
+                        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Light.xaml", UriKind.Relative) });
+                    }
 
-                    default:
-                        break;
-                }
+                    themed = true;
+
+                    break;
+                case DarkThemeMode.Dark:
+                    Application.Current.Resources.MergedDictionaries.Add(dark);
+                    Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Dark.xaml", UriKind.Relative) });
+                    themed = true;                    
+                    break;
+                case DarkThemeMode.Light:
+                    Application.Current.Resources.MergedDictionaries.Add(light);
+                    Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Light.xaml", UriKind.Relative) });
+                    themed = true;
+                    break;
+            }
+
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Views/Styles/Styles.xaml", UriKind.Relative) });
+
+            if (themed)
+            {
+                Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Views/Styles/ThemedStyles.xaml", UriKind.Relative) });
             }
 
             // NO-Hardware Mode

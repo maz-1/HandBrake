@@ -140,7 +140,7 @@ HQDN3D è un filtro passa-basso adattivo, più veloce di NLMeans ma meno efficac
     <value>Il Detelecine rimuove gli artefatti che sono il risultato del telecine, un processo per convertire la frequenza dei fotogrammi da film nella frequenza dei fotogrammi televisiva.</value>
   </data>
   <data name="FilterView_Grayscale" xml:space="preserve">
-    <value>Scala di grigi rimuove le componenti colore del video. Tipico effetto bianco e nero.</value>
+    <value>Scala di Grigi rimuove le componenti colore del video. È l'effetto bianco e nero.</value>
   </data>
   <data name="MainView_Destination" xml:space="preserve">
     <value>Il percorso di destinazione, inclusa la cartella ed il nome file. Qui è scritto dove verrà creato il video e quale sarà il suo nome.</value>
@@ -325,7 +325,9 @@ Sovrascrivono tutte le opzioni di codifica. Le opzioni possono comunque essere m
     <value>Rimuove la preimpostazione selezionata.</value>
   </data>
   <data name="SourceSelection_TitleSpecific" xml:space="preserve">
-    <value>Scansiona solamente il titolo specificato invece di tutti i titoli.</value>
+    <value>Alcune Sorgenti potrebbero contenere più di una clip video, oppure una collana di Titoli. Fonti da DVD o Blu-Ray spesso sono composte da vari Titoli.
+
+Se desideri codificare un Titolo specifico puoi inserirlo qui: HandBrake scansionerà solo quel Titolo invece di tutto il file sorgente. Altrimenti, lasciare lo spazio vuoto.</value>
   </data>
   <data name="FilterView_CustomDenoiseParams" xml:space="preserve">
     <value>Parametri Personalizzati di Riduzione del Rumore.
@@ -421,11 +423,11 @@ Sintassi Lapsharp: y-strength=y:y-kernel=y:cb-strength=c:cb-kernel=c:cr-strength
 Predefinito Lapsharp: y-strength=0.2:y-kernel=isolap:cb-strength=0.2:cb-kernel=isolap</value>
   </data>
   <data name="FilterView_Sharpen" xml:space="preserve">
-    <value>La Nitidezza migliora l'aspetto dei dettagli, in particolare i bordi. Impostazioni di Nitidezza eccessivamente forti possono danneggiare la qualità delle immagini creando artefatti ad anello ed aumentando il rumore, il che può ridurre l'efficienza di compressione.
+    <value>La Nitidezza migliora l'aspetto dei dettagli, in particolare i bordi. Impostazioni di Nitidezza eccessivamente forti possono danneggiare la qualità delle immagini creando artefatti a corona ed aumentando il rumore, il che può ridurre l'efficienza di compressione.
 
 Unsharp è un filtro di mascheramento a sfocatura generico. Aumenta la nitidezza prima sfocando, poi calcolando la differenza tra l'immagine sfocata e l'originale.
 
-Lapsharp aumenta la nitidezza usando i kernel di convoluzione approssimando i filtri di bordo laplaciani, spesso producendo risultati di qualità superiore rispetto al mascheramento a sfocatura. </value>
+Lapsharp aumenta la nitidezza usando matrici di convoluzione, approssimando filtri di bordo laplaciani. Solitamente si ottengono risultati di qualità superiore rispetto al mascheramento a sfocatura.</value>
   </data>
   <data name="FilterView_SharpenPreset" xml:space="preserve">
     <value>Preimpostazione filtro nitidezza. Imposta la potenza del filtro.</value>
@@ -476,5 +478,43 @@ Se disabilitato, userà il percorso di destinazione nella casella della finestra
 Attenzione, verrà abilitato automaticamente se il formato della traccia dei sottotitoli nella sorgente non è supportato dal file di uscita.
 
 Ad esempio, i sottotitoli in formato PGS non sono supportati dall'MP4</value>
+  </data>
+  <data name="OptionsView_PresetDisplayModes" xml:space="preserve">
+    <value>Semplice - Le preimpostazioni sono mostrate in una lista semplice.
+Parzialmente Semplice - Le ultime 8 preimpostazioni dell'utente sono mostrate in una lista semplice, seguite da tutte le altre preimpostazioni in una lista divisa per categoria.
+Per Categoria - Tutte le preimpostazioni sono nel sottomenù della rispettiva categoria.</value>
+  </data>
+  <data name="AudioView_AudioDefaults" xml:space="preserve">
+    <value>Comportamento preparativo che decide come questa scheda debba aggiungere tracce audio quando si seleziona una nuova sorgente od un nuovo Titolo.</value>
+  </data>
+  <data name="BehavioursReload" xml:space="preserve">
+    <value>Ricarica la lista sottostante secondo comportamento configurato.</value>
+  </data>
+  <data name="SubtitleView_SubtitleDefaults" xml:space="preserve">
+    <value>Comportamento preparativo che decide come questa scheda debba aggiungere tracce dei sottotitoli quando si seleziona una nuova sorgente od un nuovo Titolo.</value>
+  </data>
+  <data name="OptionsView_SendFileToArguments" xml:space="preserve">
+    <value>Le seguenti variabili d'ambiente sono sempre impostate:
+HB_SOURCE
+HB_DESTINATION
+HB_EXIT_CODE
+
+Possibili codici di errore possono essere:
+0 : Terminato con Successo
+2 : Errore Argomenti Ingresso
+3 : Inizializzazione Impossibile 
+4 : Errore Sconosciuto
+5 : Errore lettura file sorgente.
+
+Nota Bene: i codici di errore sono supposizioni e potrebbero quindi non essere corretti.
+È raccomandabile di validare i file di uscita prima di compiere azioni su di essi.</value>
+  </data>
+  <data name="Options_AdditionalFormatOptions" xml:space="preserve">
+    <value>Il formato del nome del file di uscita. Oltre a tutti i caratteri supportati dal file system, è possibile usare un qualsiasi segnaposto che verrà poi sostituito al cambio di Titolo, alla scansione di una sorgente od al cambio di determinate impostazioni.</value>
+  </data>
+  <data name="OptionsView_RightToleftMode" xml:space="preserve">
+    <value>Per le lingue che si leggono da destra a sinistra, è possibile abilitare una di queste due modalità:  "Solo Testo" scriverà esclusivamente i testi da destra a sinistra,  "Interfaccia Utente Completa" mostrerà così anche gli altri elementi grafici.
+
+Usando una di queste modalità, potrebbero esserci dei problemi nella visualizzazione dell'interfaccia. A secoda della lingua, potrebbe essere necessario provare quale delle due funziona meglio.</value>
   </data>
 </root>
