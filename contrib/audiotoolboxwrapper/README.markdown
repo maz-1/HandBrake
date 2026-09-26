@@ -1,6 +1,6 @@
 # Windows Apple AAC support
 
-This fork uses [AudioToolboxWrapper v0.4](https://github.com/maz-1/AudioToolboxWrapper)
+This fork uses [AudioToolboxWrapper](https://github.com/maz-1/AudioToolboxWrapper/tree/34559baa33baa9706b7db02f93457e0d45951e16)
 to expose Apple's AAC and HE-AAC encoders on Windows. Enable it when configuring
 the native library and CLI, for example from a Linux cross-build environment:
 
@@ -25,7 +25,7 @@ environment without Apple DLLs: startup should succeed and neither encoder
 should be listed. In the GUI, save and reload a preset with each Apple encoder
 and verify that the selection and fallback encoder survive.
 
-The build sets a CMake policy compatibility floor, and the local contrib patch
-adds the AAC 7.1 layout tag required by the current encoder. The wrapper has no
-pkg-config metadata, so the CLI links it explicitly together with its Windows
-system dependencies.
+The wrapper supplies the AAC 7.1 layout tag required by the current encoder.
+The build sets a CMake policy compatibility floor. The wrapper has no pkg-config
+metadata, so the CLI links it explicitly together with its Windows system
+dependencies.

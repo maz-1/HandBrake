@@ -1,8 +1,9 @@
 $(eval $(call import.MODULE.defs,AUDIOTOOLBOXWRAPPER,audiotoolboxwrapper))
 $(eval $(call import.CONTRIB.defs,AUDIOTOOLBOXWRAPPER))
 
-AUDIOTOOLBOXWRAPPER.FETCH.url     = https://github.com/maz-1/AudioToolboxWrapper/releases/download/v0.4/AudioToolboxWrapper-v0.4.tar.gz
-AUDIOTOOLBOXWRAPPER.FETCH.sha256  = ea296c2bdbd4d5626eef9678d4326e1098cd11b9fc482d9784d19c86b16b4dc4
+AUDIOTOOLBOXWRAPPER.FETCH.url      = https://github.com/maz-1/AudioToolboxWrapper/archive/34559baa33baa9706b7db02f93457e0d45951e16.tar.gz
+AUDIOTOOLBOXWRAPPER.FETCH.sha256   = 5859aaf8395099225b79e1c0463c9cd6c4ff15e0a067fb9e7cc6731d9697b91c
+AUDIOTOOLBOXWRAPPER.FETCH.basename = AudioToolboxWrapper-34559baa33baa9706b7db02f93457e0d45951e16.tar.gz
 
 AUDIOTOOLBOXWRAPPER.build_dir             = build
 AUDIOTOOLBOXWRAPPER.CONFIGURE.exe         = cmake
@@ -13,7 +14,7 @@ AUDIOTOOLBOXWRAPPER.CONFIGURE.deps        =
 AUDIOTOOLBOXWRAPPER.CONFIGURE.static      =
 AUDIOTOOLBOXWRAPPER.CONFIGURE.shared      = -DBUILD_SHARED_LIBS=OFF
 AUDIOTOOLBOXWRAPPER.CONFIGURE.extra       = -G "Unix Makefiles"
-# The v0.4 project requests CMake 3.0 policies, which CMake 4 no longer supports.
+# The wrapper requests CMake 3.0 policies, which CMake 4 no longer supports.
 AUDIOTOOLBOXWRAPPER.CONFIGURE.extra      += -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 ifeq (1,$(HOST.cross))

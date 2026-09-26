@@ -1,7 +1,0 @@
-diff --git a/include/AudioToolbox/CoreAudio/CoreAudioTypes.h b/include/AudioToolbox/CoreAudio/CoreAudioTypes.h
---- a/include/AudioToolbox/CoreAudio/CoreAudioTypes.h
-+++ b/include/AudioToolbox/CoreAudio/CoreAudioTypes.h
-@@ -293,2 +293,3 @@
-     kAudioChannelLayoutTag_AAC_7_1                  = kAudioChannelLayoutTag_MPEG_7_1_B,    // C Lc Rc L R Ls Rs Lfe
-+    kAudioChannelLayoutTag_AAC_7_1_B                = (183L<<16) | 8,                       // C L R Ls Rs Rls Rrs LFE
-     kAudioChannelLayoutTag_AAC_Octagonal            = (144L<<16) | 8,                       // C L R Ls Rs Rls Rrs Cs
