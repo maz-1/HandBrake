@@ -135,10 +135,13 @@ static NSDictionary<NSString *, NSNumber *> *localizedReversedMixdownsNames;
           @"Stereo": HBKitLocalizedString(@"Stereo", @"HBAudio -> Mixdown"),
           @"Dolby Surround": HBKitLocalizedString(@"Dolby Surround", @"HBAudio -> Mixdown"),
           @"Dolby Pro Logic II": HBKitLocalizedString(@"Dolby Pro Logic II", @"HBAudio -> Mixdown"),
+          @"3.0 Channels": HBKitLocalizedString(@"3.0 Channels", @"HBAudio -> Mixdown"),
+          @"4.0 Channels": HBKitLocalizedString(@"4.0 Channels", @"HBAudio -> Mixdown"),
+          @"Quadrophonic": HBKitLocalizedString(@"Quadrophonic", @"HBAudio -> Mixdown"),
           @"5.1 Channels": HBKitLocalizedString(@"5.1 Channels", @"HBAudio -> Mixdown"),
           @"6.1 Channels": HBKitLocalizedString(@"6.1 Channels", @"HBAudio -> Mixdown"),
           @"7.1 Channels": HBKitLocalizedString(@"7.1 Channels", @"HBAudio -> Mixdown"),
-          @"7.1 (5F/2R/LFE)": HBKitLocalizedString(@"7.1 (5F/2R/LFE)", @"HBAudio -> Mixdown"),
+          @"7.1 (SDDS)": HBKitLocalizedString(@"7.1 (SDDS)", @"HBAudio -> Mixdown"),
           };
 
         localizedReversedMixdownsNames =
@@ -149,10 +152,13 @@ static NSDictionary<NSString *, NSNumber *> *localizedReversedMixdownsNames;
           HBKitLocalizedString(@"Stereo", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_STEREO),
           HBKitLocalizedString(@"Dolby Surround", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_DOLBY),
           HBKitLocalizedString(@"Dolby Pro Logic II", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_DOLBYPLII),
+          HBKitLocalizedString(@"3.0 Channels", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_3POINT0),
+          HBKitLocalizedString(@"4.0 Channels", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_4POINT0),
+          HBKitLocalizedString(@"Quadrophonic", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_QUAD),
           HBKitLocalizedString(@"5.1 Channels", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_5POINT1),
           HBKitLocalizedString(@"6.1 Channels", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_6POINT1),
           HBKitLocalizedString(@"7.1 Channels", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_7POINT1),
-          HBKitLocalizedString(@"7.1 (5F/2R/LFE)", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_5_2_LFE),
+          HBKitLocalizedString(@"7.1 (SDDS)", @"HBAudio -> Mixdown"): @(HB_AMIXDOWN_7POINT1_SDDS),
           };
     }
 }
@@ -175,14 +181,20 @@ static NSDictionary<NSString *, NSNumber *> *localizedReversedMixdownsNames;
             return HBKitLocalizedString(@"Dolby Surround", @"HBAudio -> Mixdown");
         case HB_AMIXDOWN_DOLBYPLII:
             return HBKitLocalizedString(@"Dolby Pro Logic II", @"HBAudio -> Mixdown");
+        case HB_AMIXDOWN_3POINT0:
+            return HBKitLocalizedString(@"3.0 Channels", @"HBAudio -> Mixdown");
+        case HB_AMIXDOWN_4POINT0:
+            return HBKitLocalizedString(@"4.0 Channels", @"HBAudio -> Mixdown");
+        case HB_AMIXDOWN_QUAD:
+            return HBKitLocalizedString(@"Quadrophonic", @"HBAudio -> Mixdown");
         case HB_AMIXDOWN_5POINT1:
             return HBKitLocalizedString(@"5.1 Channels", @"HBAudio -> Mixdown");
         case HB_AMIXDOWN_6POINT1:
             return HBKitLocalizedString(@"6.1 Channels", @"HBAudio -> Mixdown");
         case HB_AMIXDOWN_7POINT1:
             return HBKitLocalizedString(@"7.1 Channels", @"HBAudio -> Mixdown");
-        case HB_AMIXDOWN_5_2_LFE:
-            return HBKitLocalizedString(@"7.1 (5F/2R/LFE)", @"HBAudio -> Mixdown");
+        case HB_AMIXDOWN_7POINT1_SDDS:
+            return HBKitLocalizedString(@"7.1 (SDDS)", @"HBAudio -> Mixdown");
         default:
         {
             const char *name = hb_mixdown_get_name(mixdown);

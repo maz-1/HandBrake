@@ -10,7 +10,10 @@
 namespace HandBrakeWPF.Services.Scan.Interfaces
 {
     using System;
+    using System.Collections.Generic;
     using System.Windows.Media.Imaging;
+
+    using HandBrake.Interop.Interop.Json.Shared;
 
     using HandBrakeWPF.Services.Encode.Model;
     using HandBrakeWPF.Services.Scan.EventArgs;
@@ -76,7 +79,7 @@ namespace HandBrakeWPF.Services.Scan.Interfaces
         /// <param name="postAction">
         /// The post Action.
         /// </param>
-        void Scan(string sourcePath, int title, Action<bool, Source> postAction);
+        void Scan(List<string> sourcePath, int title, Action<bool, Source> postAction);
 
         /// <summary>
         /// Cancel the current scan.
@@ -92,10 +95,13 @@ namespace HandBrakeWPF.Services.Scan.Interfaces
         /// <param name="preview">
         /// The preview.
         /// </param>
+        /// <param name="showCropBoundaries">Render crop boundary borders on the preview image.</param>
         /// <returns>
         /// The <see cref="BitmapImage"/>.
         /// </returns>
-        BitmapImage GetPreview(EncodeTask task, int preview);
+        BitmapImage GetPreview(EncodeTask task, int preview, bool showCropBoundaries);
+
+        BitmapImage GetCoverArt(CoverArt artwork, int title);
 
         /// <summary>
         /// Kill the scan

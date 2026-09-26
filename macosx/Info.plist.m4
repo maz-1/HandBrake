@@ -55,10 +55,14 @@ dnl
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>__HB_build</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.video</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
+	<key>LSRequiresNativeExecution</key>
+	<true />
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2003-2022 __HB_name Team.
+	<string>Copyright © 2003-2026 __HB_name Team.
 GPLv2 license.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
@@ -66,8 +70,8 @@ GPLv2 license.</string>
 	<string>HBApplication</string>
 	<key>SUFeedURL</key>
 	<string>__HB_url_appcast</string>
-	<key>SUPublicDSAKeyFile</key>
-	<string>dsa_pub.pem</string>
+	<key>SUPublicEDKey</key>
+	<string>aeDqvDkdHhSaNiWXf13dD72+hwWhLz6jD4sdHGP+Vbg=</string>
 	<key>SUAllowsAutomaticUpdates</key>
 	<false/>
 	<key>SUEnableDownloaderService</key>
@@ -80,5 +84,7 @@ GPLv2 license.</string>
 	<string>HandBrake needs access to shut down or put the computer to sleep</string>
 	<key>NSAppleScriptEnabled</key>
 	<true/>
+	<key>NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac</key>
+	<true />
 </dict>
 </plist>

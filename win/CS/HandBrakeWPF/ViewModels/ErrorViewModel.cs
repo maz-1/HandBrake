@@ -14,6 +14,8 @@ namespace HandBrakeWPF.ViewModels
     using System.IO;
     using System.Windows;
 
+    using HandBrake.App.Core.Utilities;
+
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Utilities;
@@ -48,7 +50,7 @@ namespace HandBrakeWPF.ViewModels
             set
             {
                 this.details = value;
-                this.NotifyOfPropertyChange("Details");
+                this.NotifyOfPropertyChange(() =>this.Details);
                 if (this.details != Resources.ErrorViewModel_NoFurtherInformation)
                 {
                     this.AppendExceptionLog(this.Details);
@@ -66,7 +68,7 @@ namespace HandBrakeWPF.ViewModels
             set
             {
                 this.errorMessage = value;
-                this.NotifyOfPropertyChange("ErrorMessage");
+                this.NotifyOfPropertyChange(() => this.ErrorMessage);
             }
         }
 
@@ -80,7 +82,7 @@ namespace HandBrakeWPF.ViewModels
             set
             {
                 this.solution = value;
-                this.NotifyOfPropertyChange("Solution");
+                this.NotifyOfPropertyChange(() => this.Solution);
             }
         }
 
@@ -88,7 +90,7 @@ namespace HandBrakeWPF.ViewModels
         {
             try
             {
-                this.TryCloseAsync();
+                this.TryClose();
             }
             catch (Exception e)
             {
@@ -118,7 +120,6 @@ namespace HandBrakeWPF.ViewModels
                 {
                     sw.WriteLine(exc + Environment.NewLine);
                 }
-
             }
             catch (Exception e)
             {

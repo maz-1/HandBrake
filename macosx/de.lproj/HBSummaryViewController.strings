@@ -11,7 +11,7 @@
 "CZZ-bW-jZc.title" = "Metadaten-Passthru";
 
 /* Class = "NSButtonCell"; title = "Align A/V Start"; ObjectID = "De0-Je-MAm"; */
-"De0-Je-MAm.title" = "A/V synchron";
+"De0-Je-MAm.title" = "A/V synchronisieren";
 
 /* Class = "NSButton"; ibShadowedToolTip = "Copy metadata from source to output"; ObjectID = "eJx-BO-rhL"; */
 "eJx-BO-rhL.ibShadowedToolTip" = "Kopiert die Metadaten der Quelldatei in die Ausgabedatei";
@@ -22,23 +22,14 @@
 /* Class = "NSTextField"; ibExternalAccessibilityDescription = "Size summary"; ObjectID = "Jaw-pH-rhf"; */
 "Jaw-pH-rhf.ibExternalAccessibilityDescription" = "Größenübersicht";
 
-/* Class = "NSButton"; ibShadowedToolTip = "Optimize MP4 for progressive download. After encoding, data is reorganized and rewritten to allow immediate playback over a network, without needing to download the entire file."; ObjectID = "JNB-kV-52S"; */
-"JNB-kV-52S.ibShadowedToolTip" = "Optimiert MP4 für den schrittweißen Download. Nach der Encodierung werden die Daten so umgeschrieben, dass ein direktes Abspielen übers Internet ermöglicht wird ohne den gesamten Film herunterladen zu müssen.";
-
-/* Class = "NSButton"; ibShadowedToolTip = "Optimize MP4 for progressive download. After encoding, data is reorganized and rewritten to allow immediate playback over a network, without needing to download the entire file."; ObjectID = "lUi-Oc-208"; */
-"lUi-Oc-208.ibShadowedToolTip" = "Optimiert MP4 für den schrittweißen Download. Nach der Encodierung werden die Daten so umgeschrieben, dass ein direktes Abspielen übers Internet ermöglicht wird ohne den gesamten Film herunterladen zu müssen.";
+/* Class = "NSButton"; ibShadowedToolTip = "Optimize for progressive download. After encoding, data is reorganized and rewritten to allow immediate playback over a network, without needing to download the entire file."; ObjectID = "lUi-Oc-208"; */
+"lUi-Oc-208.ibShadowedToolTip" = "Optimiert für den schrittweisen Download. Nach der Encodierung werden die Daten so umgeschrieben, dass ein direktes Abspielen übers Internet ermöglicht wird ohne den gesamten Film herunterladen zu müssen.";
 
 /* Class = "NSView"; ibExternalAccessibilityDescription = "Preview"; ObjectID = "m5a-0z-QQ4"; */
 "m5a-0z-QQ4.ibExternalAccessibilityDescription" = "Vorschau";
 
-/* Class = "NSButtonCell"; title = "Web Optimized"; ObjectID = "ma8-UR-dx2"; */
-"ma8-UR-dx2.title" = "Web-optimiert";
-
 /* Class = "NSTextFieldCell"; title = "Filters:"; ObjectID = "OCw-f6-uA0"; */
 "OCw-f6-uA0.title" = "Filter:";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "Q1Z-yT-7iY"; */
-"Q1Z-yT-7iY.title" = "OtherViews";
 
 /* Class = "NSButton"; ibShadowedToolTip = "Add a special MP4 marker to allow playback on vintage iPod 5th Generation devices circa 2006. Other settings may affect compatibility."; ObjectID = "QKv-GR-d2g"; */
 "QKv-GR-d2g.ibShadowedToolTip" = "Fügt einen speziellen MP4-Marker hinzu um das Abspielen auf alten iPod der 5. Generation (ca. 2006) zu ermöglichen. Andere Einstellungen können möglicherweise die Kompatibilität beeinflussen.";
@@ -50,7 +41,7 @@
 "RXJ-DZ-4mh.title" = "Format:";
 
 /* Class = "NSPopUpButton"; ibShadowedToolTip = "Container format. Video, audio, and other tracks are combined into a single file of this type. Affects compatibility."; ObjectID = "txV-1R-WoD"; */
-"txV-1R-WoD.ibShadowedToolTip" = "Kontainerformat. Video, Audio und andere Spuren werden zu einer Datei kombiniert. Kann die Kompatibilität beeinflussen.";
+"txV-1R-WoD.ibShadowedToolTip" = "Containerformat. Video, Audio und andere Spuren werden zu einer Datei kombiniert. Kann die Kompatibilität beeinflussen.";
 
 /* Class = "NSButtonCell"; title = "Web Optimized"; ObjectID = "wcc-5d-Dgj"; */
 "wcc-5d-Dgj.title" = "Web-optimiert";

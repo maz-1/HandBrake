@@ -10,6 +10,7 @@
 #import "HBCodingUtilities.h"
 #import "HBMutablePreset.h"
 #import "NSDictionary+HBAdditions.h"
+#import "HBLocalizationUtilities.h"
 
 #include "handbrake/handbrake.h"
 
@@ -26,6 +27,11 @@ NSString * const HBPictureChangedNotification = @"HBPictureChangedNotification";
 @property (nonatomic, readonly) int autoCropBottom;
 @property (nonatomic, readonly) int autoCropLeft;
 @property (nonatomic, readonly) int autoCropRight;
+
+@property (nonatomic, readonly) int looseAutoCropTop;
+@property (nonatomic, readonly) int looseAutoCropBottom;
+@property (nonatomic, readonly) int looseAutoCropLeft;
+@property (nonatomic, readonly) int looseAutoCropRight;
 
 @property (nonatomic, readwrite) int storageWidth;
 @property (nonatomic, readwrite) int storageHeight;
@@ -82,6 +88,11 @@ NSString * const HBPictureChangedNotification = @"HBPictureChangedNotification";
         _autoCropBottom = title.autoCropBottom;
         _autoCropLeft   = title.autoCropLeft;
         _autoCropRight  = title.autoCropRight;
+
+        _looseAutoCropTop    = title.looseAutoCropTop;
+        _looseAutoCropBottom = title.looseAutoCropBottom;
+        _looseAutoCropLeft   = title.looseAutoCropLeft;
+        _looseAutoCropRight  = title.looseAutoCropRight;
 
         [self updatePictureSettings:0];
 
@@ -565,14 +576,25 @@ NSString * const HBPictureChangedNotification = @"HBPictureChangedNotification";
         if (!(self.undo.isUndoing || self.undo.isRedoing))
         {
             self.updating = YES;
-            if (cropMode == HBPictureCropModeAutomatic)
+            if (cropMode == HBPictureCropModeAutomatic ||
+                cropMode == HBPictureCropModeConservative)
             {
                 // Reset the crop values to those determined right after scan
                 hb_geometry_crop_t geo = {0,};
-                geo.crop[0] = self.autoCropTop;
-                geo.crop[1] = self.autoCropBottom;
-                geo.crop[2] = self.autoCropLeft;
-                geo.crop[3] = self.autoCropRight;
+                if (cropMode == HBPictureCropModeAutomatic)
+                {
+                    geo.crop[0] = self.autoCropTop;
+                    geo.crop[1] = self.autoCropBottom;
+                    geo.crop[2] = self.autoCropLeft;
+                    geo.crop[3] = self.autoCropRight;
+                }
+                else
+                {
+                    geo.crop[0] = self.looseAutoCropTop;
+                    geo.crop[1] = self.looseAutoCropBottom;
+                    geo.crop[2] = self.looseAutoCropLeft;
+                    geo.crop[3] = self.looseAutoCropRight;
+                }
                 hb_rotate_geometry(&geo, &geo, self.angle, self.flip);
                 self.cropTop    = geo.crop[0];
                 self.cropBottom = geo.crop[1];
@@ -728,6 +750,40 @@ NSString * const HBPictureChangedNotification = @"HBPictureChangedNotification";
     {
         [self postChangedNotification];
     }
+}
+
+- (BOOL)validatePadColorCustom:(id *)ioValue error:(NSError * __autoreleasing *)outError
+{
+    BOOL retval = YES;
+
+    if (nil != *ioValue)
+    {
+        NSString *customValue = *ioValue;
+
+        uint32_t color = hb_rgb_lookup_by_name(customValue.UTF8String);
+
+        NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"^0x?([a-f0-9]{6})$"
+                                                                               options:NSRegularExpressionCaseInsensitive
+                                                                                 error:NULL];
+
+        NSUInteger numberOfMatches = [regex numberOfMatchesInString:customValue
+                                                            options:0
+                                                              range:NSMakeRange(0, customValue.length)];
+
+        if (color == 0 && numberOfMatches == 0)
+        {
+            retval = NO;
+            if (outError)
+            {
+                NSDictionary *userInfo = @{NSLocalizedDescriptionKey: HBKitLocalizedString(@"Invalid custom border color.",
+                                           @"HBPicture -> invalid pad custom string description"),
+                                           NSLocalizedRecoverySuggestionErrorKey: @"Try to use either a English color name, or a 0xRRGGBB sequence."};
+                *outError = [NSError errorWithDomain:@"HBPictureError" code:0 userInfo:userInfo];
+            }
+        }
+    }
+
+    return retval;
 }
 
 #pragma mark - Anamorphic
@@ -1179,6 +1235,11 @@ static const char * padModeToString(HBPicturePadMode padMode)
         copy->_autoCropLeft = _autoCropLeft;
         copy->_autoCropRight = _autoCropRight;
 
+        copy->_looseAutoCropTop = _looseAutoCropTop;
+        copy->_looseAutoCropBottom = _looseAutoCropBottom;
+        copy->_looseAutoCropLeft = _looseAutoCropLeft;
+        copy->_looseAutoCropRight = _looseAutoCropRight;
+
         copy->_angle = _angle;
         copy->_flip = _flip;
 
@@ -1229,7 +1290,7 @@ static const char * padModeToString(HBPicturePadMode padMode)
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    [coder encodeInt:3 forKey:@"HBPictureVersion"];
+    [coder encodeInt:4 forKey:@"HBPictureVersion"];
 
     encodeInt(_sourceWidth);
     encodeInt(_sourceHeight);
@@ -1240,6 +1301,11 @@ static const char * padModeToString(HBPicturePadMode padMode)
     encodeInt(_autoCropBottom);
     encodeInt(_autoCropLeft);
     encodeInt(_autoCropRight);
+
+    encodeInt(_looseAutoCropTop);
+    encodeInt(_looseAutoCropBottom);
+    encodeInt(_looseAutoCropLeft);
+    encodeInt(_looseAutoCropRight);
 
     encodeInt(_angle);
     encodeBool(_flip);
@@ -1290,6 +1356,11 @@ static const char * padModeToString(HBPicturePadMode padMode)
     decodeInt(_autoCropBottom); if (_autoCropBottom < 0 || _autoCropBottom > _sourceHeight) { goto fail; }
     decodeInt(_autoCropLeft); if (_autoCropLeft < 0 || _autoCropLeft > _sourceWidth) { goto fail; }
     decodeInt(_autoCropRight); if (_autoCropRight < 0 || _autoCropLeft > _sourceWidth) { goto fail; }
+
+    decodeInt(_looseAutoCropTop); if (_looseAutoCropTop < 0 || _looseAutoCropTop > _sourceHeight) { goto fail; }
+    decodeInt(_looseAutoCropBottom); if (_looseAutoCropBottom < 0 || _looseAutoCropBottom > _sourceHeight) { goto fail; }
+    decodeInt(_looseAutoCropLeft); if (_looseAutoCropLeft < 0 || _looseAutoCropLeft > _sourceWidth) { goto fail; }
+    decodeInt(_looseAutoCropRight); if (_looseAutoCropRight < 0 || _looseAutoCropRight > _sourceWidth) { goto fail; }
 
     decodeInt(_angle); if (_angle != 0 && _angle != 90 && _angle != 180 && _angle != 270) { goto fail; }
     decodeBool(_flip);
@@ -1396,7 +1467,21 @@ fail:
     preset[@"PictureDARWidth"] = @(self.displayWidth);
 
     // Set crop settings
-    preset[@"PictureAutoCrop"] = @((BOOL)(self.cropMode == HBPictureCropModeAutomatic));
+    switch (self.cropMode)
+    {
+        case HBPictureCropModeNone:
+            preset[@"PictureCropMode"] = @2;
+            break;
+        case HBPictureCropModeConservative:
+            preset[@"PictureCropMode"] = @1;
+            break;
+        case HBPictureCropModeAutomatic:
+            preset[@"PictureCropMode"] = @0;
+            break;
+        case HBPictureCropModeCustom:
+            preset[@"PictureCropMode"] = @3;
+            break;
+    }
 
     preset[@"PictureTopCrop"]    = @(self.cropTop);
     preset[@"PictureBottomCrop"] = @(self.cropBottom);
@@ -1420,7 +1505,8 @@ fail:
         preset[@"PicturePadRight"]  = @0;
     }
 
-    switch (self.padColorMode) {
+    switch (self.padColorMode)
+    {
         case HBPicturePadColorModeBlack:
             preset[@"PicturePadColor"] = @"black";
             break;
@@ -1479,20 +1565,24 @@ fail:
     int cl = [cropScale[@"crop-left"] intValue];
     int cr = [cropScale[@"crop-right"] intValue];
 
-    if ([preset[@"PictureAutoCrop"] boolValue])
+    int cropMode = [preset[@"PictureCropMode"] intValue];
+    switch (cropMode)
     {
-        self.cropMode = HBPictureCropModeAutomatic;
-    }
-    else
-    {
-        if (ct == 0 && cb == 0 && cl == 0 && cr == 0)
-        {
+        case 0:
+            self.cropMode = HBPictureCropModeAutomatic;
+            break;
+        case 1:
+            self.cropMode = HBPictureCropModeConservative;
+            break;
+        case 2:
             self.cropMode = HBPictureCropModeNone;
-        }
-        else
-        {
+            break;
+        case 3:
             self.cropMode = HBPictureCropModeCustom;
-        }
+            break;
+        default:
+            self.cropMode = HBPictureCropModeAutomatic;
+            break;
     }
 
     self.cropTop    = ct;
@@ -1577,7 +1667,7 @@ fail:
     else if ([padColor isEqualToString:@"darkslategray"]) { self.padColorMode = HBPicturePadColorModeDarkGray; }
     else if ([padColor isEqualToString:@"slategray"]) { self.padColorMode = HBPicturePadColorModeGray; }
     else if ([padColor isEqualToString:@"white"]) { self.padColorMode = HBPicturePadColorModeWhite; }
-    else if (padColor.length) { self.padMode = HBPicturePadModeCustom; self.padColorCustom = padColor; }
+    else if (padColor.length) { self.padColorMode = HBPicturePadColorModeCustom; self.padColorCustom = padColor; }
     else { self.padColorMode = HBPicturePadColorModeBlack; self.padColorCustom = @""; }
 
     self.padTop    = [pad[@"top"] intValue];

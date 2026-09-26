@@ -14,7 +14,7 @@ namespace HandBrakeWPF.Converters
     using System.Globalization;
     using System.Linq;
 
-    using HandBrakeWPF.Utilities;
+    using HandBrake.App.Core.Utilities;
 
     public class ResourceConverterBase<T>
     {

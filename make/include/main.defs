@@ -2,6 +2,7 @@ include $(SRC/)make/include/base.defs
 include $(SRC/)make/include/contrib.defs
 include $(SRC/)make/include/function.defs
 include $(SRC/)make/include/gcc.defs
+include $(SRC/)make/include/metal.defs
 include $(SRC/)make/include/target.defs
 include $(SRC/)make/include/tool.defs
 
@@ -17,7 +18,6 @@ ifneq (,$(filter $(HOST.system),darwin cygwin mingw))
     MODULES += contrib/freetype
     MODULES += contrib/fribidi
     MODULES += contrib/harfbuzz
-    MODULES += contrib/libxml2
     MODULES += contrib/libass
     MODULES += contrib/libogg
     MODULES += contrib/libvorbis
@@ -32,6 +32,7 @@ ifneq (,$(filter $(HOST.system),darwin cygwin mingw))
 endif
 
 ifeq (1,$(FEATURE.flatpak))
+    MODULES += contrib/libass
     MODULES += contrib/jansson
     MODULES += contrib/x264
 endif
@@ -52,6 +53,8 @@ ifeq (1,$(FEATURE.x265))
 endif
 
 MODULES += contrib/libdav1d
+MODULES += contrib/libudfread
+MODULES += contrib/svt-av1
 MODULES += contrib/zimg
 MODULES += contrib/ffmpeg
 MODULES += contrib/libdvdread
@@ -72,8 +75,13 @@ ifeq (1,$(FEATURE.nvenc))
     MODULES += contrib/nvenc
 endif
 
+ifeq (1,$(FEATURE.libdovi))
+    MODULES += contrib/libdovi
+endif
+
 ifneq (,$(filter $(HOST.system),darwin))
     MODULES += contrib/xz
+    MODULES += contrib/bin2c
 endif
 
 ifneq (,$(filter $(HOST.system),cygwin mingw))
@@ -95,6 +103,10 @@ ifneq (,$(filter $(HOST.system),solaris))
     MODULES += contrib/libiconv
 endif
 
+ifneq (,$(filter $(HOST.system),netbsd))
+    # needed to avoid conflict with jpeg-9e
+    MODULES += contrib/libjpeg-turbo
+endif
 
 ## these must come after contrib since some contrib modules are optional
 MODULES += libhb
@@ -109,32 +121,7 @@ else
     MODULES += test
 endif
 
-ifeq (1-mingw,$(FEATURE.gtk.mingw)-$(HOST.system))
-    MODULES += gtk
-endif
-
-ifeq (1-linux,$(FEATURE.gtk)-$(HOST.system))
-    ## build gtk when gtk+linux
-    MODULES += gtk
-endif
-
-ifeq (1-freebsd,$(FEATURE.gtk)-$(HOST.system))
-    ## build gtk when gtk+freebsd
-    MODULES += gtk
-endif
-
-ifeq (1-kfreebsd,$(FEATURE.gtk)-$(HOST.system))
-    ## build gtk when gtk+kfreebsd
-    MODULES += gtk
-endif
-
-ifeq (1-gnu,$(FEATURE.gtk)-$(HOST.system))
-    ## build gtk when gtk+gnu
-    MODULES += gtk
-endif
-
-ifeq (1-netbsd,$(FEATURE.gtk)-$(BUILD.system))
-    ## build gtk when gtk+netbsd
+ifeq (1,$(FEATURE.gtk))
     MODULES += gtk
 endif
 

@@ -12,10 +12,13 @@ namespace HandBrakeWPF.Services
     using System;
     using System.Diagnostics;
     using System.IO;
-    using System.Net;
+    using System.Net.Http;
     using System.Reflection;
     using System.Security.Cryptography;
     using System.Threading;
+    using System.Threading.Tasks;
+
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Services.Interfaces;
@@ -23,21 +26,9 @@ namespace HandBrakeWPF.Services
 
     using AppcastReader = Utilities.AppcastReader;
 
-    /// <summary>
-    /// The Update Service
-    /// </summary>
     public class UpdateService : IUpdateService
     {
-        #region Constants and Fields
-
-        /// <summary>
-        /// Backing field for the update service
-        /// </summary>
         private readonly IUserSettingService userSettingService;
-
-        #endregion
-
-        #region Constructors and Destructors
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UpdateService"/> class.
@@ -49,10 +40,6 @@ namespace HandBrakeWPF.Services
         {
             this.userSettingService = userSettingService;
         }
-
-        #endregion
-
-        #region Public Methods
 
         /// <summary>
         /// Perform an update check at application start, but only daily, weekly or monthly depending on the users settings.
@@ -70,6 +57,14 @@ namespace HandBrakeWPF.Services
             // Make sure it's running on the calling thread
             if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.UpdateStatus))
             {
+                // If a previous update check detected an update, don't bother calling out to the HandBrake website again. Just return the result. 
+                int lastLatestBuildNumberCheck = this.userSettingService.GetUserSetting<int>(UserSettingConstants.IsUpdateAvailableBuild);
+                if (lastLatestBuildNumberCheck != 0 && lastLatestBuildNumberCheck > HandBrakeVersionHelper.Build)
+                {
+                    callback(new UpdateCheckInformation { NewVersionAvailable = true, Error = null });
+                    return;
+                }
+
                 DateTime lastUpdateCheck = this.userSettingService.GetUserSetting<DateTime>(UserSettingConstants.LastUpdateCheckDate);
                 int checkFrequency = this.userSettingService.GetUserSetting<int>(UserSettingConstants.DaysBetweenUpdateCheck) == 0 ? 7 : 30;
 
@@ -103,22 +98,21 @@ namespace HandBrakeWPF.Services
                             url = SystemInfo.IsArmDevice ? Constants.AppcastUnstable64Arm : Constants.AppcastUnstable64;
                         }
 
-                        var currentBuild = HandBrakeVersionHelper.Build;
-
                         // Fetch the Appcast from our server.
-                        HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-                        request.AllowAutoRedirect = false; // We will never do this.
-                        request.UserAgent = string.Format("HandBrake Win Upd {0}", HandBrakeVersionHelper.GetVersionShort());
-                        WebResponse response = request.GetResponse();
-
+                        string appcastContent = Task.Run(() => GetHttpContent(url)).GetAwaiter().GetResult();
+                        
                         // Parse the data with the AppcastReader
                         var reader = new AppcastReader();
-                        reader.GetUpdateInfo(new StreamReader(response.GetResponseStream()).ReadToEnd());
+                        reader.GetUpdateInfo(appcastContent);
 
                         // Further parse the information
                         string build = reader.Build;
-                        int latest = int.Parse(build);
-                        int current = currentBuild;
+
+                        int latest = 0;
+                        if (!int.TryParse(build, out latest))
+                        {
+                            throw new Exception("Build Information not available");
+                        }
 
                         // Security Check
                         // Verify the download URL is for handbrake.fr and served over https.
@@ -126,8 +120,11 @@ namespace HandBrakeWPF.Services
                         // The download itself will also be checked against a signature later. 
                         Uri uriResult;
                         bool result = Uri.TryCreate(reader.DownloadFile, UriKind.Absolute, out uriResult) && uriResult.Scheme == Uri.UriSchemeHttps;
-                        if (!result || (uriResult.Host != "handbrake.fr" && uriResult.Host != "download.handbrake.fr" && uriResult.Host != "github.com"))
+
+                        bool isHandBrakeGitHub = uriResult.Host == "github.com" && uriResult.AbsolutePath.StartsWith("/HandBrake/", StringComparison.OrdinalIgnoreCase);
+                        if (!result || (uriResult.Host != "handbrake.fr" && uriResult.Host != "download.handbrake.fr" && !isHandBrakeGitHub))
                         {
+                            this.userSettingService.SetUserSetting(UserSettingConstants.IsUpdateAvailableBuild, 0);
                             callback(new UpdateCheckInformation { NewVersionAvailable = false, Error = new Exception("The HandBrake update service is currently unavailable.") });
                             return;
                         }
@@ -135,18 +132,21 @@ namespace HandBrakeWPF.Services
                         // Validate the URL from the appcast is ours.
                         var info2 = new UpdateCheckInformation
                             {
-                                NewVersionAvailable = latest > current,
+                                NewVersionAvailable = latest > HandBrakeVersionHelper.Build,
                                 DescriptionUrl = reader.DescriptionUrl,
                                 DownloadFile = reader.DownloadFile,
                                 Build = reader.Build,
                                 Version = reader.Version,
-                                Signature = reader.Hash
+                                Signature = reader.Signature,
                             };
+
+                        this.userSettingService.SetUserSetting(UserSettingConstants.IsUpdateAvailableBuild, latest);
 
                         callback(info2);
                     }
                     catch (Exception exc)
                     {
+                        this.userSettingService.SetUserSetting(UserSettingConstants.IsUpdateAvailableBuild, 0);
                         callback(new UpdateCheckInformation { NewVersionAvailable = false, Error = exc });
                     }
                 });
@@ -155,11 +155,8 @@ namespace HandBrakeWPF.Services
         /// <summary>
         /// Download the update file.
         /// </summary>
-        /// <param name="url">
-        /// The url.
-        /// </param>
-        /// <param name="expectedSignature">
-        /// The expected DSA SHA265 Signature
+        /// <param name="update">
+        /// Update Check Information
         /// </param>
         /// <param name="completed">
         /// The complete.
@@ -167,42 +164,19 @@ namespace HandBrakeWPF.Services
         /// <param name="progress">
         /// The progress.
         /// </param>
-        public void DownloadFile(string url, string expectedSignature, Action<DownloadStatus> completed, Action<DownloadStatus> progress)
+        public void DownloadFile(UpdateCheckInformation update, Action<DownloadStatus> completed, Action<DownloadStatus> progress)
         {
             ThreadPool.QueueUserWorkItem(
                delegate
                {
-                   string tempPath = Path.Combine(Path.GetTempPath(), "handbrake-setup.exe");
-                   WebClient wcDownload = new WebClient();
-
                    try
                    {
-                       if (File.Exists(tempPath))
-                           File.Delete(tempPath);
+                       string tempPath = Path.Combine(Path.GetTempPath(), "handbrake-setup.exe");
 
-                       HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
-                       webRequest.Credentials = CredentialCache.DefaultCredentials;
-                       webRequest.UserAgent = string.Format("HandBrake Win Upd {0}", HandBrakeVersionHelper.GetVersionShort());
-                       HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
-                       long fileSize = webResponse.ContentLength;
-
-                       Stream responseStream = wcDownload.OpenRead(url);
-                       Stream localStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-                       int bytesSize;
-                       byte[] downBuffer = new byte[2048];
-
-                       while ((bytesSize = responseStream.Read(downBuffer, 0, downBuffer.Length)) > 0)
-                       {
-                           localStream.Write(downBuffer, 0, bytesSize);
-                           progress(new DownloadStatus { BytesRead = localStream.Length, TotalBytes = fileSize });
-                       }
-
-                       responseStream.Close();
-                       localStream.Close();
+                       Task.Run(() => DownloadSetupFile(update.DownloadFile, progress, tempPath)).GetAwaiter().GetResult();
 
                        completed(
-                           this.VerifyDownload(expectedSignature, tempPath)
+                           this.VerifyDownload(update.Signature, tempPath)
                                ? new DownloadStatus { WasSuccessful = true, Message = "Download Complete." } :
                                  new DownloadStatus
                                    {
@@ -220,12 +194,11 @@ namespace HandBrakeWPF.Services
         /// <summary>
         /// Verify the HandBrake download is Valid.
         /// </summary>
-        /// <param name="signature">The DSA SHA256 Signature from the appcast</param>
+        /// <param name="signature">The RSA SHA256 Signature from the appcast</param>
         /// <param name="updateFile">Path to the downloaded update file</param>
         /// <returns>True if the file is valid, false otherwise.</returns>
         public bool VerifyDownload(string signature, string updateFile)
         {
-            // Sanity Checks
             if (!File.Exists(updateFile))
             {
                 return false;
@@ -237,28 +210,19 @@ namespace HandBrakeWPF.Services
             }
 
             // Fetch our Public Key
-            string publicKey;
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("HandBrakeWPF.public.key"))
+            string publicKey = GetPublicKey( "HandBrakeWPF.public.4096.key");
+            if (string.IsNullOrEmpty(publicKey))
             {
-                if (stream == null)
-                {
-                    return false;
-                }
-
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    publicKey = reader.ReadToEnd();
-                }
+                return false;
             }
-            
-            // Verify the file against the Signature. 
+
             try
             {
                 byte[] file = File.ReadAllBytes(updateFile);
-                using (RSACryptoServiceProvider verifyProvider = new RSACryptoServiceProvider())
+                using (RSA rsa = RSA.Create())
                 {
-                    verifyProvider.FromXmlString(publicKey);
-                    return verifyProvider.VerifyData(file, "SHA256", Convert.FromBase64String(signature));
+                    rsa.FromXmlString(publicKey);
+                    return rsa.VerifyData(file, Convert.FromBase64String(signature), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
                 }
             }
             catch (Exception e)
@@ -268,6 +232,94 @@ namespace HandBrakeWPF.Services
             }
         }
 
-        #endregion
+        private async Task<string> GetHttpContent(string url)
+        {
+            using (var httpClient = new HttpClient())
+            {
+                string armDevice = SystemInfo.IsArmDevice ? "_ARM" : string.Empty;
+                httpClient.DefaultRequestHeaders.Add("User-Agent", string.Format("HandBrakeWinUpdate{0} {1}", armDevice, HandBrakeVersionHelper.Version));
+                httpClient.MaxResponseContentBufferSize = 1 * 1024 * 1024; // 1 MB cap
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+                var httpResponse = await httpClient.GetAsync(url);
+                httpResponse.EnsureSuccessStatusCode();
+
+                var contents = await httpResponse.Content.ReadAsStringAsync();
+
+                return contents;
+            }
+        }
+
+        private async Task<bool> DownloadSetupFile(string url, Action<DownloadStatus> progress, string tempPath)
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+
+            using (HttpClient httpClient = new HttpClient())
+            {
+                string armDevice = SystemInfo.IsArmDevice ? "_ARM" : string.Empty;
+
+                httpClient.DefaultRequestHeaders.Add("User-Agent", string.Format("HandBrakeWinUpdate{0} {1}", armDevice, HandBrakeVersionHelper.Version));
+
+                using (HttpResponseMessage httpResponse = await httpClient.GetAsync(new Uri(url), HttpCompletionOption.ResponseHeadersRead))
+                {
+                    httpResponse.EnsureSuccessStatusCode();
+
+                    var contentLength = httpResponse.Content.Headers.ContentLength.HasValue ? httpResponse.Content.Headers.ContentLength.Value : -1L;
+                    using (Stream contentStream = await httpResponse.Content.ReadAsStreamAsync(), fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 8192, true))
+                    {
+                        var buffer = new byte[8192];
+                        var totalRead = 0L;
+                        var totalReads = 0L;
+                        var isMoreToRead = true;
+
+                        do
+                        {
+                            var read = await contentStream.ReadAsync(buffer, 0, buffer.Length);
+                            if (read == 0)
+                            {
+                                isMoreToRead = false;
+                            }
+                            else
+                            {
+                                await fileStream.WriteAsync(buffer, 0, read);
+
+                                totalRead += read;
+                                totalReads += 1;
+
+                                if (totalReads % 100 == 0)
+                                {
+                                    progress(new DownloadStatus { BytesRead = totalRead, TotalBytes = contentLength });
+                                }
+                            }
+                        }
+                        while (isMoreToRead);
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private string GetPublicKey(string keyFile)
+        {
+            string publicKey;
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(keyFile))
+            {
+                if (stream == null)
+                {
+                    return null;
+                }
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    publicKey = reader.ReadToEnd();
+                }
+            }
+
+            return publicKey;
+        }
     }
 }

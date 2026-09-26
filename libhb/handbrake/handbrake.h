@@ -1,6 +1,6 @@
 /* handbrake.h
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -19,19 +19,18 @@ extern "C" {
 #include "handbrake/compat.h"
 #include "handbrake/hb_json.h"
 #include "handbrake/preset.h"
-#include "handbrake/plist.h"
 #include "handbrake/param.h"
 #include "handbrake/colormap.h"
+
+#define HB_DEBUG_NONE 0
+#define HB_DEBUG_ALL  1
+
+void          hb_register( hb_work_object_t * );
+void          hb_register_logger( void (*log_cb)(const char* message) );
 
 /* hb_init()
    Initializes a libhb session (launches his own thread, detects CPUs,
    etc) */
-#define HB_DEBUG_NONE 0
-#define HB_DEBUG_ALL  1
-#define HB_PREVIEW_FORMAT_YUV 0
-#define HB_PREVIEW_FORMAT_JPG 1
-void          hb_register( hb_work_object_t * );
-void          hb_register_logger( void (*log_cb)(const char* message) );
 hb_handle_t * hb_init( int verbose );
 void          hb_log_level_set(hb_handle_t *h, int level);
 
@@ -44,11 +43,13 @@ char *        hb_dvd_name( char * path );
 void          hb_dvd_set_dvdnav( int enable );
 
 /* hb_scan()
-   Scan the specified path. Can be a DVD device, a VIDEO_TS folder or
+   Scan the specified paths. Can be a DVD device, a VIDEO_TS folder or
    a VOB file. If title_index is 0, scan all titles. */
-void          hb_scan( hb_handle_t *, const char * path,
-                       int title_index, int preview_count,
-                       int store_previews, uint64_t min_duration );
+void          hb_scan( hb_handle_t * h, hb_list_t * paths, int title_index,
+                      int preview_count, int store_previews, uint64_t min_duration, uint64_t max_duration,
+                      int crop_threshold_frames, int crop_threshold_pixels,
+                      hb_list_t * exclude_extensions, int hw_decode, int keep_duplicate_titles);
+
 void          hb_scan_stop( hb_handle_t * );
 void          hb_force_rescan( hb_handle_t * );
 uint64_t      hb_first_duration( hb_handle_t * );
@@ -62,21 +63,28 @@ hb_list_t   * hb_get_titles( hb_handle_t * );
    by the latest scan and title set data. */
 hb_title_set_t   * hb_get_title_set( hb_handle_t * );
 
+/* hb_get_title_coverart
+   returns the list of coverart files and byte data in hb_coverart_s */
+hb_list_t * hb_get_title_coverarts( hb_handle_t * h, int title );
+
 #ifdef __LIBHB__
 /* hb_detect_comb()
    Analyze a frame for interlacing artifacts, returns true if they're found.
    Taken from Thomas Oestreich's 32detect filter in the Transcode project.  */
-int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int threshold, int prog_equal, int prog_diff, int prog_threshold );
+int hb_detect_comb( hb_buffer_t * buf,int color_equal, int color_diff,
+                   int threshold, int prog_equal, int prog_diff, int prog_threshold );
 
-// JJJ: title->job?
+#define HB_PREVIEW_FORMAT_YUV 0
+#define HB_PREVIEW_FORMAT_JPG 1
+
 int           hb_save_preview( hb_handle_t * h, int title, int preview,
                                hb_buffer_t *buf, int format );
 hb_buffer_t * hb_read_preview( hb_handle_t * h, hb_title_t *title,
                                int preview, int format );
 #endif // __LIBHB__
 
-hb_image_t  * hb_get_preview2(hb_handle_t * h, int title_idx, int picture,
-                              hb_geometry_settings_t *geo, int deinterlace);
+hb_image_t  * hb_get_preview(hb_handle_t * h, hb_dict_t * job_dict,
+                             int picture, int rescale, int pix_fmt);
 hb_image_t  * hb_get_preview3(hb_handle_t * h, int picture,
                               hb_dict_t * job_dict);
 void          hb_rotate_geometry( hb_geometry_crop_t * geo,
@@ -85,9 +93,9 @@ void          hb_rotate_geometry( hb_geometry_crop_t * geo,
 void          hb_set_anamorphic_size2(hb_geometry_t          * src_geo,
                                       hb_geometry_settings_t * geo,
                                       hb_geometry_t          * result);
-void          hb_add_filter_dict( hb_job_t * job, hb_filter_object_t * filter,
+void          hb_add_filter_dict( hb_list_t * list_filter, hb_filter_object_t * filter,
                                   const hb_dict_t * settings_in );
-void          hb_add_filter( hb_job_t * job, hb_filter_object_t * filter,
+void          hb_add_filter( hb_list_t * list_filter, hb_filter_object_t * filter,
                              const char * settings );
 void          hb_add_filter2( hb_value_array_t * list, hb_dict_t * filter );
 
@@ -121,9 +129,8 @@ typedef struct hb_interjob_s
 
     hb_subtitle_t *select_subtitle; /* foreign language scan subtitle */
 
-#ifdef __APPLE__
-     void *vt_context;
- #endif
+    void *context;
+    int   context_size;
 } hb_interjob_t;
 
 hb_interjob_t * hb_interjob_get( hb_handle_t * );
@@ -150,7 +157,7 @@ void          hb_global_close(void);
    Return the unique instance id of an libhb instance created by hb_init. */
 int hb_get_instance_id( hb_handle_t * h );
 
-int is_hardware_disabled(void);
+int hb_is_hardware_disabled(void);
 
 #ifdef __cplusplus
 }

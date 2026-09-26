@@ -1,6 +1,6 @@
 /* format.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -22,6 +22,7 @@ hb_filter_object_t hb_filter_format =
     .enforce_order     = 1,
     .skip              = 1,
     .name              = "Format",
+    .short_name        = "format",
     .settings          = NULL,
     .init              = format_init,
     .work              = hb_avfilter_null_work,
@@ -55,8 +56,47 @@ static int format_init(hb_filter_object_t *filter, hb_filter_init_t *init)
     hb_dict_t *avfilter   = hb_dict_init();
     hb_dict_t *avsettings = hb_dict_init();
 
-    hb_dict_set_string(avsettings, "pix_fmts", format);
-    hb_dict_set(avfilter, "format", avsettings);
+#if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
+    if (init->hw_pix_fmt == AV_PIX_FMT_QSV)
+    {
+        hb_dict_set_string(avsettings, "format", format);
+        hb_dict_set_string(avsettings, "out_range", (init->color_range == AVCOL_RANGE_JPEG) ? "full" : "limited");
+        hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
+
+        hb_dict_set(avfilter, "vpp_qsv", avsettings);
+    }
+    else
+#endif
+#if HB_PROJECT_FEATURE_VCE
+    if (init->hw_pix_fmt == AV_PIX_FMT_AMF_SURFACE)
+    {
+        hb_dict_set_string(avsettings, "format", format);
+        hb_dict_set(avfilter, "vpp_amf", avsettings);
+    }
+    else
+#endif
+#if HB_PROJECT_FEATURE_MF
+    if (init->hw_pix_fmt == AV_PIX_FMT_D3D11)
+    {
+        hb_dict_set_string(avsettings, "format", format);
+        hb_dict_set(avfilter, "scale_d3d11", avsettings);
+    }
+    else
+#endif
+    {
+        if (init->hw_pix_fmt == AV_PIX_FMT_CUDA)
+        {
+            hb_dict_set_int(avsettings, "w", init->geometry.width);
+            hb_dict_set_int(avsettings, "h", init->geometry.height);
+            hb_dict_set_string(avsettings, "format", format);
+            hb_dict_set(avfilter, "scale_cuda", avsettings);
+        }
+        else
+        {
+            hb_dict_set_string(avsettings, "pix_fmts", format);
+            hb_dict_set(avfilter, "format", avsettings);
+        }
+    }
 
     hb_value_array_append(avfilters, avfilter);
 
@@ -64,6 +104,8 @@ static int format_init(hb_filter_object_t *filter, hb_filter_init_t *init)
 
     init->pix_fmt = av_get_pix_fmt(format);
     pv->output = *init;
+
+    free(format);
 
     return 0;
 }

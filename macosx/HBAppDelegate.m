@@ -20,7 +20,7 @@
 #import "HBController.h"
 
 #define PRESET_FILE @"UserPresets.json"
-#define QUEUE_FILE @"Queue.hbqueue"
+#define QUEUE_FILE @"QueueV2.hbqueue"
 
 @interface HBAppDelegate () <NSMenuItemValidation>
 
@@ -60,10 +60,10 @@
 
         // we init the HBPresetsManager
         NSURL *appSupportURL = HBUtilities.appSupportURL;
-        _presetsManager = [[HBPresetsManager alloc] initWithURL:[appSupportURL URLByAppendingPathComponent:PRESET_FILE]];
+        _presetsManager = [[HBPresetsManager alloc] initWithURL:[appSupportURL URLByAppendingPathComponent:PRESET_FILE isDirectory:NO]];
 
         // Queue
-        _queue = [[HBQueue alloc] initWithURL:[appSupportURL URLByAppendingPathComponent:QUEUE_FILE]];
+        _queue = [[HBQueue alloc] initWithURL:[appSupportURL URLByAppendingPathComponent:QUEUE_FILE isDirectory:NO]];
         _queueController = [[HBQueueController alloc] initWithQueue:_queue];
         _queueController.delegate = self;
         _queueDockTileController = [[HBQueueDockTileController alloc] initWithQueue:_queue dockTile:NSApplication.sharedApplication.dockTile image:NSApplication.sharedApplication.applicationIconImage];
@@ -73,6 +73,11 @@
 }
 
 #pragma mark - NSApplicationDelegate
+
+- (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app
+{
+    return YES;
+}
 
 - (BOOL)applicationShouldHandleReopen:(NSApplication *)theApplication hasVisibleWindows:(BOOL)flag
 {
@@ -88,10 +93,15 @@
     NSApplication.sharedApplication.automaticCustomizeTouchBarMenuItemEnabled = YES;
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
 
+    if ([ud boolForKey:HBQueueAutoClearCompletedItemsAtLaunch])
+    {
+        [self.queue removeCompletedAndCancelledItems];
+    }
+
     // Reset "When done" action
     if ([ud boolForKey:HBResetWhenDoneOnLaunch])
     {
-        [ud setInteger:HBDoneActionDoNothing forKey:HBAlertWhenDone];
+        [ud setInteger:HBDoneActionDoNothing forKey:HBQueueDoneAction];
     }
 
 
@@ -126,7 +136,10 @@
         [self.mainController launchAction];
     }
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+    dispatch_queue_t logCleaningQueue = dispatch_queue_create_with_target("fr.handbrake.HandBrake.LogCleaningQueue",
+                                                                          DISPATCH_QUEUE_SERIAL,
+                                                                          dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0));
+    dispatch_async(logCleaningQueue, ^{
         // Remove encodes logs older than a month
         if ([ud boolForKey:HBClearOldLogs])
         {
@@ -167,12 +180,14 @@
 - (void)applicationWillTerminate:(NSNotification *)notification
 {
     [self.presetsManager savePresets];
+    [self cleanPreviews];
 
     [NSUserDefaults.standardUserDefaults setBool:_queueController.window.isVisible forKey:@"QueueWindowIsOpen"];
     [NSUserDefaults.standardUserDefaults setBool:_outputPanel.window.isVisible forKey:@"OutputPanelIsOpen"];
 
     _mainController = nil;
     _queueController = nil;
+    [_queue invalidateWorkers];
     _queue = nil;
 
     [HBCore closeGlobal];
@@ -180,8 +195,8 @@
 
 - (void)application:(NSApplication *)sender openURLs:(nonnull NSArray<NSURL *> *)urls
 {
-    [self.mainController openURL:urls.firstObject];
-    //[NSApp replyToOpenOrPrint:NSApplicationDelegateReplySuccess];
+    BOOL recursive = [NSUserDefaults.standardUserDefaults boolForKey:HBRecursiveScan];
+    [self.mainController openURLs:urls recursive:recursive];
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
@@ -212,19 +227,20 @@
  */
 - (void)cleanEncodeLogs
 {
-    NSURL *directoryUrl = [HBUtilities.appSupportURL URLByAppendingPathComponent:@"EncodeLogs"];
+    NSURL *directoryUrl = [HBUtilities.appSupportURL URLByAppendingPathComponent:@"EncodeLogs" isDirectory:YES];
 
     if (directoryUrl)
     {
-        NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:directoryUrl
-                                                          includingPropertiesForKeys:nil
-                                                                             options:NSDirectoryEnumerationSkipsSubdirectoryDescendants |
-                                                                                     NSDirectoryEnumerationSkipsHiddenFiles |
-                                                                                     NSDirectoryEnumerationSkipsPackageDescendants
-                                                                               error:NULL];
-
-        NSDate *limit = [NSDate dateWithTimeIntervalSinceNow: -(60 * 60 * 24 * 30)];
         NSFileManager *manager = [[NSFileManager alloc] init];
+
+        NSArray<NSURL *> *contents = [manager contentsOfDirectoryAtURL:directoryUrl
+                                            includingPropertiesForKeys:nil
+                                                               options:NSDirectoryEnumerationSkipsSubdirectoryDescendants |
+                                                                        NSDirectoryEnumerationSkipsHiddenFiles |
+                                                                        NSDirectoryEnumerationSkipsPackageDescendants
+                                                                 error:NULL];
+
+        NSDate *limit = [NSDate dateWithTimeIntervalSinceNow: -(60 * 60 * 24 * 7)];
 
         for (NSURL *fileURL in contents)
         {
@@ -240,24 +256,23 @@
 
 - (void)cleanPreviews
 {
-    NSURL *previewDirectory = [HBUtilities.appSupportURL URLByAppendingPathComponent:@"Previews"];
+    NSURL *previewDirectory = [HBUtilities.appSupportURL URLByAppendingPathComponent:@"Previews" isDirectory:YES];
 
     if (previewDirectory)
     {
-        NSArray *contents = [NSFileManager.defaultManager contentsOfDirectoryAtURL:previewDirectory
-                                                        includingPropertiesForKeys:nil
-                                                                           options:NSDirectoryEnumerationSkipsSubdirectoryDescendants |
-                             NSDirectoryEnumerationSkipsPackageDescendants
-                                                                             error:NULL];
-
         NSFileManager *manager = [[NSFileManager alloc] init];
+        NSArray<NSURL *> *contents = [manager contentsOfDirectoryAtURL:previewDirectory
+                                            includingPropertiesForKeys:nil
+                                                               options:NSDirectoryEnumerationSkipsSubdirectoryDescendants | NSDirectoryEnumerationSkipsPackageDescendants
+                                                                 error:NULL];
+
         for (NSURL *url in contents)
         {
             NSError *error = nil;
             BOOL result = [manager removeItemAtURL:url error:&error];
             if (result == NO && error)
             {
-                [HBUtilities writeToActivityLog: "Could not remove existing preview at : %s", url.lastPathComponent.UTF8String];
+                [HBUtilities writeToActivityLog:"Could not remove existing preview at: %s", url.lastPathComponent.UTF8String];
             }
         }
     }
@@ -353,7 +368,7 @@
 
 - (IBAction)openForums:(id)sender
 {
-    [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://forum.handbrake.fr/"]];
+    [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://handbrake.fr/community.php"]];
 }
 - (IBAction)openUserGuide:(id)sender
 {

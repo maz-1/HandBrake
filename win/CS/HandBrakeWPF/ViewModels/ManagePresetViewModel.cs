@@ -11,7 +11,7 @@ namespace HandBrakeWPF.ViewModels
     using System.Linq;
     using System.Windows;
 
-    using Caliburn.Micro;
+    using HandBrake.App.Core.Utilities;
 
     using HandBrakeWPF.Model.Audio;
     using HandBrakeWPF.Model.Picture;
@@ -21,7 +21,6 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Presets;
     using HandBrakeWPF.Services.Presets.Interfaces;
     using HandBrakeWPF.Services.Presets.Model;
-    using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModels.Interfaces;
 
     public class ManagePresetViewModel : ViewModelBase, IManagePresetViewModel
@@ -30,15 +29,19 @@ namespace HandBrakeWPF.ViewModels
         private readonly IErrorService errorService;
 
         private readonly IWindowManager windowManager;
+
+        private readonly IAudioAdvancedViewModel audioAdvancedViewModel;
+
         private Preset existingPreset;
         private PictureSettingsResLimitModes selectedPictureSettingsResLimitMode;
         private string originalPresetName;
 
-        public ManagePresetViewModel(IPresetService presetService, IErrorService errorService, IWindowManager windowManager)
+        public ManagePresetViewModel(IPresetService presetService, IErrorService errorService, IWindowManager windowManager, IAudioAdvancedViewModel audioAdvancedViewModel)
         {
             this.presetService = presetService;
             this.errorService = errorService;
             this.windowManager = windowManager;
+            this.audioAdvancedViewModel = audioAdvancedViewModel;
             this.Title = Resources.MainView_PresetManage;
             this.Preset = new Preset { IsBuildIn = false, IsDefault = false, Category = PresetService.UserPresetCategoryName };
         }
@@ -155,7 +158,6 @@ namespace HandBrakeWPF.ViewModels
 
             this.Preset = new Preset(presetToEdit); // Clone. We will not touch the existing object.
             
-            
             this.UserPresetCategories = presetService.GetPresetCategories(true).ToList();
             this.NotifyOfPropertyChange(() => this.UserPresetCategories);
             this.PresetsCategories = this.presetService.Presets;
@@ -166,7 +168,7 @@ namespace HandBrakeWPF.ViewModels
 
         public void EditAudioDefaults()
         {
-            IAudioDefaultsViewModel audioDefaultsViewModel = new AudioDefaultsViewModel(this.windowManager);
+            IAudioDefaultsViewModel audioDefaultsViewModel = new AudioDefaultsViewModel(this.windowManager, this.audioAdvancedViewModel);
             audioDefaultsViewModel.Setup(this.Preset.AudioTrackBehaviours, this.Preset.Task.OutputFormat);
             audioDefaultsViewModel.ShowWindow();
 
@@ -217,7 +219,7 @@ namespace HandBrakeWPF.ViewModels
                 }
 
                 // Save the Preset
-                this.presetService.Replace(this.existingPreset, this.Preset);
+                this.presetService.Replace(this.existingPreset.Name, this.Preset);
             }
 
             this.Close();
@@ -230,7 +232,7 @@ namespace HandBrakeWPF.ViewModels
 
         public void Close()
         {
-            this.TryCloseAsync();
+            this.TryClose();
         }
 
         private void SetSelectedPictureSettingsResLimitMode()

@@ -20,25 +20,30 @@ namespace HandBrakeWPF
     using System.Windows.Interop;
     using System.Windows.Media;
 
-    using Caliburn.Micro;
-
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
 
+    using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Instance;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Startup;
+    using HandBrakeWPF.Themes;
     using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModels;
     using HandBrakeWPF.ViewModels.Interfaces;
+    using HandBrakeWPF.Views;
 
-    using GeneralApplicationException = Exceptions.GeneralApplicationException;
+    using GeneralApplicationException = HandBrake.App.Core.Exceptions.GeneralApplicationException;
+    using IWindowManager = Services.Interfaces.IWindowManager;
 
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
     public partial class App
     {
+        private bool isStarted = false;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="App"/> class.
         /// </summary>
@@ -49,16 +54,20 @@ namespace HandBrakeWPF
             AppDomain.CurrentDomain.ProcessExit += this.CurrentDomain_ProcessExit;
             
             ToolTipService.ShowDurationProperty.OverrideMetadata(typeof(DependencyObject), new FrameworkPropertyMetadata(15000));
+
+            SystemInfo.InitGPUInfo(); // Background Thread.
         }
 
-        /// <summary>
-        /// Override the startup behavior to handle files dropped on the app icon.
-        /// </summary>
-        /// <param name="e">
-        /// The StartupEventArgs.
-        /// </param>
-        protected override void OnStartup(StartupEventArgs e)
+        private void Init(StartupEventArgs e)
         {
+            if (!SystemInfo.IsArmDevice && !File.Exists("hb.dll") && !File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "hb.dll")))
+            {
+                MessageBox.Show("hb.dll file not found. Application will not run correctly without this. Please re-install HandBrake.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                this.Shutdown();
+                Environment.Exit(-1);
+                return;
+            }
+            
             // We don't support Windows earlier than 10.
             if (!SystemInfo.IsWindows10OrLater())
             {
@@ -91,7 +100,7 @@ namespace HandBrakeWPF
                     StartupOptions.QueueRecoveryIds = processIds;
                 }
             }
-            
+
             if (e.Args.Any(f => f.Equals("--auto-start-queue")))
             {
                 StartupOptions.AutoRestartQueue = true;
@@ -100,15 +109,46 @@ namespace HandBrakeWPF
             // Portable Mode
             if (Portable.IsPortable())
             {
-                if (!Portable.Initialise())
+                int portableInit = Portable.Initialise();
+                if (portableInit != 0)
                 {
+                    switch (portableInit)
+                    {
+                        case -1:
+                            MessageBox.Show(
+                                HandBrakeWPF.Properties.Resources.Portable_IniFileError,
+                                HandBrakeWPF.Properties.Resources.Error,
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                            break;
+
+                        case -2:
+                            MessageBox.Show(
+                                HandBrakeWPF.Properties.Resources.Portable_TmpNotWritable,
+                                HandBrakeWPF.Properties.Resources.Error,
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                            break;
+                        case -3:
+                            MessageBox.Show(
+                                HandBrakeWPF.Properties.Resources.Portable_StorageNotWritable,
+                                HandBrakeWPF.Properties.Resources.Error,
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                            break;
+                    }
+
                     Application.Current.Shutdown();
                     return;
                 }
             }
 
+            // Setup the UI
+            this.StartupUri = new Uri("Views/ShellView.xaml", UriKind.Relative);
+            this.isStarted = true;
+
             // Setup the UI Language
-            IUserSettingService userSettingService = IoC.Get<IUserSettingService>();
+            IUserSettingService userSettingService = IoCHelper.Get<IUserSettingService>();
             string culture = userSettingService.GetUserSetting<string>(UserSettingConstants.UiLanguage);
             if (!string.IsNullOrEmpty(culture))
             {
@@ -137,86 +177,24 @@ namespace HandBrakeWPF
             // Increment the counter so we can change startup behavior for the above warning and update check question.
             userSettingService.SetUserSetting(UserSettingConstants.RunCounter, runCounter + 1); // Only display once.
 
-            // App Theme
-            DarkThemeMode useDarkTheme = (DarkThemeMode)userSettingService.GetUserSetting<int>(UserSettingConstants.DarkThemeMode);
-            ResourceDictionary dark = new ResourceDictionary { Source = new Uri("pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Blue.xaml") };
-            ResourceDictionary light = new ResourceDictionary { Source = new Uri("pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml") };
-
-            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Generic.xaml", UriKind.Relative) });
-            bool themed = false;
-            switch (useDarkTheme)
-            {
-                case DarkThemeMode.System:
-                    if (SystemParameters.HighContrast)
-                    {
-                        break;
-                    }
-
-                    if (SystemInfo.IsAppsUsingDarkTheme())
-                    {
-                        Application.Current.Resources.MergedDictionaries.Add(dark);
-                        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Dark.xaml", UriKind.Relative) });
-                    }
-                    else
-                    {
-                        Application.Current.Resources.MergedDictionaries.Add(light);
-                        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Light.xaml", UriKind.Relative) });
-                    }
-
-                    themed = true;
-
-                    break;
-                case DarkThemeMode.Dark:
-                    Application.Current.Resources.MergedDictionaries.Add(dark);
-                    Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Dark.xaml", UriKind.Relative) });
-                    themed = true;                    
-                    break;
-                case DarkThemeMode.Light:
-                    Application.Current.Resources.MergedDictionaries.Add(light);
-                    Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Light.xaml", UriKind.Relative) });
-                    themed = true;
-                    break;
-            }
-
-            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Views/Styles/Styles.xaml", UriKind.Relative) });
-
-            if (themed)
-            {
-                Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Views/Styles/ThemedStyles.xaml", UriKind.Relative) });
-            }
+            ThemeLoader.LoadAppTheme(userSettingService);
 
             // NO-Hardware Mode
             bool noHardware = e.Args.Any(f => f.Equals("--no-hardware")) || (Portable.IsPortable() && !Portable.IsHardwareEnabled());
 
             // Initialise the Engine
-            HandBrakeWPF.Helpers.LogManager.Init();
-
-            try
-            {
-                HandBrakeInstanceManager.Init(noHardware);
-            }
-            catch (Exception)
-            {
-                if (!noHardware)
-                {
-                    MessageBox.Show(HandBrakeWPF.Properties.Resources.Startup_InitFailed, HandBrakeWPF.Properties.Resources.Error, MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-
-                throw;
-            }
-
-            // Initialise the GUI
-            base.OnStartup(e);
+            Services.Logging.GlobalLoggingManager.Init();
+            HandBrakeInstanceManager.Init(noHardware, userSettingService);
 
             // If we have a file dropped on the icon, try scanning it.
             string[] args = e.Args;
             if (args.Any() && (File.Exists(args[0]) || Directory.Exists(args[0])))
             {
-                IMainViewModel mvm = IoC.Get<IMainViewModel>();
-                mvm.StartScan(args[0], 0);
+                IMainViewModel mvm = IoCHelper.Get<IMainViewModel>();
+                mvm.StartScan(new List<string> { args[0] }, 0);
             }
         }
-
+        
         private static void CheckForUpdateCheckPermission(IUserSettingService userSettingService)
         {
             if (Portable.IsPortable() && !Portable.IsUpdateCheckEnabled())
@@ -231,7 +209,10 @@ namespace HandBrakeWPF
 
         private void CurrentDomain_ProcessExit(object sender, System.EventArgs e)
         {
-            HandBrakeUtils.DisposeGlobal();
+            if (this.isStarted)
+            {
+                HandBrakeUtils.DisposeGlobal();
+            }
         }
 
         /// <summary>
@@ -245,14 +226,14 @@ namespace HandBrakeWPF
         /// </param>
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            Execute.BeginOnUIThread(
+            ThreadHelper.OnUIThread(
                 () => 
             {
                 if (e.ExceptionObject.GetType() == typeof(FileNotFoundException))
                 {
                     GeneralApplicationException exception = new GeneralApplicationException(
                         "A file appears to be missing.",
-                        "Try re-installing Microsoft .NET 5 Desktop Runtime",
+                        "Try re-installing Microsoft .NET 10 Desktop Runtime",
                         (Exception)e.ExceptionObject);
                     this.ShowError(exception);
                 }
@@ -277,7 +258,7 @@ namespace HandBrakeWPF
         {
             if (e.Exception.GetType() == typeof(FileNotFoundException))
             {
-                GeneralApplicationException exception = new GeneralApplicationException("A file appears to be missing.", "Try re-installing Microsoft .NET 5 Desktop Runtime", e.Exception);
+                GeneralApplicationException exception = new GeneralApplicationException("A file appears to be missing.", "Try re-installing Microsoft .NET 10 Desktop Runtime", e.Exception);
                 this.ShowError(exception);
             }
             else if (e.Exception.GetType() == typeof(GeneralApplicationException))
@@ -306,8 +287,8 @@ namespace HandBrakeWPF
         {
             try
             {
-                IWindowManager windowManager = IoC.Get<IWindowManager>();
-                IErrorService errorService = IoC.Get<IErrorService>();
+                IWindowManager windowManager = IoCHelper.Get<IWindowManager>();
+                IErrorService errorService = IoCHelper.Get<IErrorService>();
                 if (windowManager != null)
                 {
                     ErrorViewModel errorView = new ErrorViewModel(errorService);
@@ -337,7 +318,7 @@ namespace HandBrakeWPF
 
                     try
                     {
-                        windowManager.ShowDialogAsync(errorView);
+                        windowManager.ShowDialog<ErrorView>(errorView);
                     }
                     catch (Exception)
                     {
@@ -352,6 +333,17 @@ namespace HandBrakeWPF
             {
                 MessageBox.Show("An Unknown Error has occurred. \n\n Exception:" + exception, "Unhandled Exception", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// Override the startup behavior to handle files dropped on the app icon.
+        /// </summary>
+        /// <param name="e">
+        /// The StartupEventArgs.
+        /// </param>
+        private void App_OnStartup(object sender, StartupEventArgs e)
+        {
+            this.Init(e);
         }
     }
 }

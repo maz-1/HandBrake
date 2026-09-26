@@ -21,8 +21,8 @@
 @property (nonatomic, readonly) NSArray *levels;
 
 @property (nonatomic, readonly) BOOL fastDecodeSupported;
-@property (nonatomic, readonly) BOOL twoPassSupported;
-@property (nonatomic, readonly) BOOL turboTwoPassSupported;
+@property (nonatomic, readonly) BOOL multiPassSupported;
+@property (nonatomic, readonly) BOOL turboMultiPassSupported;
 
 @property (nonatomic, readonly) NSString *unparseOptions;
 
@@ -56,14 +56,12 @@
 @end
 
 @interface HBQualityTransformer : NSValueTransformer
-- (instancetype)initWithReversedDirection:(BOOL)reverse min:(double)min max:(double)max NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithReversedDirection:(BOOL)reverse min:(double)min max:(double)max granularity:(float)granularity NS_DESIGNATED_INITIALIZER;
 @end
 
 @interface HBVideo (EncoderAdditions)
 
 - (BOOL)isUnparsedSupported:(int)encoder;
-- (BOOL)isPresetSystemSupported:(int)encoder;
-- (BOOL)isSimpleOptionsPanelSupported:(int)encoder;
 - (void)qualityLimitsForEncoder:(int)encoder low:(float *)low high:(float *)high granularity:(float *)granularity direction:(int *)direction;
 
 @end

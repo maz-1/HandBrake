@@ -1,6 +1,6 @@
 /* scan.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -9,13 +9,14 @@
 
 #include "handbrake/handbrake.h"
 #include "handbrake/hbffmpeg.h"
+#include "handbrake/hwaccel.h"
 
 typedef struct
 {
     hb_handle_t  * h;
     volatile int * die;
 
-    char         * path;
+    hb_list_t    * paths;
     int            title_index;
     hb_title_set_t * title_set;
 
@@ -28,13 +29,25 @@ typedef struct
     int            store_previews;
 
     uint64_t       min_title_duration;
+    uint64_t       max_title_duration;
+    int            keep_duplicate_titles;
+    
+    int            crop_threshold_frames;
+    int            crop_threshold_pixels;
+    
+    hb_list_t    * exclude_extensions;
+
+    int            hw_decode;
+    
 } hb_scan_t;
 
 #define PREVIEW_READ_THRESH (200)
+#define AUDIO_DECODE_ERROR_LIMIT (10)
 
 static void ScanFunc( void * );
 static int  DecodePreviews( hb_scan_t *, hb_title_t * title, int flush );
-static void LookForAudio(hb_scan_t *scan, hb_title_t *title, hb_buffer_t *b);
+static hb_audio_t * find_audio_for_id(hb_title_t * title, int id);
+static void LookForAudio(hb_scan_t *scan, hb_title_t *title, hb_audio_t * audio, hb_buffer_t *b);
 static int  AllAudioOK( hb_title_t * title );
 static void UpdateState1(hb_scan_t *scan, int title);
 static void UpdateState2(hb_scan_t *scan, int title);
@@ -50,29 +63,56 @@ static const char *aspect_to_string(hb_rational_t *dar)
     }
     static char arstr[32];
     if (aspect >= 1)
-        sprintf(arstr, "%.2f:1", aspect);
+        snprintf(arstr, sizeof(arstr), "%.2f:1", aspect);
     else
-        sprintf(arstr, "1:%.2f", 1. / aspect );
+        snprintf(arstr, sizeof(arstr), "1:%.2f", 1. / aspect );
     return arstr;
 }
 
+static const char * const known_file_types[] =
+{
+    "mp4", "m4v", "mov", "flv", "mkv", "avi", "webm", "wmv",  NULL
+};
+
+static int is_known_filetype(const char *filename)
+{
+    for (int i = 0; known_file_types[i] != NULL; i++)
+    {
+        if (hb_str_ends_with(filename, known_file_types[i]))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 hb_thread_t * hb_scan_init( hb_handle_t * handle, volatile int * die,
-                            const char * path, int title_index,
+                            hb_list_t *  paths, int title_index,
                             hb_title_set_t * title_set, int preview_count,
-                            int store_previews, uint64_t min_duration )
+                            int store_previews, uint64_t min_duration, uint64_t max_duration,
+                            int crop_threshold_frames, int crop_threshold_pixels,
+                            hb_list_t * exclude_extensions, int hw_decode,
+                            int keep_duplicate_titles)
 {
     hb_scan_t * data = calloc( sizeof( hb_scan_t ), 1 );
 
     data->h            = handle;
     data->die          = die;
-    data->path         = strdup( path );
+    data->paths        = hb_string_list_copy(paths);
     data->title_index  = title_index;
     data->title_set    = title_set;
 
     data->preview_count  = preview_count;
     data->store_previews = store_previews;
     data->min_title_duration = min_duration;
-
+    data->max_title_duration = max_duration;
+     
+    data->crop_threshold_frames = crop_threshold_frames;
+    data->crop_threshold_pixels = crop_threshold_pixels;
+    data->exclude_extensions    = hb_string_list_copy(exclude_extensions);
+    data->hw_decode             = hw_decode;
+    data->keep_duplicate_titles = keep_duplicate_titles;
+    
     // Initialize scan state
     hb_state_t state;
     hb_get_state2(handle, &state);
@@ -99,9 +139,15 @@ static void ScanFunc( void * _data )
     data->bd = NULL;
     data->dvd = NULL;
     data->stream = NULL;
-
+        
+    char *single_path = NULL;
+    if (hb_list_count(data->paths) == 1)
+    {
+        single_path = hb_list_item(data->paths, 0);
+    }
+        
     /* Try to open the path as a DVD. If it fails, try as a file */
-    if( ( data->bd = hb_bd_init( data->h, data->path ) ) )
+    if( single_path != NULL && !is_known_filetype(single_path) && ( data->bd = hb_bd_init( data->h, single_path, data->keep_duplicate_titles ) ) )
     {
         hb_log( "scan: BD has %d title(s)",
                 hb_bd_title_count( data->bd ) );
@@ -110,7 +156,7 @@ static void ScanFunc( void * _data )
             /* Scan this title only */
             hb_list_add( data->title_set->list_title,
                          hb_bd_title_scan( data->bd,
-                         data->title_index, 0 ) );
+                         data->title_index, 0, 0 ) );
         }
         else
         {
@@ -120,13 +166,13 @@ static void ScanFunc( void * _data )
                 UpdateState1(data, i + 1);
                 hb_list_add( data->title_set->list_title,
                              hb_bd_title_scan( data->bd,
-                             i + 1, data->min_title_duration ) );
+                             i + 1, data->min_title_duration, data->max_title_duration ) );
             }
             feature = hb_bd_main_feature( data->bd,
                                           data->title_set->list_title );
         }
     }
-    else if( ( data->dvd = hb_dvd_init( data->h, data->path ) ) )
+    else if( single_path != NULL && !is_known_filetype(single_path) && ( data->dvd = hb_dvd_init( data->h, single_path ) ) )
     {
         hb_log( "scan: DVD has %d title(s)",
                 hb_dvd_title_count( data->dvd ) );
@@ -135,7 +181,7 @@ static void ScanFunc( void * _data )
             /* Scan this title only */
             hb_list_add( data->title_set->list_title,
                          hb_dvd_title_scan( data->dvd,
-                            data->title_index, 0 ) );
+                            data->title_index, 0, 0 ) );
         }
         else
         {
@@ -145,13 +191,13 @@ static void ScanFunc( void * _data )
                 UpdateState1(data, i + 1);
                 hb_list_add( data->title_set->list_title,
                              hb_dvd_title_scan( data->dvd,
-                            i + 1, data->min_title_duration ) );
+                            i + 1, data->min_title_duration, data->max_title_duration ) );
             }
             feature = hb_dvd_main_feature( data->dvd,
                                            data->title_set->list_title );
         }
     }
-    else if ( ( data->batch = hb_batch_init( data->h, data->path ) ) )
+    else if (single_path != NULL && ( data->batch = hb_batch_init( data->h, single_path, data->exclude_extensions ) ) )
     {
         if( data->title_index )
         {
@@ -167,6 +213,11 @@ static void ScanFunc( void * _data )
             /* Scan all titles */
             for( i = 0; i < hb_batch_title_count( data->batch ); i++ )
             {
+                if (*data->die)
+                {
+                    goto finish;
+                }
+
                 hb_title_t * title;
 
                 UpdateState1(data, i + 1);
@@ -178,7 +229,7 @@ static void ScanFunc( void * _data )
             }
         }
     }
-    else
+    else if (single_path != NULL) // Single File.
     {
         // Title index 0 is not a valid title number and means scan all titles.
         // So set title index to 1 in this scenario.
@@ -188,8 +239,8 @@ static void ScanFunc( void * _data )
         // mode.
         if (data->title_index == 0)
             data->title_index = 1;
-        hb_title_t * title = hb_title_init( data->path, data->title_index );
-        data->stream = hb_stream_open(data->h, data->path, title, 1);
+        hb_title_t * title = hb_title_init( single_path, data->title_index );
+        data->stream = hb_stream_open(data->h, single_path, title, 1);
         if (data->stream != NULL)
         {
             title = hb_stream_title_scan( data->stream, title );
@@ -201,6 +252,30 @@ static void ScanFunc( void * _data )
             hb_title_close( &title );
             hb_log( "scan: unrecognized file type" );
             goto finish;
+        }
+    }
+    else // We have many file paths to process.
+    {
+        // If dragging a batch of files, maybe not, but if the UI's implement a recursive folder maybe?
+        for (i = 0; i < hb_list_count( data->paths ); i++)
+        {
+            if (*data->die)
+            {
+                goto finish;
+            }
+
+            char *path = hb_list_item(data->paths, i);
+
+            UpdateState1(data, i + 1);
+
+            if (hb_is_valid_batch_path(path))
+            {
+                title = hb_batch_title_scan_single(data->h, path, (int)i + 1);
+                if (title != NULL)
+                {
+                    hb_list_add(data->title_set->list_title, title);
+                }
+            }
         }
     }
 
@@ -220,6 +295,14 @@ static void ScanFunc( void * _data )
         /* Decode previews */
         /* this will also detect more AC3 / DTS information */
         npreviews = DecodePreviews( data, title, 1 );
+        if (npreviews == 0 && data->hw_decode)
+        {
+            // Try without the hardware decoder
+            // Some hwaccel implementations don't automatically
+            // fall back to the software encoder
+            data->hw_decode = 0;
+            npreviews = DecodePreviews( data, title, 1 );
+        }
         if (npreviews < 2)
         {
             // Try harder to get some valid frames
@@ -266,21 +349,23 @@ static void ScanFunc( void * _data )
             j++;
         }
 
-        // VOBSUB and PGS width and height needs to be set to the
-        // title width and height for any stream type that does
-        // not provide this information (DVDs, BDs, VOBs, and M2TSs).
-        // Title width and height don't get set until we decode
-        // previews, so we can't set subtitle width/height till
-        // we get here.
         for (j = 0; j < hb_list_count(title->list_subtitle); j++)
         {
             hb_subtitle_t *subtitle = hb_list_item(title->list_subtitle, j);
             if ((subtitle->source == VOBSUB || subtitle->source == PGSSUB) &&
                 (subtitle->width <= 0 || subtitle->height <= 0))
             {
+                // VOBSUB and PGS width and height needs to be set to the
+                // title width and height for any stream type that does
+                // not provide this information (DVDs, BDs, VOBs, and M2TSs).
+                // Title width and height don't get set until we decode
+                // previews, so we can't set subtitle width/height till
+                // we get here.
                 subtitle->width  = title->geometry.width;
                 subtitle->height = title->geometry.height;
             }
+            // Initialize subtitle extradata if not set by demux already
+            hb_subtitle_extradata_init(subtitle);
         }
         i++;
     }
@@ -293,9 +378,16 @@ static void ScanFunc( void * _data )
         title      = hb_list_item( data->title_set->list_title, i );
         title->flags |= HBTF_SCAN_COMPLETE;
     }
+
     if (hb_list_count(data->title_set->list_title) > 0)
     {
-        data->title_set->path = strdup(data->path);
+        if (single_path != NULL)
+        {
+            data->title_set->path = strdup(single_path);
+        } else
+        {
+            data->title_set->path = NULL; // we have many paths.
+        }
     }
     else
     {
@@ -321,7 +413,25 @@ finish:
     {
         hb_batch_close( &data->batch );
     }
-    free( data->path );
+
+    // Clear down any file paths.
+    char *output_filepath;
+    while ((output_filepath = hb_list_item(data->paths, 0)))
+    {
+        hb_list_rem(data->paths, output_filepath);
+        free(output_filepath);
+    }
+    hb_list_close(&data->paths);
+
+    // clean up excluded extensions list
+    char *extension;
+    while ((extension = hb_list_item(data->exclude_extensions, 0)))
+    {
+        hb_list_rem(data->exclude_extensions, extension);
+        free(extension);
+    }
+    hb_list_close(&data->exclude_extensions);
+
     free( data );
     _data = NULL;
     hb_buffer_pool_free();
@@ -580,13 +690,18 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
         title->angle_count = hb_dvd_angle_count( data->dvd );
         hb_log( "scan: title angle(s) %d", title->angle_count );
     }
-    else if (data->batch)
+    else // data->batch or a single file
     {
         stream = hb_stream_open(data->h, title->path, title, 0);
     }
-    else if (data->stream)
+
+    if (data->bd == NULL && data->dvd == NULL && stream == NULL)
     {
-        stream = hb_stream_open(data->h, data->path, title, 0);
+        hb_error("Can't open stream!");
+        free(info_list);
+        crop_record_free(crops);
+        hb_stream_close(&stream);
+        return 0;
     }
 
     if (title->video_codec == WORK_NONE)
@@ -597,8 +712,21 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
         hb_stream_close(&stream);
         return 0;
     }
+
+    void *hw_device_ctx = NULL;
+    hb_hwaccel_t *hwaccel = hb_get_hwaccel(data->hw_decode);
+
+    if (hwaccel &&
+        hwaccel->caps & HB_HWACCEL_CAP_SCAN &&
+        hb_hwaccel_is_available(hwaccel, title->video_codec_param))
+    {
+        hb_hwaccel_hw_device_ctx_init(hwaccel->type, -1, &hw_device_ctx);
+    }
+
     hb_work_object_t *vid_decoder = hb_get_work(data->h, title->video_codec);
     vid_decoder->codec_param = title->video_codec_param;
+    vid_decoder->hw_device_ctx = hw_device_ctx;
+    vid_decoder->hw_accel = hwaccel;
     vid_decoder->title = title;
 
     if (vid_decoder->init(vid_decoder, NULL))
@@ -608,6 +736,7 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
         crop_record_free(crops);
         free( vid_decoder );
         hb_stream_close(&stream);
+        hb_hwaccel_hw_device_ctx_close(&hw_device_ctx);
         return 0;
     }
 
@@ -624,6 +753,7 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
             vid_decoder->close( vid_decoder );
             free( vid_decoder );
             hb_stream_close(&stream);
+            hb_hwaccel_hw_device_ctx_close(&hw_device_ctx);
             return 0;
         }
         if (data->bd)
@@ -787,8 +917,12 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
                 }
                 else if (!AllAudioOK(title) && !abort_audio)
                 {
-                    LookForAudio( data, title, buf_es );
-                    buf_es = NULL;
+                    hb_audio_t * audio = find_audio_for_id(title, buf_es->s.id);
+                    if (audio != NULL && audio->priv.scan_error_count < AUDIO_DECODE_ERROR_LIMIT)
+                    {
+                        LookForAudio( data, title, audio, buf_es );
+                        buf_es = NULL;
+                    }
                 }
                 if ( buf_es )
                     hb_buffer_close( &buf_es );
@@ -942,6 +1076,8 @@ skip_preview:
     vid_decoder->close( vid_decoder );
     free( vid_decoder );
 
+    hb_hwaccel_hw_device_ctx_close(&hw_device_ctx);
+
     if (stream != NULL)
     {
         hb_stream_close(&stream);
@@ -958,6 +1094,7 @@ skip_preview:
         {
             title->video_codec_name = strdup( vid_info.name );
         }
+        title->video_codec_profile = vid_info.profile;
         title->geometry.width = vid_info.geometry.width;
         title->geometry.height = vid_info.geometry.height;
         if (vid_info.rate.num && vid_info.rate.den)
@@ -1021,11 +1158,32 @@ skip_preview:
                 title->geometry.par.num != vid_info.geometry.par.num &&
                 title->geometry.par.den != vid_info.geometry.par.den)
             {
-                hb_log("WARNING: Video PAR %d:%d != container PAR %d:%d",
-                    vid_info.geometry.par.num, vid_info.geometry.par.den,
-                    title->geometry.par.num, title->geometry.par.den);
+                hb_log("WARNING: bitstream PAR %d:%d != container PAR %d:%d",
+                       vid_info.geometry.par.num, vid_info.geometry.par.den,
+                       title->geometry.par.num, title->geometry.par.den);
             }
-            title->geometry.par = vid_info.geometry.par;
+            /*
+             * Don't override container-level non-square
+             * pixels with bitstream-level square pixels.
+             *
+             * Allows fixing absent bitstream PAR at the container level.
+             *
+             * Still prefer bitstream-level PAR when set, as e.g. mkvmerge will sadly round
+             * it when muxing from elementary streams, making the bitstream PAR more precise:
+             * 720x480 [SAR 32:27 DAR 16:9], SAR 853:720 DAR 853:480, 24 fps, 24 tbr, 1k tbn (default)
+             */
+            if (vid_info.geometry.par.num != 1 ||
+                vid_info.geometry.par.den != 1 ||
+                !title->geometry.par.num ||
+                !title->geometry.par.den)
+            {
+                hb_log("using bitstream PAR %d:%d", vid_info.geometry.par.num, vid_info.geometry.par.den);
+                title->geometry.par = vid_info.geometry.par;
+            }
+            else
+            {
+                hb_log("using container PAR %d:%d", title->geometry.par.num, title->geometry.par.den);
+            }
         }
         else if (!title->geometry.par.num || !title->geometry.par.den)
         {
@@ -1033,10 +1191,44 @@ skip_preview:
             title->geometry.par.num = title->geometry.par.den = 1;
         }
         title->pix_fmt = vid_info.pix_fmt;
-        title->color_prim = vid_info.color_prim;
-        title->color_transfer = vid_info.color_transfer;
-        title->color_matrix = vid_info.color_matrix;
-        title->color_range = vid_info.color_range;
+
+        // DVD-Video have no defined color info, but some mostly wrong
+        // values could be read from the mpeg-2 bitstream. Override those here.
+        if (data->dvd)
+        {
+            title->color_prim     = hb_get_color_prim(HB_COLR_PRI_UNSET, vid_info.geometry, vid_info.rate);
+            title->color_transfer = HB_COLR_TRA_BT709;
+            title->color_matrix   = HB_COLR_MAT_SMPTE170M;
+        }
+        else if ((title->color_prim     != HB_COLR_PRI_UNDEF &&
+                  title->color_prim     != HB_COLR_PRI_UNSET) ||
+                 (title->color_transfer != HB_COLR_TRA_UNDEF &&
+                  title->color_transfer != HB_COLR_TRA_UNSET) ||
+                 (title->color_matrix   != HB_COLR_MAT_UNDEF &&
+                  title->color_matrix != HB_COLR_MAT_UNSET))
+        {
+            title->color_prim     = hb_get_color_prim(title->color_prim, vid_info.geometry, vid_info.rate);
+            title->color_transfer = hb_get_color_transfer(title->color_transfer);
+            title->color_matrix   = hb_get_color_matrix(title->color_matrix, vid_info.geometry);
+        }
+        else if ((title->dovi.dv_profile == 5 ||
+                 (title->dovi.dv_profile == 10 && title->dovi.dv_bl_signal_compatibility_id == 0)) &&
+                 (title->color_prim == HB_COLR_PRI_UNDEF     ||
+                  title->color_transfer == HB_COLR_TRA_UNDEF ||
+                  title->color_matrix   == HB_COLR_MAT_UNDEF))
+        {
+            title->color_prim     = HB_COLR_PRI_BT2020;
+            title->color_transfer = HB_COLR_TRA_SMPTEST2084;
+            title->color_matrix   = HB_COLR_MAT_IPT_C2;
+        }
+        else
+        {
+            title->color_prim     = hb_get_color_prim(vid_info.color_prim, vid_info.geometry, vid_info.rate);
+            title->color_transfer = hb_get_color_transfer(vid_info.color_transfer);
+            title->color_matrix   = hb_get_color_matrix(vid_info.color_matrix, vid_info.geometry);
+        }
+
+        title->color_range = hb_get_color_range(vid_info.color_range);
         title->chroma_location = vid_info.chroma_location;
 
         title->video_decode_support = vid_info.video_decode_support;
@@ -1071,17 +1263,81 @@ skip_preview:
         if ( crops->n > 2 )
         {
             sort_crops( crops );
-            // The next line selects median cropping - at least
+
+            // Available crop modes:
+            // - Median: Selects median cropping - at least
             // 50% of the frames will have their borders removed.
-            // Other possible choices are loose cropping (i = 0) where
+            // - Loose cropping (i = 0) where
             // no non-black pixels will be cropped from any frame and a
-            // tight cropping (i = crops->n - (crops->n >> 2)) where at
+            // - Tight cropping (i = crops->n - (crops->n >> 2)) where at
             // least 75% of the frames will have their borders removed.
-            i = crops->n >> 1;
+            // - Smart: A blend between Median and Loose depending on whether 
+            // mixed AR content is found.
+            
+            i = crops->n >> 1; // Median
+
+            int crop_switch_frame_count = data->crop_threshold_frames;
+            int less_than_median_crop_threshold = data->crop_threshold_pixels;
+            
+            if (crop_switch_frame_count == 0) 
+            {
+                // Values seem like sensible defaults.
+                // Have observed that the optimal value does not always linearly increase with preview count.
+                 crop_switch_frame_count = 4;
+                
+                if (data->preview_count >= 30){
+                    crop_switch_frame_count = 6;
+                }
+                
+                if (data->preview_count > 40){
+                    crop_switch_frame_count = 8;
+                }
+            }
+            
+            if (less_than_median_crop_threshold == 0) 
+            {
+                // It's not uncommon to see 2~12 px variance in cropping.
+                // Defaulting to 9 to account for that variance before switching to loose.
+                // This accounts for variance that is unlikely to be caused by mixed AR. 
+                less_than_median_crop_threshold = 9;
+            }
+
+            // Count the number of frames "substantially" less than the median.
+            int less_than_median_frame_count = 0;
+            for (int x = 0; x < crops->n; x++)
+            {
+                
+                if (crops->t[x] < (crops->t[i] - less_than_median_crop_threshold) ||
+                    crops->b[x] < (crops->b[i] - less_than_median_crop_threshold) ||
+                    crops->l[x] < (crops->l[i] - less_than_median_crop_threshold) ||
+                    crops->r[x] < (crops->r[i] - less_than_median_crop_threshold)){
+                    less_than_median_frame_count = less_than_median_frame_count +1;
+                }
+                               
+                 hb_deep_log(2, "crop: [%d] %d/%d/%d/%d", x, crops->t[x], crops->b[x],  crops->l[x], crops->r[x]);
+            }
+            
+            hb_deep_log(2, "crop: less_than_median_frame_count: %d,", less_than_median_frame_count);
+             
+            // If we have a reasonable number of samples and it appears we have mixed aspect ratio, switch to loose crop.
+            if (less_than_median_frame_count >= crop_switch_frame_count) 
+            {
+                hb_deep_log(2, "crop: switching to loose crop for this source. May be mixed aspect ratio. (%d)", crop_switch_frame_count);
+                i = 0;
+            }
+            
+            // Automatic "Smart" Crop.
             title->crop[0] = EVEN( crops->t[i] );
             title->crop[1] = EVEN( crops->b[i] );
             title->crop[2] = EVEN( crops->l[i] );
             title->crop[3] = EVEN( crops->r[i] );
+            
+            // Loose / Conservative  (i = 0)
+            i = 0;
+            title->loose_crop[0] = EVEN( crops->t[i] );
+            title->loose_crop[1] = EVEN( crops->b[i] );
+            title->loose_crop[2] = EVEN( crops->l[i] );
+            title->loose_crop[3] = EVEN( crops->r[i] );
         }
 
         hb_log( "scan: %d previews, %dx%d, %.3f fps, autocrop = %d/%d/%d/%d, "
@@ -1114,14 +1370,55 @@ skip_preview:
                    title->coll.max_fall);
         }
 
-        if (title->video_decode_support != HB_DECODE_SUPPORT_SW)
+        if (title->ambient.ambient_illuminance.num)
         {
-            hb_log("scan: supported video decoders:%s%s",
-                   !(title->video_decode_support & HB_DECODE_SUPPORT_SW)    ? "" : " avcodec",
-                   !(title->video_decode_support & HB_DECODE_SUPPORT_QSV)   ? "" : " qsv");
+            hb_log("scan: ambient viewing environment: ambient_illuminance=%f, ambient_light_x=%f, ambient_light_y=%f",
+                   hb_q2d(title->ambient.ambient_illuminance),
+                   hb_q2d(title->ambient.ambient_light_x),
+                   hb_q2d(title->ambient.ambient_light_y));
         }
 
-        if( interlaced_preview_count >= ( npreviews / 2 ) )
+        if (title->dovi.dv_profile > 0)
+        {
+            hb_log("scan: dolby vision configuration record: version: %d.%d, profile: %d, level: %d, rpu flag: %d, el flag: %d, bl flag: %d, compatibility id: %d",
+                   title->dovi.dv_version_major,
+                   title->dovi.dv_version_minor,
+                   title->dovi.dv_profile,
+                   title->dovi.dv_level,
+                   title->dovi.rpu_present_flag,
+                   title->dovi.el_present_flag,
+                   title->dovi.bl_present_flag,
+                   title->dovi.dv_bl_signal_compatibility_id);
+        }
+
+        if (title->hdr_10_plus)
+        {
+            hb_log("scan: hdr10+ dynamic metadata found");
+        }
+
+        if (title->spherical_mapping.projection > HB_SPHERICAL_UNSET)
+        {
+            hb_log("scan: spherical mapping: %s",
+                   av_spherical_projection_name(title->spherical_mapping.projection));
+        }
+
+        if (title->stereo_3d.type > HB_STEREO3D_UNSET)
+        {
+            hb_log("scan: stereo 3d: %s",
+                   av_stereo3d_type_name(title->stereo_3d.type));
+        }
+
+        if (title->video_decode_support != HB_DECODE_SW)
+        {
+            hb_log("scan: supported video decoders:%s%s%s%s%s",
+                   !(title->video_decode_support & HB_DECODE_SW)      ? "" : " avcodec",
+                   !(title->video_decode_support & HB_DECODE_QSV)     ? "" : " qsv",
+                   !(title->video_decode_support & HB_DECODE_AMFDEC)  ? "" : " amfdec",
+                   !(title->video_decode_support & HB_DECODE_NVDEC)   ? "" : " nvdec",
+                   !(title->video_decode_support & HB_DECODE_VIDEOTOOLBOX)  ? "" : " videotoolbox");
+        }
+
+        if (interlaced_preview_count && interlaced_preview_count >= (npreviews / 2))
         {
             hb_log("Title is likely interlaced or telecined (%i out of %i previews). You should do something about that.",
                    interlaced_preview_count, npreviews);
@@ -1145,6 +1442,23 @@ skip_preview:
     return npreviews;
 }
 
+static hb_audio_t * find_audio_for_id(hb_title_t * title, int id)
+{
+    int i;
+    hb_audio_t * audio = NULL;
+
+    for( i = 0; i < hb_list_count( title->list_audio ); i++ )
+    {
+        audio = hb_list_item( title->list_audio, i );
+        /* check if this elementary stream is one we want */
+        if ( audio->id == id )
+        {
+            return audio;
+        }
+    }
+    return NULL;
+}
+
 /*
  * This routine is called for every frame from a non-video elementary stream.
  * These are a mix of audio & subtitle streams, some of which we want & some
@@ -1159,24 +1473,8 @@ skip_preview:
  * aren't (e.g., some European DVD Teletext streams use the same IDs as US ATSC
  * AC-3 audio).
  */
-static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
+static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_audio_t * audio, hb_buffer_t * b)
 {
-    int i;
-
-    hb_audio_t * audio = NULL;
-    for( i = 0; i < hb_list_count( title->list_audio ); i++ )
-    {
-        audio = hb_list_item( title->list_audio, i );
-        /* check if this elementary stream is one we want */
-        if ( audio->id == b->s.id )
-        {
-            break;
-        }
-        else
-        {
-            audio = NULL;
-        }
-    }
     if( !audio || audio->config.in.bitrate != 0 )
     {
         /* not found or already done */
@@ -1210,16 +1508,26 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
     w->codec_param = audio->config.in.codec_param;
     b = hb_fifo_see( audio->priv.scan_cache );
     int ret = w->bsinfo( w, b, &info );
-    if ( ret < 0 )
+    if ( ret < 0 && ret != AVERROR(EAGAIN) )
     {
-        hb_log( "no info on audio type %d/0x%x for id 0x%x",
-                audio->config.in.codec, audio->config.in.codec_param,
-                audio->id );
-        goto drop_audio;
+        // No point in attempting to decode the
+        // same data again the next time around
+        hb_buffer_t * tmp;
+        tmp = hb_fifo_get( audio->priv.scan_cache );
+        hb_buffer_close( &tmp );
+        av_channel_layout_uninit(info.ch_layout);
+        free(info.ch_layout);
+        free( w );
+        audio->priv.scan_error_count++;
+        return;
     }
     if ( !info.bitrate )
     {
-        /* didn't find any info */
+        // didn't find any info
+        // Additional buffer data may be required to obtain
+        // audio attributes
+        av_channel_layout_uninit(info.ch_layout);
+        free(info.ch_layout);
         free( w );
         return;
     }
@@ -1231,21 +1539,56 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
     audio->config.in.samples_per_frame = info.samples_per_frame;
     audio->config.in.bitrate = info.bitrate;
     audio->config.in.matrix_encoding = info.matrix_encoding;
-    audio->config.in.channel_layout = info.channel_layout;
-    audio->config.in.channel_map = info.channel_map;
+    audio->config.in.ch_layout = calloc(1, sizeof(*audio->config.in.ch_layout));
+    av_channel_layout_copy(audio->config.in.ch_layout, info.ch_layout);
     audio->config.in.version = info.version;
     audio->config.in.flags = info.flags;
     audio->config.in.mode = info.mode;
+
+    // Under some circumstances, ffmpeg fails to probe the DTS profile
+    // during it's initial scan of DTS audio tracks. The profile gets
+    // picked up during our more indepth scan here.
+    if (audio->config.in.codec == HB_ACODEC_FFMPEG)
+    {
+        switch (audio->config.in.codec_param)
+        {
+            case AV_CODEC_ID_DTS:
+            {
+                switch (info.profile)
+                {
+                    case AV_PROFILE_DTS:
+                    case AV_PROFILE_DTS_ES:
+                    case AV_PROFILE_DTS_96_24:
+                    case AV_PROFILE_DTS_EXPRESS:
+                        audio->config.in.codec = HB_ACODEC_DCA;
+                        break;
+
+                    case AV_PROFILE_DTS_HD_MA:
+                    case AV_PROFILE_DTS_HD_HRA:
+                    case AV_PROFILE_DTS_HD_MA_X:
+                    case AV_PROFILE_DTS_HD_MA_X_IMAX:
+                        audio->config.in.codec = HB_ACODEC_DCA_HD;
+                        break;
+
+                    default:
+                        break;
+                }
+            } break;
+
+            default:
+                break;
+        }
+    }
 
     // now that we have all the info, set the audio description
     const char *codec_name   = NULL;
     const char *profile_name = NULL;
     if (audio->config.in.codec & HB_ACODEC_FF_MASK)
     {
-        AVCodec *codec = avcodec_find_decoder(audio->config.in.codec_param);
+        const AVCodec *codec = avcodec_find_decoder(audio->config.in.codec_param);
         if (codec != NULL)
         {
-            if (info.profile != FF_PROFILE_UNKNOWN)
+            if (info.profile != AV_PROFILE_UNKNOWN)
             {
                 profile_name = av_get_profile_name(codec, info.profile);
             }
@@ -1259,6 +1602,9 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                 case AV_CODEC_ID_AC3:
                     codec_name = "AC3";
                     break;
+                case AV_CODEC_ID_ALAC:
+                    codec_name = "ALAC";
+                    break;
                 case AV_CODEC_ID_EAC3:
                     codec_name = "E-AC3";
                     break;
@@ -1266,7 +1612,7 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                     codec_name = "TrueHD";
                     break;
                 case AV_CODEC_ID_DTS:
-                    if (profile_name == NULL &&
+                    if ((profile_name == NULL || info.profile == AV_PROFILE_DTS) &&
                         audio->config.in.codec == HB_ACODEC_DCA_HD)
                         codec_name = "DTS-HD";
                     else
@@ -1290,6 +1636,24 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                 case AV_CODEC_ID_VORBIS:
                     codec_name = "Vorbis";
                     break;
+                case AV_CODEC_ID_PCM_S16BE:
+                case AV_CODEC_ID_PCM_S16LE:
+                case AV_CODEC_ID_PCM_S24BE:
+                case AV_CODEC_ID_PCM_S24LE:
+                case AV_CODEC_ID_PCM_S32BE:
+                case AV_CODEC_ID_PCM_S32LE:
+                case AV_CODEC_ID_PCM_U16BE:
+                case AV_CODEC_ID_PCM_U16LE:
+                case AV_CODEC_ID_PCM_U24BE:
+                case AV_CODEC_ID_PCM_U24LE:
+                case AV_CODEC_ID_PCM_U32BE:
+                case AV_CODEC_ID_PCM_U32LE:
+                case AV_CODEC_ID_PCM_F32BE:
+                case AV_CODEC_ID_PCM_F32LE:
+                case AV_CODEC_ID_PCM_F64BE:
+                case AV_CODEC_ID_PCM_F64LE:
+                    codec_name = "PCM";
+                    break;
                 default:
                     codec_name = codec->name;
                     break;
@@ -1309,6 +1673,9 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                     break;
                 case HB_ACODEC_FFEAC3:
                     codec_name = "E-AC3";
+                    break;
+                case HB_ACODEC_FFALAC:
+                    codec_name = "ALAC";
                     break;
                 case HB_ACODEC_FFTRUEHD:
                     codec_name = "TrueHD";
@@ -1330,6 +1697,12 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                     break;
                 case HB_ACODEC_MP3:
                     codec_name = "MP3";
+                    break;
+                case HB_ACODEC_VORBIS:
+                    codec_name = "Vorbis";
+                    break;
+                case HB_ACODEC_PCM:
+                    codec_name = "PCM";
                     break;
                 default:
                     codec_name = "Unknown (libav)";
@@ -1355,52 +1728,52 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
     if (codec_name != NULL && profile_name != NULL)
     {
         snprintf(audio->config.lang.description, sizeof(audio->config.lang.description),
-                "%s (%s %s)", audio->config.lang.simple, codec_name, profile_name);
+                "%s (%s %s", audio->config.lang.simple, codec_name, profile_name);
     }
     else if (codec_name != NULL)
     {
         snprintf(audio->config.lang.description, sizeof(audio->config.lang.description),
-                "%s (%s)", audio->config.lang.simple, codec_name);
+                "%s (%s", audio->config.lang.simple, codec_name);
     }
     else if (profile_name != NULL)
     {
         snprintf(audio->config.lang.description, sizeof(audio->config.lang.description),
-                "%s (%s)", audio->config.lang.simple, profile_name);
+                "%s (%s", audio->config.lang.simple, profile_name);
     }
 
     if (audio->config.lang.attributes & HB_AUDIO_ATTR_VISUALLY_IMPAIRED)
     {
-        strncat(audio->config.lang.description, " (Visually Impaired)",
+        strncat(audio->config.lang.description, ", Visually Impaired",
                 sizeof(audio->config.lang.description) -
                 strlen(audio->config.lang.description) - 1);
     }
     if (audio->config.lang.attributes & HB_AUDIO_ATTR_COMMENTARY)
     {
-        strncat(audio->config.lang.description, " (Director's Commentary 1)",
+        strncat(audio->config.lang.description, ", Director's Commentary 1",
                 sizeof(audio->config.lang.description) -
                 strlen(audio->config.lang.description) - 1);
     }
     if (audio->config.lang.attributes & HB_AUDIO_ATTR_ALT_COMMENTARY)
     {
-        strncat(audio->config.lang.description, " (Director's Commentary 2)",
+        strncat(audio->config.lang.description, ", Director's Commentary 2",
                 sizeof(audio->config.lang.description) -
                 strlen(audio->config.lang.description) - 1);
     }
     if (audio->config.lang.attributes & HB_AUDIO_ATTR_SECONDARY)
     {
-        strncat(audio->config.lang.description, " (Secondary)",
+        strncat(audio->config.lang.description, ", Secondary",
                 sizeof(audio->config.lang.description) -
                 strlen(audio->config.lang.description) - 1);
     }
 
-    if (audio->config.in.channel_layout)
+    if (audio->config.in.ch_layout->nb_channels)
     {
-        int lfes     = (!!(audio->config.in.channel_layout & AV_CH_LOW_FREQUENCY) +
-                        !!(audio->config.in.channel_layout & AV_CH_LOW_FREQUENCY_2));
-        int channels = av_get_channel_layout_nb_channels(audio->config.in.channel_layout);
+        int lfes     = hb_layout_get_low_freq_channel_count(audio->config.in.ch_layout);
+        int channels = hb_layout_get_discrete_channel_count(audio->config.in.ch_layout);
         char *desc   = audio->config.lang.description +
                         strlen(audio->config.lang.description);
-        sprintf(desc, " (%d.%d ch)", channels - lfes, lfes);
+        size_t size = sizeof(audio->config.lang.description) - strlen(audio->config.lang.description);
+        snprintf(desc, size, ", %d.%d ch", channels - lfes, lfes);
 
         // describe the matrix encoding mode, if any
         switch (audio->config.in.matrix_encoding)
@@ -1411,25 +1784,25 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                     audio->config.in.codec_param == AV_CODEC_ID_EAC3 ||
                     audio->config.in.codec_param == AV_CODEC_ID_TRUEHD)
                 {
-                    strcat(audio->config.lang.description, " (Dolby Surround)");
+                    strcat(audio->config.lang.description, ", Dolby Surround");
                     break;
                 }
-                strcat(audio->config.lang.description, " (Lt/Rt)");
+                strcat(audio->config.lang.description, ", Lt/Rt)");
                 break;
             case AV_MATRIX_ENCODING_DPLII:
-                strcat(audio->config.lang.description, " (Dolby Pro Logic II)");
+                strcat(audio->config.lang.description, ", Dolby Pro Logic II");
                 break;
             case AV_MATRIX_ENCODING_DPLIIX:
-                strcat(audio->config.lang.description, " (Dolby Pro Logic IIx)");
+                strcat(audio->config.lang.description, ", Dolby Pro Logic IIx");
                 break;
             case AV_MATRIX_ENCODING_DPLIIZ:
-                strcat(audio->config.lang.description, " (Dolby Pro Logic IIz)");
+                strcat(audio->config.lang.description, ", Dolby Pro Logic IIz");
                 break;
             case AV_MATRIX_ENCODING_DOLBYEX:
-                strcat(audio->config.lang.description, " (Dolby Digital EX)");
+                strcat(audio->config.lang.description, ", Dolby Digital EX");
                 break;
             case AV_MATRIX_ENCODING_DOLBYHEADPHONE:
-                strcat(audio->config.lang.description, " (Dolby Headphone)");
+                strcat(audio->config.lang.description, ", Dolby Headphone");
                 break;
             default:
                 break;
@@ -1441,15 +1814,18 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
     if (audio->config.in.bitrate > 1)
     {
         char in_bitrate_str[19];
-        snprintf(in_bitrate_str, 18, " (%d kbps)", audio->config.in.bitrate / 1000);
+        snprintf(in_bitrate_str, 18, ", %d kbps", audio->config.in.bitrate / 1000);
         strncat(audio->config.lang.description, in_bitrate_str,
                 sizeof(audio->config.lang.description) - strlen(audio->config.lang.description) - 1);
     }
+    strcat(audio->config.lang.description, ")");
 
     hb_log( "scan: audio 0x%x: %s, rate=%dHz, bitrate=%d %s", audio->id,
             info.name, audio->config.in.samplerate, audio->config.in.bitrate,
             audio->config.lang.description );
 
+    av_channel_layout_uninit(info.ch_layout);
+    free(info.ch_layout);
     free( w );
     return;
 
@@ -1481,7 +1857,7 @@ static int  AllAudioOK( hb_title_t * title )
     for( i = 0; i < hb_list_count( title->list_audio ); i++ )
     {
         audio = hb_list_item( title->list_audio, i );
-        if( audio->config.in.bitrate == 0 )
+        if ( audio->priv.scan_error_count < AUDIO_DECODE_ERROR_LIMIT && audio->config.in.bitrate == 0 )
         {
             return 0;
         }
@@ -1492,6 +1868,8 @@ static int  AllAudioOK( hb_title_t * title )
 static void UpdateState1(hb_scan_t *scan, int title)
 {
     hb_state_t state;
+    
+    int is_multi_file = hb_list_count(scan->paths) > 0;
 
     hb_get_state2(scan->h, &state);
 #define p state.param.scanning
@@ -1501,7 +1879,8 @@ static void UpdateState1(hb_scan_t *scan, int title)
     p.title_count = scan->dvd ? hb_dvd_title_count( scan->dvd ) :
                     scan->bd ? hb_bd_title_count( scan->bd ) :
                     scan->batch ? hb_batch_title_count( scan->batch ) :
-                               hb_list_count(scan->title_set->list_title);
+                    is_multi_file ? hb_list_count(scan->paths) :
+                    hb_list_count(scan->title_set->list_title);
     p.preview_cur = 0;
     p.preview_count = 1;
     p.progress = 0.5 * ((float)p.title_cur + ((float)p.preview_cur / p.preview_count)) / p.title_count;

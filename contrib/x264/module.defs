@@ -1,8 +1,8 @@
 $(eval $(call import.MODULE.defs,X264,x264))
 $(eval $(call import.CONTRIB.defs,X264))
 
-X264.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x264-snapshot-20210613-3065.tar.gz
-X264.FETCH.sha256  = 8bacc5c25e52360d0772fde167f54b97b78a1876c9600be86bb9c1db3aef6adc
+X264.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/x264-snapshot-20250729-3222.tar.gz
+X264.FETCH.sha256  = f5a6862482c5ad63ecc77fc8d1a8344fb62827137f8e0ccaeba80b4727fae3a2
 
 X264.GCC.args.c_std =
 
@@ -11,13 +11,15 @@ X264.CONFIGURE.shared =
 
 X264.CONFIGURE.extra += --disable-lavf --disable-ffms --disable-avs --disable-swscale --disable-gpac --disable-lsmash --disable-cli
 
+ifeq (on,$(GCC.lto))
+    X264.CONFIGURE.extra += --enable-lto
+endif
+
 ifeq (1,$(HOST.cross))
     X264.CONFIGURE.build  =
     ifneq ($(HOST.system),darwin)
         X264.CONFIGURE.extra += --cross-prefix=$(HOST.spec)-
     endif
-    X264.CONFIGURE.env.CFLAGS = CFLAGS="-I$(call fn.ABSOLUTE,$(CONTRIB.build/)include) $(call fn.ARGS,X264.GCC,*archs *sysroot *minver ?extra)"
-    X264.CONFIGURE.env.LDFLAGS = LDFLAGS="-L$(call fn.ABSOLUTE,$(CONTRIB.build/)lib) $(call fn.ARGS,X264.GCC,*archs *sysroot *minver)"
     ifeq (arm64-darwin,$(HOST.machine)-$(HOST.system))
         X264.CONFIGURE.extra += --extra-asflags="-arch $(HOST.arch)"
     endif

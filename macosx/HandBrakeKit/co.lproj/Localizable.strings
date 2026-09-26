@@ -4,8 +4,11 @@
 /* HBStateFormatter -> work time format */
 " (%.2f fps, avg %.2f fps, ETA %@)" = " (%1$.2f fps, mez. %2$.2f fps, tras. %3$@)";
 
+/* HBStateFormatter -> work time format */
+" (%.2f fps, avg %.2f fps)" = " (%1$.2f fps, mez. %2$.2f fps)";
+
 /* HBStateFormatter -> search time format
-   HBStateFormatter -> work time format */
+HBStateFormatter -> work time format */
 " (ETA %@)" = " (trascorsu %@)";
 
 /* HBJob -> video short description framerate */
@@ -65,6 +68,9 @@
 /* HBPicture -> short info */
 "%@Output: %dx%d, Anamorphic: %dx%d Custom" = "%1$@Esciuta : %2$dx%3$d, Anamorficu : %4$dx%5$d Persunalizatu";
 
+/* HBPicture -> short non anamorphic info */
+"%dx%d" = "%1$dx%2$d";
+
 /* HBPicture -> short info */
 "%dx%d Storage, %dx%d Display" = "%1$dx%2$d Allucamentu, %3$dx%4$d Affissera";
 
@@ -82,12 +88,6 @@
 
 /* Title description */
 "1 Foreign Language Search Pass - " = "1 passu di ricerca di lingua straniera - ";
-
-/* Title description */
-"2 Video Passes" = "2 passi video";
-
-/* Title description */
-"2 Video Passes First Turbo" = "2 passi video, u primu in modu Turbo";
 
 /* HBAudio -> Mixdown */
 "5.1 Channels" = "Canali 5.1";
@@ -113,8 +113,11 @@
 /* Subtitles description */
 "Burned In" = "Intarsiati";
 
+/* HBFilters -> filter display name */
+"Bwdif" = "Bwdif";
+
 /* Title -> chapter name
-   Title description */
+Title description */
 "Chapter %d" = "Capitulu %d";
 
 /* HBJob -> chapters short description */
@@ -127,15 +130,15 @@
 "Chapters %d through %d" = "Capituli da %1$d fin’à %2$d";
 
 /* Filters description
-   HBJob -> filters short description */
+HBJob -> filters short description */
 "Chroma Smooth" = "Allisciata cromatica";
 
 /* Filters description
-   HBJob -> filters short description */
+HBJob -> filters short description */
 "Colorspace" = "Spaziu culorimetricu";
 
 /* HBJob -> filters short description */
-"Comb Detect" = "Abbentata di pettinera";
+"Comb Detect" = "Avventata di pettinera";
 
 /* Video description */
 "Constant Quality: %.2f %s" = "Qualità custente : %1$.2f %2$s";
@@ -144,21 +147,22 @@
 "CRF" = "CRF";
 
 /* HBFilters -> custom display name
-   HBPicture -> summary */
+HBPicture -> summary */
 "Custom" = "Persunalizatu";
 
 /* Filters description
-   HBJob -> filters short description */
+HBJob -> filters short description */
 "Deblock" = "Sblucchime";
 
 /* HBFilters -> filter display name */
 "Decomb" = "Dipettinera";
 
-/* Subtitles description */
+/* HBFilters -> default display name
+Subtitles description */
 "Default" = "Predefinitu";
 
 /* Video description */
-"default settings" = "preferenze predefinite";
+"default settings" = "parametri predefiniti";
 
 /* HBFilters -> invalid filter custom settings error recovery suggestion */
 "Default: " = "Predefinizione : ";
@@ -170,7 +174,7 @@
 "Destination:" = "Destinazione :";
 
 /* Dimensions description
-   HBJob -> filters short description */
+HBJob -> filters short description */
 "Detelecine" = "Detelesinema";
 
 /* Dimensions description */
@@ -216,47 +220,56 @@
 "Gain: %.2f" = "Guadagnu : %.2f";
 
 /* Filters description
-   HBJob -> filters short description */
+HBJob -> filters short description */
 "Grayscale" = "Scala di grisgiu";
 
 /* HBFilters -> filter display name */
 "HQDN3D" = "HQDN3D";
 
-/* HBFilters -> invalid chroma smooth custom string description */
-"Invalid chroma smooth custom settings." = "Preferenze persunalizate d’allisciata cromatica inaccettevule.";
+/* HBFilters -> invalid Bwdif custom string description */
+"Invalid Bwdif custom settings." = "Parametri persunalizati Bwdif inaccettevule.";
 
 /* HBFilters -> invalid chroma smooth custom string description */
-"Invalid colorspace custom settings." = "Preferenze persunalizate di spaziu culorimetricu inaccettevule.";
+"Invalid chroma smooth custom settings." = "Parametri persunalizati d’allisciata cromatica inaccettevule.";
+
+/* HBFilters -> invalid chroma smooth custom string description */
+"Invalid colorspace custom settings." = "Parametri persunalizati di spaziu culorimetricu inaccettevule.";
+
+/* HBPicture -> invalid pad custom string description */
+"Invalid custom border color." = "Culore persunalizatu di u bordu inaccettevule.";
 
 /* HBFilters -> invalid comb detect custom string description */
-"Invalid custom comb detect settings." = "Preferenze persunalizate di pettinera inaccettevule.";
+"Invalid custom comb detect settings." = "Parametri persunalizati di pettinera inaccettevule.";
 
 /* HBFilters -> invalid detelecine custom string description */
-"Invalid custom detelecine settings." = "Preferenze persunalizate di detelesinema inaccettevule.";
+"Invalid custom detelecine settings." = "Parametri persunalizati di detelesinema inaccettevule.";
 
 /* HBFilters -> invalid denoise custom string description */
-"Invalid custom HQDN3D settings" = "Preferenze persunalizate HQDN3D inaccettevule";
+"Invalid custom HQDN3D settings" = "Parametri persunalizati HQDN3D inaccettevule";
 
 /* HBFilters -> invalid denoise custom string description */
-"Invalid custom NLMeans settings" = "Preferenze persunalizate NLMeans inaccettevule";
+"Invalid custom NLMeans settings" = "Parametri persunalizati NLMeans inaccettevule";
 
 /* HBFilters -> invalid deblock custom string description */
-"Invalid deblock custom settings." = "Preferenze persunalizate di sblucchime inaccettevule.";
+"Invalid deblock custom settings." = "Parametri persunalizati di sblucchime inaccettevule.";
 
 /* HBFilters -> invalid Decomb custom string description */
-"Invalid Decomb custom settings." = "Preferenze persunalizate di dipettinera inaccettevule.";
+"Invalid Decomb custom settings." = "Parametri persunalizati di dipettinera inaccettevule.";
 
 /* HBFilters -> invalid lapsharp custom string description */
-"Invalid lapsharp custom settings." = "Preferenze persunalizate lapsharp inaccettevule.";
+"Invalid lapsharp custom settings." = "Parametri persunalizati lapsharp inaccettevule.";
 
 /* HBJob -> invalid name error description */
 "Invalid name" = "Nome inaccettevule";
 
+/* HBJob -> invalid preset */
+"Invalid preset" = "Prerigatura inaccettevule";
+
 /* HBFilters -> invalid unsharp custom string description */
-"Invalid unsharp custom settings." = "Preferenze persunalizate unsharp inaccettevule.";
+"Invalid unsharp custom settings." = "Parametri persunalizati unsharp inaccettevule.";
 
 /* HBFilters -> invalid Yadif custom string description */
-"Invalid Yadif custom settings." = "Preferenze persunalizate Yadif inaccettevule.";
+"Invalid Yadif custom settings." = "Parametri persunalizati Yadif inaccettevule.";
 
 /* HBFilters -> filter display name */
 "Lapsharp" = "Lapsharp";
@@ -276,6 +289,12 @@
 /* HBAudio -> Mixdown */
 "Mono (Right Only)" = "Mono (Solu à diritta)";
 
+/* Title description */
+"Multi Passes" = "Parechji passi";
+
+/* Title description */
+"Multi Passes Turbo" = "Parechji passi in modu Turbo";
+
 /* HBStateFormatter -> pass display name */
 "Muxing…" = "Mischiu multiple…";
 
@@ -286,14 +305,14 @@
 "none" = "nisunu";
 
 /* HBAudio -> Mixdown
-   HBAudio -> none track name
-   HBJob -> filters short description
-   HBSubtitles -> none track name */
+HBAudio -> none track name
+HBJob -> filters short description
+HBSubtitles -> none track name */
 "None" = "Nisunu";
 
 /* HBFilters -> filter display name
-   HBFilters -> off display name */
-"Off" = "Fermata";
+HBFilters -> off display name */
+"Off" = "Nò";
 
 /* Video description */
 "Options: %@" = "Ozzioni : %@";
@@ -326,7 +345,7 @@
 "Profile: %@" = "Prufilu : %@";
 
 /* Range description */
-"Range:" = "Stesa :";
+"Range:" = "Intervallu :";
 
 /* HBVideo -> frame rates display name */
 "Same as source" = "Listessa chì a fonte";
@@ -379,6 +398,9 @@
 /* Preset -> import error description */
 "The preset \"%@\" could not be imported." = "A prerigatura « %@ » ùn pò micca esse impurtata.";
 
+/* Job preset -> invalid preset recovery suggestion */
+"The preset is not a valid, try to select a different one." = "A prerigatura ùn hè micca accettevule, pruvate di selezziunane un’altra.";
+
 /* Preset -> import error reason */
 "The selected preset is invalid." = "A prerigatura selezziunata ùn hè micca accettevule.";
 
@@ -391,11 +413,15 @@
 /* Title description */
 "Title %d, %@, %@" = "Titulu %1$d, %2$@, %3$@";
 
+/* Audio track title description
+Subtitles track title description */
+"Title: %@" = "Titulu : %@";
+
 /* Video description */
 "Tune: " = "Rigatura : ";
 
 /* HBJob -> video short description encoder name
-   Video description */
+Video description */
 "Unknown" = "Scunnisciutu";
 
 /* HBFilters -> filter display name */

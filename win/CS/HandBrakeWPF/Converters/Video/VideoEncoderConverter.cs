@@ -13,17 +13,14 @@ namespace HandBrakeWPF.Converters.Video
     using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
-    using System.Runtime.InteropServices;
     using System.Windows.Data;
 
-    using HandBrake.Interop.Interop;
+    using HandBrake.Interop.Interop.Interfaces.Model.Encoders;
 
     using HandBrakeWPF.Services.Interfaces;
-    using HandBrakeWPF.Utilities;
 
     using EncodeTask = Services.Encode.Model.EncodeTask;
     using OutputFormat = Services.Encode.Model.Models.OutputFormat;
-    using VideoEncoder = Model.Video.VideoEncoder;
 
     /// <summary>
     /// Video Encoder Converter
@@ -52,124 +49,61 @@ namespace HandBrakeWPF.Converters.Video
         {
             if (values.Count() >= 2)
             {
-                IUserSettingService userSettingService = values[2] as IUserSettingService;
-                bool isQsvEnabled = false, isVceEnabled = false, isNvencEnabled = false;
-                if (userSettingService != null)
-                {
-                    isQsvEnabled = userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncEncoding);
-                    isVceEnabled = userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableVceEncoder);
-                    isNvencEnabled = userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvencEncoder);
-                }
-                
-                List<VideoEncoder> encoders = EnumHelper<VideoEncoder>.GetEnumList().ToList();
+
+                IEnumerable<HBVideoEncoder> allEncoders = values[0] as IEnumerable<HBVideoEncoder>;
                 EncodeTask task = values[1] as EncodeTask;
 
-                if (HandBrakeEncoderHelpers.VideoEncoders.All(a => a.ShortName != EnumHelper<VideoEncoder>.GetShortName(VideoEncoder.X264_10)))
+                if (task == null || allEncoders == null)
                 {
-                    encoders.Remove(VideoEncoder.X264_10);
+                    return null;
                 }
 
-                if (HandBrakeEncoderHelpers.VideoEncoders.All(a => a.ShortName != EnumHelper<VideoEncoder>.GetShortName(VideoEncoder.X265_10)))
+                List<HBVideoEncoder> returnEncoders = new List<HBVideoEncoder>(allEncoders);
+
+                foreach (var encoder in allEncoders)
                 {
-                    encoders.Remove(VideoEncoder.X265_10);
+                    if (encoder == null)
+                    {
+                        returnEncoders.Remove(encoder);
+                        continue;
+                    }
+
+                    if (task.OutputFormat == OutputFormat.Mp4 && !encoder.SupportsMP4)
+                    {
+                        returnEncoders.Remove(encoder);
+                    }
+
+                    if (task.OutputFormat == OutputFormat.Mov && !encoder.SupportsMOV)
+                    {
+                        returnEncoders.Remove(encoder);
+                    }
+
+                    if (task.OutputFormat == OutputFormat.Mkv && !encoder.SupportsMKV)
+                    {
+                        returnEncoders.Remove(encoder);
+                    }
+
+                    if (task.OutputFormat == OutputFormat.WebM && !encoder.SupportsWebM)
+                    {
+                        returnEncoders.Remove(encoder);
+                    }
                 }
 
-                if (HandBrakeEncoderHelpers.VideoEncoders.All(a => a.ShortName != EnumHelper<VideoEncoder>.GetShortName(VideoEncoder.X265_12)))
-                {
-                    encoders.Remove(VideoEncoder.X265_12);
-                }
-
-                if (task != null && task.OutputFormat == OutputFormat.Mp4)
-                {
-                    encoders.Remove(VideoEncoder.Theora);
-                    encoders.Remove(VideoEncoder.VP8);
-                    encoders.Remove(VideoEncoder.VP9);
-                }
-                else if (task != null && task.OutputFormat == OutputFormat.WebM)
-                {
-                    encoders.RemoveAll(ve => !(ve.Equals(VideoEncoder.VP9) || ve.Equals(VideoEncoder.VP8)));
-                }
-
-                if (!isQsvEnabled || !HandBrakeHardwareEncoderHelper.IsQsvAvailableH264)
-                {
-                    encoders.Remove(VideoEncoder.QuickSync);
-                }
-
-                if (!isQsvEnabled || !HandBrakeHardwareEncoderHelper.IsQsvAvailableH265)
-                {
-                    encoders.Remove(VideoEncoder.QuickSyncH265);
-                    encoders.Remove(VideoEncoder.QuickSyncH26510b);
-                }
-                else if (!HandBrakeHardwareEncoderHelper.IsQsvAvailableH26510bit)
-                {
-                    encoders.Remove(VideoEncoder.QuickSyncH26510b);
-                }
-
-                if (!isVceEnabled || !HandBrakeHardwareEncoderHelper.IsVceH264Available)
-                {
-                    encoders.Remove(VideoEncoder.VceH264);
-                }
-
-                if (!isVceEnabled || !HandBrakeHardwareEncoderHelper.IsVceH265Available)
-                {
-                    encoders.Remove(VideoEncoder.VceH265);
-                }
-
-                if (!isNvencEnabled || !HandBrakeHardwareEncoderHelper.IsNVEncH264Available)
-                {
-                    encoders.Remove(VideoEncoder.NvencH264);
-                }
-
-                if (!isNvencEnabled || !HandBrakeHardwareEncoderHelper.IsNVEncH265Available)
-                {
-                    encoders.Remove(VideoEncoder.NvencH265);
-                    encoders.Remove(VideoEncoder.NvencH26510b);
-                }
-
-                if (RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
-                {
-                    encoders.Remove(VideoEncoder.MFH264);
-                    encoders.Remove(VideoEncoder.MFH265);
-                }
-
-                return EnumHelper<VideoEncoder>.GetEnumDisplayValuesSubset(encoders);
+                return returnEncoders;
             }
 
-            if (values[0].GetType() == typeof(VideoEncoder))
+            if (values[0].GetType() == typeof(HBVideoEncoder))
             {
-                return EnumHelper<VideoEncoder>.GetDisplay((VideoEncoder)values[0]);
+                return (HBVideoEncoder)values[0];
             }
 
             return null;
         }
 
-        /// <summary>
-        /// Convert from a string name, to enum value.
-        /// </summary>
-        /// <param name="value">
-        /// The value.
-        /// </param>
-        /// <param name="targetTypes">
-        /// The target types.
-        /// </param>
-        /// <param name="parameter">
-        /// The parameter.
-        /// </param>
-        /// <param name="culture">
-        /// The culture.
-        /// </param>
-        /// <returns>
-        /// Returns the video encoder enum item.
-        /// </returns>
+
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
-            string name = value as string;
-            if (!string.IsNullOrEmpty(name))
-            {
-                return new object[] { EnumHelper<VideoEncoder>.GetValue(name) };
-            }
-
-            return null;
+            return new object[] { value as HBVideoEncoder };
         }
     }
 }

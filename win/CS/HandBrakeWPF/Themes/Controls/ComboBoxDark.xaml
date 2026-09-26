@@ -40,16 +40,18 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToggleButton}">
-                    <Border
+					<Border
 						x:Name="templateRoot"
+						CornerRadius="2"
 						Background="{DynamicResource ComboBox.Static.Background}"
 						BorderBrush="{DynamicResource ComboBox.Static.Border}"
 						BorderThickness="{TemplateBinding BorderThickness}"
 						SnapsToDevicePixels="true">
-                        <Border
+						<Border
 							x:Name="splitBorder"
 							Width="{DynamicResource {x:Static SystemParameters.VerticalScrollBarWidthKey}}"
 							Margin="0"
+							CornerRadius="0,2,2,0"
 							HorizontalAlignment="Right"
 							BorderBrush="Transparent"
 							BorderThickness="1"
@@ -167,48 +169,49 @@
 					                   ElementName=templateRoot}"
 					MaxHeight="{TemplateBinding MaxDropDownHeight}"
 					Color="Transparent">
-                    <Border
+					<Border
 						x:Name="dropDownBorder"
+						CornerRadius="4"
 						Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
 						BorderBrush="{DynamicResource {x:Static SystemColors.WindowFrameBrushKey}}"
 						BorderThickness="1">
-                        <ScrollViewer x:Name="DropDownScrollViewer">
-                            <Grid x:Name="grid" RenderOptions.ClearTypeHint="Enabled">
-                                <Canvas
+						<ScrollViewer x:Name="DropDownScrollViewer">
+							<Grid x:Name="grid" RenderOptions.ClearTypeHint="Enabled">
+								<Canvas
 									x:Name="canvas"
 									Width="0"
 									Height="0"
 									HorizontalAlignment="Left"
 									VerticalAlignment="Top">
-                                    <Rectangle
+									<Rectangle
 										x:Name="opaqueRect"
 										Width="{Binding ActualWidth,
-										                ElementName=dropDownBorder}"
+														ElementName=dropDownBorder}"
 										Height="{Binding ActualHeight,
-										                 ElementName=dropDownBorder}"
+														 ElementName=dropDownBorder}"
 										Fill="{Binding Background,
-										               ElementName=dropDownBorder}" />
-                                </Canvas>
-                                <ItemsPresenter
+													   ElementName=dropDownBorder}" />
+								</Canvas>
+								<ItemsPresenter
 									x:Name="ItemsPresenter"
 									KeyboardNavigation.DirectionalNavigation="Contained"
 									SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
-                            </Grid>
-                        </ScrollViewer>
-                    </Border>
-                </themes:SystemDropShadowChrome>
-            </Popup>
-            <ToggleButton
+							</Grid>
+						</ScrollViewer>
+					</Border>
+				</themes:SystemDropShadowChrome>
+			</Popup>
+			<ToggleButton
 				x:Name="toggleButton"
 				Grid.ColumnSpan="2"
 				Background="{TemplateBinding Background}"
 				BorderBrush="{TemplateBinding BorderBrush}"
 				BorderThickness="{TemplateBinding BorderThickness}"
 				IsChecked="{Binding IsDropDownOpen,
-				                    Mode=TwoWay,
-				                    RelativeSource={RelativeSource TemplatedParent}}"
+									Mode=TwoWay,
+									RelativeSource={RelativeSource TemplatedParent}}"
 				Style="{StaticResource ComboBoxToggleButton2}" />
-            <ContentPresenter
+			<ContentPresenter
 				x:Name="contentPresenter"
 				Margin="{TemplateBinding Padding}"
 				HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -305,9 +308,10 @@
 				                    Mode=TwoWay,
 				                    RelativeSource={RelativeSource TemplatedParent}}"
 				Style="{StaticResource ComboBoxToggleButton2}" />
-            <Border
+			<Border
 				x:Name="border"
 				Margin="{TemplateBinding BorderThickness}"
+				CornerRadius="4"
 				Background="{StaticResource TextBox.Static.Background}">
                 <TextBox
 					x:Name="PART_EditableTextBox"

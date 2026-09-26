@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Copyright (C) 2012-2017 VLC authors and VideoLAN
 # Copyright (C) 2012-2014 Felix Paul Kühne <fkuehne at videolan dot org>
-# Copyright (C) 2018-2022 Damiano Galassi <damiog@gmail.com>
-# Copyright (C) 2018-2022 Bradley Sepos <bradley@bradleysepos.com>
+# Copyright (C) 2018-2026 Damiano Galassi <damiog@gmail.com>
+# Copyright (C) 2018-2026 Bradley Sepos <bradley@bradleysepos.com>
 #
 # Based on VLC's codesign.sh
 #
@@ -166,7 +166,7 @@ for TARGET in "${@}"; do
         OIFS="${IFS}"
         IFS=$'\n'
         XPC=($(find -s "${TARGET}"/Contents/XPCServices -type d -regex ".*/HandBrakeXPCService[0-9]*\.xpc" 2>/dev/null))
-        XPC_EXT=($(find -s "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices -type d -regex ".*/org\.sparkle-project.*\.xpc" 2>/dev/null))
+        XPC_EXT=($(find -s "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices -type d -regex ".*\.xpc" 2>/dev/null))
         IFS="${OIFS}"
 
         echo "  Signing XPC Services"
@@ -176,8 +176,8 @@ for TARGET in "${@}"; do
         done
 
         echo "  Signing Sparkle XPC Services"
-        sign "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/org.sparkle-project.Downloader.xpc sparkle-xpc
-        sign "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/org.sparkle-project.InstallerLauncher.xpc
+        sign "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc sparkle-xpc
+        sign "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc
 
         echo "  Signing Updater App"
         sign "${TARGET}"/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app

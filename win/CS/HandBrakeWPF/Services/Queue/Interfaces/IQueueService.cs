@@ -53,6 +53,8 @@ namespace HandBrakeWPF.Services.Queue.Interfaces
         /// </summary>
         int Count { get; }
 
+        int ActiveJobCount { get; }
+
         /// <summary>
         /// Gets the number of errors detected in the queue.
         /// </summary>
@@ -111,6 +113,8 @@ namespace HandBrakeWPF.Services.Queue.Interfaces
         /// </param>
         void ExportJson(string exportPath);
 
+        void ExportJson(string exportPath, IList<QueueTask> jobs);
+
         /// <summary>
         /// Restore a JSON queue file.
         /// </summary>
@@ -155,15 +159,6 @@ namespace HandBrakeWPF.Services.Queue.Interfaces
         List<string> GetLogFilePaths();
 
         /// <summary>
-        /// Get the first job on the queue for processing.
-        /// This also removes the job from the Queue and sets the LastProcessedJob
-        /// </summary>
-        /// <returns>
-        /// An encode Job object.
-        /// </returns>
-        QueueTask GetNextJobForProcessing();
-
-        /// <summary>
         /// Moves items in the queue list
         /// </summary>
         void MoveToBottom(IList<QueueTask> moveItems);
@@ -181,14 +176,6 @@ namespace HandBrakeWPF.Services.Queue.Interfaces
         /// The job.
         /// </param>
         void Remove(QueueTask job);
-
-        /// <summary>
-        /// Reset a Queued Item from Error or Completed to Waiting
-        /// </summary>
-        /// <param name="job">
-        /// The job.
-        /// </param>
-        void ResetJobStatusToWaiting(QueueTask job);
 
         /// <summary>
         /// Restore a Queue from file or from the queue backup file.
@@ -229,11 +216,5 @@ namespace HandBrakeWPF.Services.Queue.Interfaces
         List<QueueProgressStatus> GetQueueProgressStatus();
 
         List<string> GetActiveJobDestinationDirectories();
-
-
-        /// <summary>
-        /// Queue up a breakpoint task type.
-        /// </summary>
-        void AddBreakPoint();
     }
 }

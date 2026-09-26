@@ -1,7 +1,10 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="PresetPaneControl.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="PresetPaneControl.xaml.cs" company="HandBrake Project (http://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
+// <summary>
+//   
+// </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
 namespace HandBrakeWPF.Controls
@@ -11,8 +14,8 @@ namespace HandBrakeWPF.Controls
     using System.Windows.Input;
     using System.Windows.Media;
 
-    using Caliburn.Micro;
-
+    using HandBrakeWPF.Helpers;
+    using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Presets.Interfaces;
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.ViewModels;
@@ -21,9 +24,12 @@ namespace HandBrakeWPF.Controls
     {
         private static readonly IPresetService presetService;
 
+        private static readonly IUserSettingService userSettingService;
+
         static PresetPaneControl()
         {
-            presetService = IoC.Get<IPresetService>();
+            presetService = IoCHelper.Get<IPresetService>();
+            userSettingService = IoCHelper.Get<IUserSettingService>();
         }
 
         public PresetPaneControl()
@@ -39,6 +45,7 @@ namespace HandBrakeWPF.Controls
             {
                 return (Preset)this.GetValue(SelectedPresetProperty);
             }
+
             set
             {
                 this.SetValue(SelectedPresetProperty, value);
@@ -53,7 +60,7 @@ namespace HandBrakeWPF.Controls
             {
                 if (preset != null)
                 {
-                    presetService.SetSelected(preset);
+                    presetService.SetSelected(preset.Name);
                 }
             }
         }
@@ -89,13 +96,29 @@ namespace HandBrakeWPF.Controls
             {
                 treeViewItem.Focus();
                 e.Handled = true;
+
+                PresetDisplayCategory category = treeViewItem.DataContext as PresetDisplayCategory;
+                this.moveTop.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.moveBottom.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.moveUp.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.moveDown.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.moveSplitter.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+
+                this.moveSplitter1.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.moveSplitter2.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.setDefault.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.editPresetMenuItem.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.clonePresetMenuItem.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
+                this.deletePresetMenuItem.Visibility = category == null ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
         private static TreeViewItem VisualUpwardSearch(DependencyObject source)
         {
             while (source != null && !(source is TreeViewItem))
+            {
                 source = VisualTreeHelper.GetParent(source);
+            }
 
             return source as TreeViewItem;
         }
@@ -121,7 +144,40 @@ namespace HandBrakeWPF.Controls
         private void ContextMenu_OnOpened(object sender, RoutedEventArgs e)
         {
             Preset preset = this.presetListTree.SelectedItem as Preset;
-            this.editPresetMenuItem.IsEnabled = preset == null || !preset.IsPresetDisabled;
+
+            if (preset == null || preset.IsPresetDisabled || preset.IsBuildIn)
+            {
+                this.editPresetMenuItem.IsEnabled = false;
+            }
+            else
+            {
+                this.editPresetMenuItem.IsEnabled = true;
+            }
+        }
+
+        private void PresetOptionsBtn_OnClick(object sender, RoutedEventArgs e)
+        {
+            var button = sender as FrameworkElement;
+            if (button != null && button.ContextMenu != null)
+            {
+                button.ContextMenu.PlacementTarget = button;
+                button.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                button.ContextMenu.IsOpen = true;
+            }
+
+            bool showPresetDesc = userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowPresetDesc);
+            this.presetDescMenuItem.Header = showPresetDesc ? Properties.Resources.PresetPane_HidePresetDesc : Properties.Resources.PresetPane_ShowPresetDesc;
+        }
+
+
+        private void PresetExpandAll_OnClick(object sender, RoutedEventArgs e)
+        {
+            TreeViewHelper.ExpandAllNodes(this.presetListTree);
+        }
+
+        private void PresetCollapseAll_OnClick(object sender, RoutedEventArgs e)
+        {
+            TreeViewHelper.CollapseAllNodes(this.presetListTree);
         }
     }
 }

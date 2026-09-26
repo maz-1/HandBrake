@@ -1,6 +1,6 @@
 /* dectx3gsub.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include "handbrake/handbrake.h"
 #include "handbrake/colormap.h"
+#include "handbrake/extradata.h"
 
 struct hb_work_private_s
 {
@@ -34,7 +35,8 @@ typedef enum {
 } FaceStyleFlag;
 
 #define MAX_MARKUP_LEN 40
-#define SSA_PREAMBLE_LEN 24
+/* Maximum SSA prefix length, including the NUL terminator. */
+#define SSA_PREAMBLE_LEN 30
 
 typedef struct {
     uint16_t startChar;       // NOTE: indices in terms of *character* (not: byte) positions
@@ -46,10 +48,10 @@ typedef struct {
 } StyleRecord;
 
 // NOTE: None of these macros check for buffer overflow
-#define READ_U8()       *pos;                                                       pos += 1;
-#define READ_U16()      (pos[0] << 8) | pos[1];                                     pos += 2;
-#define READ_U32()      (pos[0] << 24) | (pos[1] << 16) | (pos[2] << 8) | pos[3];   pos += 4;
-#define READ_ARRAY(n)   pos;                                                        pos += n;
+#define READ_U8()       *pos;                                                                 pos += 1;
+#define READ_U16()      (pos[0] << 8) | pos[1];                                               pos += 2;
+#define READ_U32()      ((uint32_t)pos[0] << 24) | (pos[1] << 16) | (pos[2] << 8) | pos[3];   pos += 4;
+#define READ_ARRAY(n)   pos;                                                                  pos += n;
 #define SKIP_ARRAY(n)   pos += n;
 
 #define WRITE_CHAR(c)       {dst[0]=c;                                              dst += 1;}
@@ -79,6 +81,7 @@ static int write_ssa_markup(char *dst, StyleRecord *style)
 
 static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
 {
+    hb_buffer_t *out = NULL;
     uint8_t *pos = in->data;
     uint8_t *end = in->data + in->size;
 
@@ -90,26 +93,51 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
      *
      * Look for a single StyleBox ('styl') and read all contained StyleRecords.
      * Ignore all other box types.
-     *
-     * NOTE: Buffer overflows on read are not checked.
      */
+    if (in->size < 2)
+    {
+        goto fail;
+    }
+
     uint16_t textLength = READ_U16();
+
+    if (in->size < textLength + 2)
+    {
+        goto fail;
+    }
+
     uint8_t *text = READ_ARRAY(textLength);
     while ( pos < end )
     {
         /*
          * Read TextSampleModifierBox
          */
+        if (end - pos < 4)
+        {
+            goto fail;
+        }
+
         uint32_t size = READ_U32();
+
+        if (size > end - pos + 4)
+        {
+            goto fail;
+        }
         if ( size == 0 )
         {
-            size = pos - end;   // extends to end of packet
+            size = end - pos;   // extends to end of packet
         }
         if ( size == 1 )
         {
             hb_log( "dectx3gsub: TextSampleModifierBox has unsupported large size" );
             break;
         }
+
+        if (end - pos < 4)
+        {
+            goto fail;
+        }
+
         uint32_t type = READ_U32();
         if (type == FOURCC("uuid"))
         {
@@ -128,9 +156,25 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
                 continue;
             }
 
+            if (end - pos < 2)
+            {
+                goto fail;
+            }
+
             numStyleRecords = READ_U16();
             if (numStyleRecords > 0)
+            {
                 styleRecords = calloc(numStyleRecords, sizeof(StyleRecord));
+                if (styleRecords == NULL)
+                {
+                    goto fail;
+                }
+            }
+
+            if (end - pos < numStyleRecords * 12)
+            {
+                goto fail;
+            }
 
             int i;
             for (i = 0; i < numStyleRecords; i++)
@@ -153,8 +197,10 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
     /*
      * Copy text to output buffer, and add HTML markup for the style records
      */
-    int maxOutputSize = textLength + SSA_PREAMBLE_LEN + (numStyleRecords * MAX_MARKUP_LEN);
-    hb_buffer_t *out = hb_buffer_init( maxOutputSize );
+    // Newlines expand to two bytes.
+    int maxOutputSize = textLength * 2 + SSA_PREAMBLE_LEN +
+                        (numStyleRecords * MAX_MARKUP_LEN);
+    out = hb_buffer_init( maxOutputSize );
     if ( out == NULL )
         goto fail;
     uint8_t *dst = out->data;
@@ -162,7 +208,7 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
     int charIndex = 0;
     int styleIndex = 0;
 
-    sprintf((char*)dst, "%d,,Default,,0,0,0,,", pv->line);
+    snprintf((char*)dst, maxOutputSize, "%d,0,Default,,0,0,0,,", pv->line);
     dst += strlen((char*)dst);
     start = dst;
     for (pos = text, end = text + textLength; pos < end; pos++)
@@ -185,7 +231,7 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
                 }
                 styleIndex++;
             }
-            if (styleRecords[styleIndex].startChar == charIndex)
+            if (styleIndex < numStyleRecords && styleRecords[styleIndex].startChar == charIndex)
             {
                 dst += write_ssa_markup((char*)dst, &styleRecords[styleIndex]);
             }
@@ -212,6 +258,8 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
     *dst = '\0';
     dst++;
 
+    pv->line++;
+
     // Trim output buffer to the actual amount of data written
     out->size = dst - out->data;
 
@@ -221,9 +269,12 @@ static hb_buffer_t *tx3g_decode_to_ssa(hb_work_private_t *pv, hb_buffer_t *in)
     out->s.stop         = in->s.stop;
     out->s.scr_sequence = in->s.scr_sequence;
 
-fail:
     free(styleRecords);
+    return out;
 
+fail:
+    hb_log("dectx3gsub: failed to decode packet");
+    free(styleRecords);
     return out;
 }
 
@@ -249,11 +300,22 @@ static int dectx3gInit( hb_work_object_t * w, hb_job_t * job )
     // parse w->subtitle->extradata txg3 sample description into
     // SSA format and replace extradata.
     // For now we just create a generic SSA Script Info.
-    int height = job->title->geometry.height - job->crop[0] - job->crop[1];
-    int width = job->title->geometry.width - job->crop[2] - job->crop[3];
-    hb_subtitle_add_ssa_header(w->subtitle, HB_FONT_SANS,
-                               .066 * job->title->geometry.height,
-                               width, height);
+    const char *ssa_header =
+        "[Script Info]\r\n"
+        "ScriptType: v4.00+\r\n"
+        "PlayResX: 384\r\n"
+        "PlayResY: 288\r\n"
+        "ScaledBorderAndShadow: yes\r\n"
+        "YCbCr Matrix: None\r\n"
+        "\r\n"
+        "[V4+ Styles]\r\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\r\n"
+        "Style: Default,Arial,16,&Hffffff,&Hffffff,&H0,&H0,0,0,0,0,100,100,0,0,1,1,0,2,10,10,10,1\r\n"
+        "\r\n"
+        "[Events]\r\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\r\n";
+
+    hb_set_extradata(&w->subtitle->extradata, (const uint8_t *)ssa_header, strlen(ssa_header));
 
     return 0;
 }

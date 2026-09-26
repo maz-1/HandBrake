@@ -60,45 +60,45 @@
             : and then encoded with base64 encoding.
     -->
   <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="type" type="xsd:string"/>
+              <xsd:attribute name="mimetype" type="xsd:string"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="alias" type="xsd:string"/>
+              <xsd:attribute name="name" type="xsd:string"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required"/>
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="FilterView_Deblock" xml:space="preserve">
     <value>Deblock reduce los artefactos de bloques causados por la compresión de vídeo de baja calidad.</value>
@@ -141,7 +141,7 @@ HQDN3D es un filtro de paso bajo adaptativo, más rápido que NLMeans, pero meno
     <value>Detelecine elimina los artefactos de peine que son el resultado de telecine, un proceso para convertir velocidades de fotogramas de película a velocidades de fotogramas de televisión.</value>
   </data>
   <data name="FilterView_Grayscale" xml:space="preserve">
-    <value>Escala de grises elimina el componente de color del video. A lo que se le suele llamar video en blanco y negro.</value>
+    <value>La escala de grises elimina el componente de color del video. A menudo se le denomina video en Blanco y Negro.</value>
   </data>
   <data name="MainView_Destination" xml:space="preserve">
     <value>Ruta de destino, incluido el directorio y el nombre del archivo. Aquí es donde se creará su nuevo video, y cómo se llamará.</value>
@@ -163,15 +163,13 @@ HQDN3D es un filtro de paso bajo adaptativo, más rápido que NLMeans, pero meno
 Los orígenes de Blu-ray y DVD a menudo tienen múltiples títulos, el más largo de los cuales es por lo general el principal.</value>
   </data>
   <data name="PictureSettingsView_Anamorphic" xml:space="preserve">
-    <value>Anamorfico permite dimensiones de almacenamiento arbitrarias al tiempo que conserva el aspecto original durante la reproducción.
+    <value>La opción anamórfica permite dimensiones de almacenamiento arbitrarias, conservando la relación de aspecto original durante la reproducción.
 
-Ninguno desactiva anamórfico. Las dimensiones de almacenamiento de video y las dimensiones de la pantalla serán idénticas. Solo es útil para la compatibilidad con ciertos dispositivos heredados.
+"Ninguno" desactiva la opción anamórfica. Las dimensiones de almacenamiento de vídeo y de visualización serán idénticas. Solo es útil para la compatibilidad con ciertos dispositivos antiguos.
 
-Automático maximiza la resolución de almacenamiento al tiempo que conserva la relación de aspecto de la pantalla original. Recomendado.
+La opción automática maximiza la resolución de almacenamiento, conservando la relación de aspecto original de la pantalla. Recomendado.
 
-Loose es similar a Auto, pero intenta preservar la relación de aspecto de almacenamiento. Esto puede resultar en una ligera pérdida de resolución de almacenamiento en comparación con Auto.
-
-Personalizado permite configurar manualmente todos los parámetros. Útil para corregir un aspecto de visualización de fuente incorrecto y para profesionales que necesitan un control avanzado en posproducción.</value>
+La opción personalizada permite configurar manualmente todos los parámetros. Útil para corregir una relación de aspecto incorrecta de la fuente de visualización y para profesionales que necesitan un control avanzado en la post-producción.</value>
   </data>
   <data name="PictureSettingsView_AutoCrop" xml:space="preserve">
     <value>Recortar automáticamente los bordes negros alrededor del video.</value>
@@ -263,12 +261,13 @@ Anula todas las demás configuraciones.</value>
     <value>Permite la salida de velocidad de fotogramas variable con una velocidad máxima determinada por la configuración de velocidad de fotogramas.</value>
   </data>
   <data name="Video_Presets" xml:space="preserve">
-    <value>Ajusta la configuración del codificador para compensar la eficiencia de compresión con la velocidad de codificación.
+    <value>Ajusta la configuración del codificador para equilibrar la eficiencia de la compresión con la velocidad de codificación.
 
 Esto establece la configuración predeterminada del codificador.
-Las melodías, los perfiles, los niveles y la cadena de opciones avanzadas se aplicarán a esto.
-En general, debe configurar esta opción lo más lento posible, ya que una configuración
-más lenta dará como resultado una mejor calidad o archivos más pequeños.</value>
+Se aplicarán ajustes, perfiles, niveles y la cadena de opciones avanzadas.
+Generalmente, debería configurar esta opción al mínimo, ya que una configuración más lenta resultará en una mejor calidad o archivos más pequeños.
+
+Ajuste el control deslizante hacia la derecha para aumentar la eficiencia de la compresión a expensas de la velocidad de codificación, o hacia la izquierda para aumentar la velocidad de codificación a expensas de la eficiencia de la compresión.</value>
   </data>
   <data name="Video_Profile" xml:space="preserve">
     <value>Establece y garantiza el cumplimiento del perfil especificado.
@@ -290,15 +289,14 @@ Los valores sugeridos son: 18 a 20 para definición estándar y 20 a 23 para un 
 La escala de FFMpeg y Theora es más lineal.
 Estos codificadores no tienen un modo sin pérdidas.</value>
   </data>
-  <data name="Video_TurboFirstPass" xml:space="preserve">
-    <value>Durante la 1ª pasada de una codificación de 2 pasadas, use configuraciones que aceleren las cosas.</value>
+  <data name="Video_TurboAnalysisPass" xml:space="preserve">
+    <value>Durante el paso de análisis de una codificación de múltiples pasadas, use configuraciones que aceleren el proceso.</value>
   </data>
-  <data name="Video_TwoPass" xml:space="preserve">
-    <value>Realice la codificación de 2 pasos.
+  <data name="Video_MultiPass" xml:space="preserve">
+    <value>Realice la codificación de múltiples pasadas.
 
-La opción 'Bitrate' es un requisito previo. Durante el 1º paso, se recopilan estadísticas sobre
-el video. Luego, en el segundo paso, esas estadísticas se utilizan para tomar decisiones
-de asignación de bitrate.</value>
+La opción "Velocidad de bits" es un requisito previo. Durante las pasadas de análisis, se recopilan estadísticas sobre el vídeo. Luego, en la pasada final, esas estadísticas se usan
+para tomar decisiones sobre la asignación de la tasa de bits.</value>
   </data>
   <data name="Video_VariableFramerate" xml:space="preserve">
     <value>Habilita la salida de velocidad de fotogramas variable.
@@ -329,7 +327,9 @@ Anula todas las configuraciones de codificación. La configuración se puede aju
     <value>Eliminar el preajuste seleccionado.</value>
   </data>
   <data name="SourceSelection_TitleSpecific" xml:space="preserve">
-    <value>Escanear solo el título especificado en lugar de todos los títulos.</value>
+    <value>Algunas fuentes pueden contener más de un videoclip o una colección de títulos. Las fuentes de Blu-ray y DVD suelen tener varios títulos.
+
+Si conoce el título específico que desea codificar, puede ingresarlo aquí y HandBrake escaneará solo ese título en lugar de todos los títulos del archivo de origen. De lo contrario, deje el campo en blanco.</value>
   </data>
   <data name="FilterView_CustomDenoiseParams" xml:space="preserve">
     <value>Parámetros personalizados de Denoise.
@@ -363,22 +363,22 @@ HQDN3D default: y-spatial=3:cb-spatial=2:cr-spatial=2:y-temporal=2:cb-temporal=3
 - Sprite es útil para juegos bidimensionales de 1-/4-/8-/16 bits. Sprite no está diseñado para video de alta definición.</value>
   </data>
   <data name="FilterView_Deinterlace" xml:space="preserve">
-    <value>Deinterlace elimina los artefactos de peine de la imagen.
+    <value>El desentrelazado elimina los artefactos de interpolación de la imagen.
 
-Yadif es un desentrelazador popular y rápido.
+Bwdif y Yadif son dos desentrelazadores populares y rápidos.
 
-Decomb cambia entre múltiples algoritmos de interpolación para velocidad y calidad.</value>
+El desentrelazado alterna entre varios algoritmos de interpolación para lograr velocidad y calidad.</value>
   </data>
   <data name="FilterView_DeinterlaceCustom" xml:space="preserve">
-    <value>Parámetros de desentrelazado personalizados.
- 
-  Sintaxis de Yadif: mode=m:parity=p
+    <value>Parámetros de Desentrelazado personalizados.
 
-  Valor predeterminado de Yadif: mode=3
- 
-  Sintaxis de reducción: mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
+Sintaxis de Bwdif y Yadif: mode=m:parity=p
 
-  Decomb por defecto: mode=7</value>
+Valor por defecto de Bwdif y Yadif: mode=3
+
+Sintaxis de Desentrelazado: mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
+
+Valor por defecto de Desentrelazado: mode=7</value>
   </data>
   <data name="FilterView_DeinterlacePreset" xml:space="preserve">
     <value>Filtro de desentrelazado preestablecido.
@@ -432,7 +432,7 @@ Unsharp es un filtro de enmascaramiento de enfoque general. Se agudiza al difumi
 El Lapsharp se agudiza utilizando núcleos de convolución que se aproximan a los filtros de borde laplaciano, a veces produciendo resultados de mayor calidad que el enmascaramiento de enfoque.</value>
   </data>
   <data name="FilterView_SharpenPreset" xml:space="preserve">
-    <value>Afile el filtro preestablecido. Establece la fuerza del filtro.</value>
+    <value>Preajuste del filtro de nitidez. Establece la intensidad del filtro.</value>
   </data>
   <data name="FilterView_SharpenTune" xml:space="preserve">
     <value>Afina la melodía. Ajusta aún más el ajuste predeterminado de Nitidez para optimizar la configuración para escenarios específicos.
@@ -480,5 +480,94 @@ Cuando está deshabilitado, usará la ruta en el cuadro de destino en la ventana
 Tenga en cuenta que esto se seleccionará automáticamente si el formato de la pista de subtítulos de origen no es compatible con el tipo de archivo de salida.
 
 Por ejemplo, los subtítulos PGS no son compatibles con MP4</value>
+  </data>
+  <data name="OptionsView_PresetDisplayModes" xml:space="preserve">
+    <value>Plano - Los preajustes se muestran como una lista plana.
+Parcialmente plano - Los últimos 8 preajustes del usuario se muestran como una lista plana seguida de todos los preajustes que se muestran en la lista de categorías.
+Categorías - Todos los preajustes se muestran en un submenú por categoría.</value>
+  </data>
+  <data name="AudioView_AudioDefaults" xml:space="preserve">
+    <value>Configure comportamientos que dicten cómo esta pestaña agrega automáticamente pistas de audio al seleccionar una nueva fuente o título.</value>
+  </data>
+  <data name="BehavioursReload" xml:space="preserve">
+    <value>Actualiza la lista de debajo, según la configuración de comportamientos.</value>
+  </data>
+  <data name="SubtitleView_SubtitleDefaults" xml:space="preserve">
+    <value>Configure comportamientos que dicten cómo esta pestaña añade automáticamente pistas de subtítulos al seleccionar una nueva fuente o título.</value>
+  </data>
+  <data name="OptionsView_SendFileToArguments" xml:space="preserve">
+    <value>Las siguientes variables de entorno siempre están configuradas:
+HB_SOURCE
+HB_DESTINATION
+HB_EXIT_CODE
+
+Los posibles códigos de salida son los siguientes:
+0: Correcto
+2: Error de argumentos de entrada
+3: Error al inicializar
+4: Error desconocido
+5: Error al leer el archivo de origen.
+
+Tenga en cuenta que los códigos de error son el mejor esfuerzo y es posible que no siempre sean precisos.
+Se recomienda validar el archivo de salida antes de realizar acciones en él.</value>
+  </data>
+  <data name="Options_AdditionalFormatOptions" xml:space="preserve">
+    <value>El formato del archivo de salida. Además de cualquier carácter compatible con el sistema de archivos, puede usar cualquiera de los marcadores de posición que se reemplazarán cuando cambie el título, escanee una fuente o actualice ciertas configuraciones.
+
+{source} - Nombre del archivo de origen.
+{title} - Valor entero. Esto es representativo del número de título de un disco.
+{chapters} - El rango de capítulos seleccionados.
+{creation-date} - La fecha en la que se creó el archivo de origen (si está disponible).
+{creation-time} - La hora en la que se creó el archivo de origen (si está disponible).
+{modification-date} - La fecha en la que se modificó por última vez el archivo de origen (si está disponible).
+{modification-time} - La hora en la que se modificó por última vez el archivo de origen (si está disponible).
+{date} - Hoy. Se establece en el momento de añadir a la cola.
+{time} - Hoy. Se establece en el momento de añadir a la cola.
+{quality_bitrate} - El número RF/CQ o tasa de bits
+{quality_type} - Imprime "kbps" o "Q" según el modo de calidad seleccionado en la pestaña de video.
+{preset} - Nombre del valor preestablecido seleccionado.
+{encode_bit_depth} - Valor entero, es decir, 8, 10 o 12
+{width} - El ancho de almacenamiento de salida
+{height} - La altura de almacenamiento de salida
+{codec} - Muestra el formato de video.
+{encoder} - Muestra la clave de formato corto del codificador utilizado.
+
+Todos los caracteres de ruta ilegales se eliminarán automáticamente.</value>
+  </data>
+  <data name="OptionsView_RightToleftMode" xml:space="preserve">
+    <value>Para los idiomas que se leen de derecha a izquierda, puede habilitar uno de los dos modos. "Solo texto" solo mostrará el texto de derecha a izquierda. "Toda la interfaz de usuario" mostrará todos los controles de derecha a izquierda.
+
+Tenga en cuenta que puede haber imperfecciones en el diseño de la interfaz de usuario al usar estos modos. Según el idioma, puede que valga la pena probar ambos modos para encontrar el que mejor se adapte a sus necesidades.</value>
+  </data>
+  <data name="AudioView_Quality" xml:space="preserve">
+    <value>Establezca un nivel de calidad específico para el audio.
+Cuanto mayor sea el valor, mayor será la calidad.
+
+La tasa de bits varía según la fuente.</value>
+  </data>
+  <data name="OptionsView_DestinationReplacementOptions" xml:space="preserve">
+    <value>Los siguientes elementos se pueden usar de forma individual o en conjunto para crear una ruta de destino
+
+{source_path}: En la misma carpeta que la ruta de origen (si es posible)
+{source_folder_name}: El nombre del directorio en el que se encuentra el archivo de origen, sin la ruta completa.
+{source}: El nombre del archivo de origen.</value>
+  </data>
+  <data name="OptionsView_LaunchsHelp" xml:space="preserve">
+    <value>Lanza el sitio web de documentación ubicado en https://handbrake.fr/docs</value>
+  </data>
+  <data name="Options_RemovePunctuation" xml:space="preserve">
+    <value>Guión (-), punto (.) y coma (,)</value>
+  </data>
+  <data name="PictureSettingsView_OptimalSize" xml:space="preserve">
+    <value>Use la resolución más alta permitida por la configuración anterior</value>
+  </data>
+  <data name="PictureSettingsView_AllowUpscaling" xml:space="preserve">
+    <value>Si no está activado, las dimensiones escaladas se limitarán a las dimensiones de origen.</value>
+  </data>
+  <data name="PictureSettingsView_AutomaticKeepAR" xml:space="preserve">
+    <value>Cambiar el tamaño de la pantalla estirará el vídeo</value>
+  </data>
+  <data name="Video_ColourRange" xml:space="preserve">
+    <value>Gama de colores. Determina los valores de referencia en blanco y negro. Limitar para maximizar la compatibilidad.</value>
   </data>
 </root>

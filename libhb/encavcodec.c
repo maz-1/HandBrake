@@ -1,23 +1,30 @@
 /* encavcodec.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
+   Copyright 2022 NVIDIA Corporation
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
    For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
  */
 
+#include "handbrake/common.h"
 #include "handbrake/handbrake.h"
 #include "handbrake/hb_dict.h"
 #include "handbrake/hbffmpeg.h"
+#include "handbrake/hwaccel.h"
 #include "handbrake/h264_common.h"
 #include "handbrake/h265_common.h"
+#include "handbrake/av1_common.h"
 #include "handbrake/nal_units.h"
-
-#if HB_PROJECT_FEATURE_NVENC
 #include "handbrake/nvenc_common.h"
-#endif
+#include "handbrake/vce_common.h"
+#include "handbrake/extradata.h"
+#include "handbrake/qsv_common.h"
 
+#if HB_PROJECT_FEATURE_VAAPI
+#include "handbrake/vaapi_common.h"
+#endif
 
 /*
  * The frame info struct remembers information about each frame across calls
@@ -25,11 +32,11 @@
  * frame number, we use this as an index.
  *
  * The size of the array is chosen so that two frames can't use the same
- * slot during the encoder's max frame delay (set by the standard as 16
- * frames) and so that, up to some minimum frame rate, frames are guaranteed
+ * slot during the encoder's max frame delay and so that,
+ * up to some minimum frame rate, frames are guaranteed
  * to map to * different slots.
  */
-#define FRAME_INFO_SIZE 32
+#define FRAME_INFO_SIZE 1024
 #define FRAME_INFO_MASK (FRAME_INFO_SIZE - 1)
 
 struct hb_work_private_s
@@ -45,6 +52,10 @@ struct hb_work_private_s
 
     int64_t              dts_delay;
 
+#if HB_PROJECT_FEATURE_QSV
+    qsv_data_t         qsv_data;
+#endif
+
     struct {
         int64_t          start;
         int64_t          duration;
@@ -57,8 +68,17 @@ int  encavcodecInit( hb_work_object_t *, hb_job_t * );
 int  encavcodecWork( hb_work_object_t *, hb_buffer_t **, hb_buffer_t ** );
 void encavcodecClose( hb_work_object_t * );
 
-static int apply_encoder_preset(int vcodec, AVDictionary ** av_opts,
-                                const char * preset);
+static int apply_encoder_preset(int vcodec, AVCodecContext *context,
+                                AVDictionary **av_opts,
+                                const char *preset);
+static int apply_encoder_tune(int vcodec, AVDictionary ** av_opts,
+                                const char * tune);
+
+static int apply_encoder_options(hb_job_t *job, AVCodecContext *context,
+                                 AVDictionary **av_opts);
+
+static int apply_encoder_level(AVCodecContext *context, AVDictionary **av_opts,
+                               int vcodec, const char *encoder_level);
 
 hb_work_object_t hb_encavcodec =
 {
@@ -69,9 +89,34 @@ hb_work_object_t hb_encavcodec =
     encavcodecClose
 };
 
+static const char * const empty_tune_names[] =
+{
+    "none", NULL
+};
+
+static const char * const empty_names[] =
+{
+    "auto", NULL
+};
+
 static const char * const vpx_preset_names[] =
 {
     "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", NULL
+};
+
+static const char * const vp9_tune_names[] =
+{
+    "none", "screen", "film", NULL
+};
+
+static const char * const h264_qsv_profile_name[] =
+{
+    "auto", "high", "main", "baseline", NULL
+};
+
+static const char * const h265_qsv_profile_name[] =
+{
+    "auto", "main", "main10", "mainsp",  NULL
 };
 
 static const char * const h26x_nvenc_preset_names[] =
@@ -79,14 +124,24 @@ static const char * const h26x_nvenc_preset_names[] =
     "fastest", "faster", "fast", "medium", "slow", "slower", "slowest", NULL
 };
 
+static const char * const ffv1_preset_names[] =
+{
+    "default", "preservation", NULL
+};
+
 static const char * const h264_nvenc_profile_names[] =
 {
     "auto", "baseline", "main", "high", NULL  // "high444p" not supported.
 };
 
+static const char * const h264_nvenc_10bit_profile_names[] =
+{
+    "auto", "high10", NULL
+};
+
 static const char * const h265_nvenc_profile_names[] =
 {
-    "auto", "main", NULL // "main10", "rext"  We do not currently support 10bit encodes with this encoder.
+    "auto", "main", NULL
 };
 
 static const char * const h265_nvenc_10bit_profile_names[] =
@@ -109,9 +164,143 @@ static const char * const h265_mf_profile_name[] =
     "auto", "main",  NULL
 };
 
-static const enum AVPixelFormat pix_fmts[] =
+static const char * const av1_mf_profile_name[] =
+{
+    "auto", "main",  NULL
+};
+
+/// ffmpeg -h encoder=h264_vaapi
+static const char * const h264_vaapi_profile_names[] =
+{
+    "auto", "baseline", "main", "high", NULL  // default -99, constrained_baseline 578, main 77, high 100
+};
+
+/// ffmpeg -h encoder=hevc_vaapi
+static const char * const h265_vaapi_profile_names[] =
+{
+    "auto", "main", "main10", "rext", NULL  // default -99, main 1, main10 2, rext 4
+};
+
+/// ffmpeg -h encoder=av1_vaapi
+static const char * const av1_vaapi_profile_names[] =
+{
+    "auto", "main", "high", "professional", NULL  // default -99, main 0, high 1, professional 2
+};
+
+#if HB_PROJECT_FEATURE_VAAPI
+/**
+ * synchronized with 'hb_h264_level_names' definition
+ * ffmpeg -h encoder=h264_vaapi
+ */
+static const char * const h264_vaapi_level_values[] =
+{
+    // "auto", "1.0", "1b", "1.1", "1.2", "1.3", "2.0", "2.1", "2.2", "3.0",
+       "-99",  "10",  "10", "11",  "12",  "13",  "20",  "21",  "22",  "30",
+    // "3.1", "3.2", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2", "6.0", "6.1", "6.2", NULL, };
+       "31",  "32",  "40",  "41",  "42",  "50",  "51",  "52",  "60",  "61",  "62",  NULL
+};
+
+/**
+ * synchronized with 'hb_h265_level_names' definition
+ * ffmpeg -h encoder=hevc_vaapi
+ */
+static const char * const h265_vaapi_level_values[] =
+{
+    // "auto", "1.0", "2.0", "2.1", "3.0", "3.1", "4.0", "4.1",
+       "-99",  "30",  "60",  "63",  "90",  "93",  "120", "123",
+    // "5.0", "5.1", "5.2", "6.0", "6.1", "6.2",  NULL
+       "150", "153", "156", "180", "183", "186",  NULL
+};
+
+/**
+ * synchronized with 'hb_av1_level_names' definition
+ * ffmpeg -h encoder=av1_vaapi
+ */
+static const char * const av1_vaapi_level_values[] =
+{
+    // "auto", "2.0", "2.1", "2.2", "2.3", "3.0", "3.1", "3.2",
+        "-99", "0",   "1",   "1",   "1",   "4",   "5",   "5",
+    // "3.3", "4.0", "4.1", "4.2", "4.3", "5.0", "5.1", "5.2",
+       "5",   "8",   "9",   "9",   "9",   "12",  "13",  "14"
+    // "5.3", "6.0", "6.1", "6.2", "6.3", NULL,
+       "15",  "16",  "17",  "18",  "19",  NULL
+};
+
+#endif
+
+static const char * const hb_ffv1_level_names[] =
+{
+    "auto", "1", "3", NULL
+};
+
+static const int hb_ffv1_level_values[] =
+{
+    -1,  1,  3,  0
+};
+
+static const char * const hb_mpeg2_profile_names[] =
+{
+    "auto", "simple", "main", "snr", "ss", "high", "422", NULL,
+};
+
+static const char * const hb_mpeg2_level_names[] =
+{
+    "auto", "low", "main", "high", "high1440", NULL,
+};
+
+static const int hb_mpeg2_level_values[] =
+{
+    8, 10,  8,  4, 6, 8
+};
+
+static const char * const hb_prores_profile_names[] =
+{
+    "auto", "proxy", "lt", "standard", "hq", "4444", "4444xq", NULL
+};
+
+static const char * const hb_dnxhr_profile_names[] =
+{
+    "auto", "lb", "sq", "hq", NULL
+};
+
+static const char * const hb_dnxhr_10bit_profile_names[] =
+{
+    "auto", "hqx", "444", NULL
+};
+
+static const enum AVPixelFormat standard_pix_fmts[] =
 {
     AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat standard_422_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV422P, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat standard_10bit_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV420P10, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat standard_422_10bit_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV422P10, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat standard_444_10bit_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV444P10, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat qsv_pix_formats[] =
+{
+    AV_PIX_FMT_NV12, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat qsv_10bit_pix_formats[] =
+{
+    AV_PIX_FMT_P010LE, AV_PIX_FMT_NONE
 };
 
 static const enum AVPixelFormat h26x_mf_pix_fmts[] =
@@ -119,14 +308,39 @@ static const enum AVPixelFormat h26x_mf_pix_fmts[] =
     AV_PIX_FMT_NV12, AV_PIX_FMT_NONE
 };
 
+static const enum AVPixelFormat nvenc_pix_formats_10bit[] =
+{
+    AV_PIX_FMT_P010, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat nvenc_pix_formats[] =
+{
+    AV_PIX_FMT_YUV420P, AV_PIX_FMT_NV12, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat vce_pix_formats_10bit[] =
+{
+     AV_PIX_FMT_P010, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat ffv1_pix_formats[] =
+{
+    AV_PIX_FMT_YUV444P16, AV_PIX_FMT_YUV444P12, AV_PIX_FMT_YUV444P10, AV_PIX_FMT_YUV444P,
+    AV_PIX_FMT_YUV422P16, AV_PIX_FMT_YUV422P12, AV_PIX_FMT_YUV422P10, AV_PIX_FMT_YUV422P,
+    AV_PIX_FMT_YUV420P16, AV_PIX_FMT_YUV420P12, AV_PIX_FMT_YUV420P10, AV_PIX_FMT_YUV420P,
+    AV_PIX_FMT_NONE
+};
+
 int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
 {
     int ret = 0;
     char reason[80];
     char * codec_name = NULL;
-    AVCodec * codec = NULL;
+    const AVCodec * codec = NULL;
     AVCodecContext * context;
     AVRational fps;
+    AVDictionary *av_opts = NULL;
+    const AVRational *frame_rates = NULL;
 
     hb_work_private_t * pv = calloc( 1, sizeof( hb_work_private_t ) );
     w->private_data   = pv;
@@ -160,21 +374,50 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         } break;
         case AV_CODEC_ID_VP8:
         {
-            hb_log("encavcodecInit: VP8 encoder");
-            codec_name = "libvpx";
+            switch (job->vcodec)
+            {
+#if HB_PROJECT_FEATURE_VAAPI
+                case HB_VCODEC_FFMPEG_VAAPI_VP8:
+                    hb_log("encavcodecInit: VP8 (vaapi)");
+                    codec_name = "vp8_vaapi";
+                    break;
+#endif
+                default:
+                    hb_log("encavcodecInit: VP8 (libvpx)");
+                    codec_name = "libvpx";
+                    break;
+            }
         } break;
         case AV_CODEC_ID_VP9:
         {
-            hb_log("encavcodecInit: VP9 encoder");
-            codec_name = "libvpx-vp9";
+            switch (job->vcodec)
+            {
+#if HB_PROJECT_FEATURE_VAAPI
+                case HB_VCODEC_FFMPEG_VAAPI_VP9:
+                    hb_log("encavcodecInit: VP9 (vaapi)");
+                    codec_name = "vp9_vaapi";
+                    break;
+#endif
+                default:
+                    hb_log("encavcodecInit: VP9 (libvpx)");
+                    codec_name = "libvpx-vp9";
+                    break;
+            }
         } break;
         case AV_CODEC_ID_H264:
         {
             switch (job->vcodec) {
                 case HB_VCODEC_FFMPEG_NVENC_H264:
+                case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
                     hb_log("encavcodecInit: H.264 (Nvidia NVENC)");
                     codec_name = "h264_nvenc";
                     break;
+#if HB_PROJECT_FEATURE_VAAPI
+                case HB_VCODEC_FFMPEG_VAAPI_H264:
+                    hb_log("encavcodecInit: H.264 (vaapi)");
+                    codec_name = "h264_vaapi";
+                    break;
+#endif
                 case HB_VCODEC_FFMPEG_VCE_H264:
                     hb_log("encavcodecInit: H.264 (AMD VCE)");
                     codec_name = "h264_amf";
@@ -182,6 +425,10 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                 case HB_VCODEC_FFMPEG_MF_H264:
                     hb_log("encavcodecInit: H.264 (MediaFoundation)");
                     codec_name = "h264_mf";
+                    break;
+                case HB_VCODEC_FFMPEG_QSV_H264:
+                    hb_log("encavcodecInit: H.264 (Intel Quick Sync Video)");
+                    codec_name = "h264_qsv";
                     break;
             }
         }break;
@@ -193,13 +440,86 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                     hb_log("encavcodecInit: H.265 (Nvidia NVENC)");
                     codec_name = "hevc_nvenc";
                     break;
+#if HB_PROJECT_FEATURE_VAAPI
+                case HB_VCODEC_FFMPEG_VAAPI_H265:
+                    hb_log("encavcodecInit: H.265 (vaapi)");
+                    codec_name = "hevc_vaapi";
+                    break;
+#endif
                 case HB_VCODEC_FFMPEG_VCE_H265:
+                case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
                     hb_log("encavcodecInit: H.265 (AMD VCE)");
                     codec_name = "hevc_amf";
                     break;
                 case HB_VCODEC_FFMPEG_MF_H265:
                     hb_log("encavcodecInit: H.265 (MediaFoundation)");
                     codec_name = "hevc_mf";
+                    break;
+                case HB_VCODEC_FFMPEG_QSV_H265:
+                case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+                    hb_log("encavcodecInit: H.265 (Intel Quick Sync Video)");
+                    codec_name = "hevc_qsv";
+                    break;
+            }
+        }break;
+        case AV_CODEC_ID_AV1:
+        {
+            switch (job->vcodec) {
+                case HB_VCODEC_FFMPEG_NVENC_AV1:
+                case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
+                    hb_log("encavcodecInit: AV1 (Nvidia NVENC)");
+                    codec_name = "av1_nvenc";
+                    break;
+                case HB_VCODEC_FFMPEG_VCE_AV1:
+                case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
+                    hb_log("encavcodecInit: AV1 (AMD VCE)");
+                    codec_name = "av1_amf";
+                    break;
+                case HB_VCODEC_FFMPEG_QSV_AV1:
+                case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+                    hb_log("encavcodecInit: AV1 (Intel Quick Sync Video)");
+                    codec_name = "av1_qsv";
+                    break;
+                case HB_VCODEC_FFMPEG_MF_AV1:
+                    hb_log("encavcodecInit: AV1 (MediaFoundation)");
+                    codec_name = "av1_mf";
+                    break;
+#if HB_PROJECT_FEATURE_VAAPI
+                case HB_VCODEC_FFMPEG_VAAPI_AV1:
+                    hb_log("encavcodecInit: AV1 (vaapi)");
+                    codec_name = "av1_vaapi";
+                    break;
+#endif
+            }
+        }break;
+        case AV_CODEC_ID_FFV1:
+        {
+            switch (job->vcodec) {
+                case HB_VCODEC_FFMPEG_FFV1:
+                    hb_log("encavcodecInit: FFV1 (libavcodec)");
+                    codec_name = "ffv1";
+                    break;
+            }
+        }break;
+        case AV_CODEC_ID_PRORES:
+        {
+            switch (job->vcodec) {
+                case HB_VCODEC_FFMPEG_PRORES:
+                    hb_log("encavcodecInit: ProRes (libavcodec)");
+                    codec_name = "prores";
+                    break;
+            }
+        }break;
+        case AV_CODEC_ID_DNXHD:
+        {
+            switch (job->vcodec) {
+                case HB_VCODEC_FFMPEG_DNXHR:
+                    hb_log("encavcodecInit: DNxHR (libavcodec)");
+                    codec_name = "dnxhd";
+                    break;
+                case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+                    hb_log("encavcodecInit: DNxHR 10-bit (libavcodec)");
+                    codec_name = "dnxhd";
                     break;
             }
         }break;
@@ -224,7 +544,8 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         ret = 1;
         goto done;
     }
-    context = avcodec_alloc_context3( codec );
+
+    context = avcodec_alloc_context3(codec);
 
     // Set things in context that we will allow the user to
     // override with advanced settings.
@@ -253,10 +574,11 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
 
     // Check that the framerate is supported.  If not, pick the closest.
     // The mpeg2 codec only supports a specific list of frame rates.
-    if (codec->supported_framerates)
+    if (avcodec_get_supported_config(context, NULL, AV_CODEC_CONFIG_FRAME_RATE,
+                                     0, (const void **)&frame_rates, NULL) == 0 && frame_rates)
     {
         AVRational supported_fps;
-        supported_fps = codec->supported_framerates[av_find_nearest_q_idx(fps, codec->supported_framerates)];
+        supported_fps = frame_rates[av_find_nearest_q_idx(fps, frame_rates)];
         if (supported_fps.num != fps.num || supported_fps.den != fps.den)
         {
             hb_log( "encavcodec: framerate %d / %d is not supported. Using %d / %d.",
@@ -283,52 +605,41 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     context->framerate     = fps;
     context->gop_size  = ((double)job->orig_vrate.num / job->orig_vrate.den +
                                   0.5) * 10;
-    if ((job->vcodec == HB_VCODEC_FFMPEG_VCE_H264) || (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265))
-    {
-        // Set encoder preset
-        context->profile = FF_PROFILE_UNKNOWN;
-        if (job->encoder_preset != NULL && *job->encoder_preset)
-        {
-            if ((!strcasecmp(job->encoder_preset, "balanced"))
-                || (!strcasecmp(job->encoder_preset, "speed"))
-                || (!strcasecmp(job->encoder_preset, "quality")))
-            {
-                av_opt_set(context, "quality", job->encoder_preset, AV_OPT_SEARCH_CHILDREN);
-            }
-        }
-    }
 
-    /* place job->encoder_options in an hb_dict_t for convenience */
-    hb_dict_t * lavc_opts = NULL;
-    if (job->encoder_options != NULL && *job->encoder_options)
+    if (apply_encoder_level(context, &av_opts, job->vcodec, job->encoder_level))
     {
-        lavc_opts = hb_encopts_to_dict(job->encoder_options, job->vcodec);
-    }
-
-    AVDictionary * av_opts = NULL;
-    if (apply_encoder_preset(job->vcodec, &av_opts, job->encoder_preset))
-    {
-        av_free( context );
-        av_dict_free( &av_opts );
+        av_free(context);
         ret = 1;
         goto done;
     }
 
-    /* iterate through lavc_opts and have avutil parse the options for us */
-    hb_dict_iter_t iter;
-    for (iter  = hb_dict_iter_init(lavc_opts);
-         iter != HB_DICT_ITER_DONE;
-         iter  = hb_dict_iter_next(lavc_opts, iter))
+    if (apply_encoder_preset(job->vcodec, context, &av_opts, job->encoder_preset))
     {
-        const char *key = hb_dict_iter_key(iter);
-        hb_value_t *value = hb_dict_iter_value(iter);
-        char *str = hb_value_get_string_xform(value);
-
-        /* Here's where the strings are passed to avutil for parsing. */
-        av_dict_set( &av_opts, key, str, 0 );
-        free(str);
+        av_free( context );
+        ret = 1;
+        goto done;
     }
-    hb_dict_free( &lavc_opts );
+
+    if (apply_encoder_tune(job->vcodec, &av_opts, job->encoder_tune))
+    {
+        av_free(context);
+        ret = 1;
+        goto done;
+    }
+
+    if (apply_encoder_options(job, context, &av_opts))
+    {
+        av_free( context );
+        ret = 1;
+        goto done;
+    }
+
+#if HB_PROJECT_FEATURE_QSV
+    if (hb_qsv_is_ffmpeg_supported_codec(job->vcodec))
+    {
+        hb_qsv_apply_encoder_options(&pv->qsv_data, job, &av_opts);
+    }
+#endif
 
     // Now set the things in context that we don't want to allow
     // the user to override.
@@ -340,13 +651,44 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         // bitrate * fps
         context->bit_rate_tolerance = context->bit_rate * av_q2d(fps) + 1;
 
-        if ( job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT) {
+        if ( job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT
+            || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT
+            || job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1_10BIT) {
             av_dict_set( &av_opts, "rc", "vbr", 0 );
-            av_dict_set( &av_opts, "multipass", "fullres", 0 );
-            hb_log( "encavcodec: encoding at rc=vbr, multipass=fullres, Bitrate %d", job->vbitrate );
+            hb_log( "encavcodec: encoding at rc=vbr, Bitrate %d", job->vbitrate );
         }
-        
-        if ( job->vcodec == HB_VCODEC_FFMPEG_VCE_H264 || job->vcodec == HB_VCODEC_FFMPEG_VCE_H265 )
+#if HB_PROJECT_FEATURE_VAAPI
+        else if (hb_video_encoder_is_vaapi(job->vcodec))
+        {
+            // Expect supported modes: CQP (default), CBR, VBR (*chosen*), QVBR
+            av_dict_set( &av_opts, "rc_mode", "VBR", 0 ); // Enable variable bitrate control mode
+            hb_log( "encavcodec: vaapi: encoding at rc_mode=VBR, Bitrate %d", job->vbitrate );
+        }
+#endif
+
+#if HB_PROJECT_FEATURE_QSV
+        if (hb_qsv_is_ffmpeg_supported_codec(job->vcodec))
+        {
+            if (pv->qsv_data.param.rc.lookahead)
+            {
+                // introduced in API 1.7
+                av_dict_set( &av_opts, "look_ahead", "1", 0 );
+            }
+
+            if (job->vbitrate == pv->qsv_data.param.rc.vbv_max_bitrate)
+            {
+                char maxrate[7];
+                snprintf(maxrate, 7, "%d", (int)context->bit_rate);
+                av_dict_set( &av_opts, "maxrate", maxrate, 0 );
+            }
+        }
+#endif
+
+        if ((job->vcodec == HB_VCODEC_FFMPEG_VCE_H264)
+            || (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265)
+            || (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265_10BIT)
+            || (job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1)
+            || (job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1_10BIT))
         {
             av_dict_set( &av_opts, "rc", "vbr_peak", 0 );
 
@@ -355,7 +697,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             context->gop_size = (int)(FFMIN(av_q2d(fps) * 2, 120));
 
             //Work around an ffmpeg issue mentioned in issue #3447
-            if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265)
+            if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265 || job->vcodec == HB_VCODEC_FFMPEG_VCE_H265_10BIT)
             {
                av_dict_set( &av_opts, "qmin",  "0", 0 );
                av_dict_set( &av_opts, "qmax", "51", 0 );
@@ -364,13 +706,9 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
 
         if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264 ||
-            job->vcodec == HB_VCODEC_FFMPEG_MF_H265) {
+            job->vcodec == HB_VCODEC_FFMPEG_MF_H265 ||
+            job->vcodec == HB_VCODEC_FFMPEG_MF_AV1) {
             av_dict_set(&av_opts, "rate_control", "u_vbr", 0); // options are cbr, pc_vbr, u_vbr, ld_vbr, g_vbr, gld_vbr
-
-            // On Qualcomm encoders, the VBR modes can easily drop frames if
-            // the rate control feels like it needs it (in certain
-            // configurations), unless scenario is set to camera_record.
-            av_dict_set(&av_opts, "scenario", "camera_record", 0);
         }
     }
     else
@@ -381,25 +719,39 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         if ( w->codec_param == AV_CODEC_ID_VP8 ||
              w->codec_param == AV_CODEC_ID_VP9 )
         {
-            // These settings produce better image quality than
-            // what was previously used
-            context->flags |= AV_CODEC_FLAG_QSCALE;
-            context->global_quality = FF_QP2LAMBDA * job->vquality + 0.5;
+            if (w->codec_param == AV_CODEC_ID_VP9 && job->vquality == 0)
+            {
+                av_dict_set( &av_opts, "lossless", "1", 0 );
+            }
+            else
+            {
+                // These settings produce better image quality than
+                // what was previously used
+                context->flags |= AV_CODEC_FLAG_QSCALE;
+                context->global_quality = FF_QP2LAMBDA * job->vquality + 0.5;
 
-            char quality[7];
-            snprintf(quality, 7, "%.2f", job->vquality);
-            av_dict_set( &av_opts, "crf", quality, 0 );
-            //This value was chosen to make the bitrate high enough
-            //for libvpx to "turn off" the maximum bitrate feature
-            //that is normally applied to constant quality.
-            context->bit_rate = (int64_t)job->width * job->height *
-                                         fps.num / fps.den;
+                char quality[7];
+                snprintf(quality, 7, "%.2f", job->vquality);
+                av_dict_set( &av_opts, "crf", quality, 0 );
+            }
+
+            if (w->codec_param == AV_CODEC_ID_VP8)
+            {
+                //This value was chosen to make the bitrate high enough
+                //for libvpx to "turn off" the maximum bitrate feature
+                //that is normally applied to constant quality.
+                context->bit_rate = (int64_t)job->width * job->height *
+                                    fps.num / fps.den;
+            }
             hb_log( "encavcodec: encoding at CQ %.2f", job->vquality );
         }
         //Set constant quality for nvenc
         else if ( job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT ||
                   job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
-                  job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT)
+                  job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT ||
+                  job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1_10BIT)
         {
             char qualityI[7];
             char quality[7];
@@ -423,394 +775,145 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
 
             av_dict_set( &av_opts, "rc", "vbr", 0 );
             av_dict_set( &av_opts, "cq", quality, 0 );
-            av_dict_set( &av_opts, "multipass", "fullres", 0 );
 
             // further Advanced Quality Settings in Constant Quality Mode
             av_dict_set( &av_opts, "init_qpP", quality, 0 );
             av_dict_set( &av_opts, "init_qpB", qualityB, 0 );
             av_dict_set( &av_opts, "init_qpI", qualityI, 0 );
-            hb_log( "encavcodec: encoding at rc=vbr, multipass=fullres, %.2f", job->vquality );
+            hb_log( "encavcodec: encoding at rc=vbr, %.2f", job->vquality );
         }
-        else if ( job->vcodec == HB_VCODEC_FFMPEG_VCE_H264 )
+#if HB_PROJECT_FEATURE_QSV
+        else if (hb_qsv_is_ffmpeg_supported_codec(job->vcodec))
+        {
+            context->bit_rate = 0;
+            if (pv->qsv_data.param.rc.icq)
+            {
+                char global_quality[7];
+                int upper_limit = 51;
+                snprintf(global_quality, 7, "%d", HB_QSV_CLIP3(1, upper_limit, (int)job->vquality));
+                av_dict_set(&av_opts, "global_quality", global_quality, 0);
+                hb_log("encavcodec: encoding with brc ICQ %s", global_quality);
+            }
+        }
+#endif
+#if HB_PROJECT_FEATURE_VAAPI
+        // Set constant quality for vaapi
+        else if (hb_video_encoder_is_vaapi(job->vcodec))
+        {
+            char quality[7];
+            snprintf(quality, 7, "%.0f", job->vquality);
+            /*
+             * Expect supported modes: CQP (default, *chosen*), CBR, VBR, QVBR (optional).
+             *
+             * rc_mode CQP default and correct mode for RDNA3 hardware (Gerald Cox)
+             * - ICQ was tested directly via ffmpeg on the 780M (VCN4)
+             *   and the driver explicitly reports
+             *     "Driver does not support ICQ RC mode (supported modes: CQP, CBR, VBR, QVBR)".
+             *   So CQP is not just the default, it is the correct mode for RDNA3 hardware.
+             *
+             * - QVBR could be exposed as a follow-up option for users who want quality-defined variable bitrate
+             *   with a target bitrate, but that is a separate matter from this fix.
+             */
+            av_dict_set(&av_opts, "rc_mode", "CQP", 0); // Enable constant-quality rate control mode
+            if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264 ||
+                job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265)
+            {
+                // h264 and hevc
+                av_dict_set(&av_opts, "qp", quality, 0);
+                hb_log("encavcodec: vaapi: encoding at rc_mode=CQP, qp=%.0f", job->vquality);
+            }
+            else
+            {
+                // VP8, VP9 and AV1
+                context->global_quality = (int)job->vquality; // Gerald Cox (gbcox)
+                hb_log("encavcodec: vaapi: encoding at rc_mode=CQP, q=%.0f", job->vquality);
+            }
+        }
+#endif
+        else if ( job->vcodec == HB_VCODEC_FFMPEG_VCE_H264 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_VCE_H265 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_VCE_H265_10BIT ||
+                  job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1_10BIT )
         {
             // since we do not have scene change detection, set a
             // relatively short gop size to help avoid stale references
             context->gop_size = (int)(FFMIN(av_q2d(fps) * 2, 120));
 
-            char quality[7];
-            char qualityB[7];
-            double adjustedQualityB = job->vquality + 2;
+            char   quality[7];
+            char   qualityP[7];
+            char   qualityB[7];
+            int    maxQuality = 51;
+            double qualityOffsetThreshold = 8;
+            double qualityOffsetP = 2;
+            double qualityOffsetB;
+            double adjustedQualityP;
+            double adjustedQualityB;
+
+            if (job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1 ||
+                job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1_10BIT )
+            {
+                maxQuality = 255;
+                qualityOffsetThreshold = 32;
+                qualityOffsetP = 8;
+            }
+
+            if (job->vquality <= qualityOffsetThreshold)
+            {
+                qualityOffsetP = job->vquality / qualityOffsetThreshold * qualityOffsetP;
+            }
+            qualityOffsetB = qualityOffsetP * 2;
+
+            adjustedQualityP = job->vquality + qualityOffsetP;
+            adjustedQualityB = job->vquality + qualityOffsetB;
+            if (adjustedQualityP > maxQuality)
+            {
+                adjustedQualityP = maxQuality;
+            }
+            if (adjustedQualityB > maxQuality)
+            {
+                adjustedQualityB = maxQuality;
+            }
 
             snprintf(quality, 7, "%.2f", job->vquality);
+            snprintf(qualityP, 7, "%.2f", adjustedQualityP);
             snprintf(qualityB, 7, "%.2f", adjustedQualityB);
-
-            if (adjustedQualityB > 51) {
-                adjustedQualityB = 51;
-            }
 
             av_dict_set( &av_opts, "rc", "cqp", 0 );
 
             av_dict_set( &av_opts, "qp_i", quality, 0 );
-            av_dict_set( &av_opts, "qp_p", quality, 0 );
-            av_dict_set( &av_opts, "qp_b", qualityB, 0 );
-            hb_log( "encavcodec: encoding at QP %.2f", job->vquality );
-        }
-        else if ( job->vcodec == HB_VCODEC_FFMPEG_VCE_H265 )
-        {
-            char  *vce_h265_max_au_size_char,
-                   vce_h265_q_char[4];
-            int    vce_h265_cq_step,
-                   vce_h265_max_au_size,
-                   vce_h265_max_au_size_length,
-                   vce_h265_qmin,
-                   vce_h265_qmax,
-                   vce_h265_qmin_p,
-                   vce_h265_qmax_p,
-                   vce_h265_threshold;
-            double vce_h265_bit_rate,
-                   vce_h265_buffer_size,
-                   vce_h265_comp_factor,
-                   vce_h265_exp_scale,
-                   vce_h265_max_rate = 0;
-
-            /*
-              constant quality tuning for peak constrained vbr rate control
-
-              summary of settings:
-              - set a relatively short gop size to help avoid stale references, since we do not have scene detection
-              - constrain qmin and qmax to ensure consistent visual quality window regardless of complexity in detail and/or motion
-              - limit max rate to 1.3x (effectively ~2x) target bit rate to allow adequate variance while avoiding extreme peaks
-              - calculate hrd buffer size based on max rate to manage short term data rate in conjunction with max au size
-              - set max au size to 1/4 hrd buffer size to improve intra-gop bit allocation and minimize refresh/recovery effects at gop transitions
-
-              additional settings for low quality / bit rates:
-              - increase gop size slightly to save bits by reducing total keyframe count
-              - increase qmin to save bits by minimizing overallocation to static scenes
-              - increase max rate to give the encoder flexibility in reallocating saved bits
-              - increase qmax as a last resort to avoid overshooting data rate
-            */
-
-            // set gop size to two seconds in frames
-            context->gop_size = (int)(FFMIN(av_q2d(fps) * 2, 120));
-
-            // the fun part
-            if (job->vquality > 0 && job->vquality < 51)
+            av_dict_set( &av_opts, "qp_p", qualityP, 0 );
+            // H.265 encoders do not support B frames
+            if (job->vcodec != HB_VCODEC_FFMPEG_VCE_H265 &&
+                job->vcodec != HB_VCODEC_FFMPEG_VCE_H265_10BIT)
             {
-                // set rc mode to peak constrained vbr
-                av_dict_set( &av_opts, "rc", "vbr_peak", 0 );
-
-                /*
-                // calculate CQ 33 bit rate, which is the basis for all other CQ bit rates
-                vce_h265_bit_rate = ((sqrt(sqrt(job->width * job->height) * job->width * job->height / 1000) * 1.2) + 150) * 1000;
-
-                // initial compounding factor for calculating bit rates for other CQ values
-                vce_h265_comp_factor = 1.16;
-
-                // calculate CQ 39 bit rate, which is the low bit rate quality threshold
-                vce_h265_threshold = vce_h265_bit_rate * pow(1.0L / vce_h265_comp_factor, 5);
-
-                // calculate bit rate for user specified CQ value
-                if (job->vquality < 33)
-                {
-                    for (vce_h265_cq_step = 32; vce_h265_cq_step >= job->vquality; vce_h265_cq_step--)
-                    {
-                        if (vce_h265_cq_step < 18)
-                        {
-                            vce_h265_comp_factor = 1.14; // vce_h265_comp_factor * 0.9827586207;
-                        }
-                        if (vce_h265_cq_step < 15)
-                        {
-                            vce_h265_comp_factor = 1.12; // vce_h265_comp_factor * 0.9824561404;
-                        }
-                        vce_h265_bit_rate = vce_h265_bit_rate * vce_h265_comp_factor;
-                    }
-                }
-                else if (job->vquality > 33)
-                {
-                    for (vce_h265_cq_step = 34; vce_h265_cq_step <= job->vquality; vce_h265_cq_step++)
-                    {
-                        if (vce_h265_cq_step > 39)
-                        {
-                            vce_h265_comp_factor = 1.15; // vce_h265_comp_factor * 0.9913793103;
-                        }
-                        if (vce_h265_cq_step > 49)
-                        {
-                            vce_h265_comp_factor = 1.25; // vce_h265_comp_factor * 1.0869565217;
-                        }
-                        vce_h265_bit_rate = vce_h265_bit_rate / vce_h265_comp_factor;
-                    }
-                }
-                context->bit_rate = (int)(vce_h265_bit_rate);
-                */
-
-                // calculate CQ 30 bit rate, which is the basis for all other CQ bit rates
-                vce_h265_bit_rate = sqrt(job->width * job->height * pow(sqrt(job->width * job->height) / 1000, 2.5) + 400000) * 1000;
-
-                // initial compounding factor for calculating bit rates for other CQ values
-                vce_h265_comp_factor = 1.15;
-
-                // calculate CQ 39 bit rate, which is the low bit rate quality threshold
-                vce_h265_threshold = vce_h265_bit_rate * pow(1.0L / vce_h265_comp_factor, 8);
-
-                // calculate bit rate for user specified CQ value
-                if (job->vquality < 30)
-                {
-                    vce_h265_comp_factor = 1.18;
-                    for (vce_h265_cq_step = 29; vce_h265_cq_step >= job->vquality; vce_h265_cq_step--)
-                    {
-                        // reticulate splines
-                        if (vce_h265_cq_step < 21)
-                        {
-                            vce_h265_comp_factor = 1.15;
-                        }
-                        if (vce_h265_cq_step < 15)
-                        {
-                            vce_h265_comp_factor = 1.12;
-                        }
-                        if (vce_h265_cq_step < 8)
-                        {
-                            vce_h265_comp_factor = 1.1;
-                        }
-                        if (vce_h265_cq_step < 3)
-                        {
-                            vce_h265_comp_factor = 1.08;
-                        }
-                        vce_h265_bit_rate = vce_h265_bit_rate * vce_h265_comp_factor;
-                    }
-                }
-                else
-                {
-                    for (vce_h265_cq_step = 31; vce_h265_cq_step <= job->vquality; vce_h265_cq_step++)
-                    {
-                        vce_h265_bit_rate = vce_h265_bit_rate / vce_h265_comp_factor;
-                    }
-                }
-                context->bit_rate = (int)(vce_h265_bit_rate);
-
-                // QP 1-19
-                // constrain qmax to ensure bits are not underallocated to motion
-                vce_h265_qmin   = 0;
-                vce_h265_qmax   = (int)(sqrt(job->vquality - 0.75) * 8);
-                vce_h265_qmin_p = 0;
-                vce_h265_qmax_p = vce_h265_qmax + 2;
-
-                if (vce_h265_bit_rate < vce_h265_threshold * 12)
-                {
-                    // CQ 20-22
-                    // constrain qmin to ensure bits are not overallocated to low motion, static scenes
-                    vce_h265_qmin   =  4;
-                    vce_h265_qmax   = 34;
-                    vce_h265_qmin_p =  8;
-                    vce_h265_qmax_p = 38;
-
-                    if (vce_h265_bit_rate < vce_h265_threshold * 8)
-                    {
-                        // CQ 23-27
-                        vce_h265_qmin   =  8;
-                        vce_h265_qmax   = 36;
-                        vce_h265_qmin_p = 12;
-                        vce_h265_qmax_p = 40;
-
-                        if (vce_h265_bit_rate < vce_h265_threshold * 4)
-                        {
-                            // CQ 28-32
-                            vce_h265_qmin   = 16;
-                            vce_h265_qmax   = 38;
-                            vce_h265_qmin_p = 19;
-                            vce_h265_qmax_p = 42;
-
-                            if (vce_h265_bit_rate < vce_h265_threshold * 2)
-                            {
-                                // CQ 33-38
-                                // bit rate is at or just above the starvation threshold
-                                // increase qmax to baseline for decent references (I) and minimal motion trails, recovery effects (P)
-                                vce_h265_qmin   = 19;
-                                vce_h265_qmax   = 39;
-                                vce_h265_qmin_p = 22;
-                                vce_h265_qmax_p = 44;
-
-                                if (vce_h265_bit_rate <= vce_h265_threshold)
-                                {
-                                    // CQ 39-40
-                                    // bit rate is at or just below the starvation threshold
-                                    // increase gop size to save bits by reducing total keyframe count
-                                    // increase qmin to continue saving bits by minimizing overallocation to static scenes
-                                    // increase qmax beyond baseline for decent references (I) and minimal motion trails, recovery effects (P)
-                                    // increase max rate to allow higher relative peaks in short bursts
-                                    context->gop_size = (int)(FFMIN(av_q2d(fps) * 3, 180));
-                                    vce_h265_qmin   = 22;
-                                    vce_h265_qmax   = 40;
-                                    vce_h265_qmin_p = 24;
-                                    vce_h265_qmax_p = 45;
-                                    vce_h265_max_rate = vce_h265_bit_rate * 1.5;
-
-                                    if (vce_h265_bit_rate < vce_h265_threshold * 0.85)
-                                    {
-                                        // CQ 41
-                                        vce_h265_qmin   = 24;
-                                        vce_h265_qmax   = 41;
-                                        vce_h265_qmin_p = 27;
-                                        vce_h265_qmax_p = 46;
-                                        vce_h265_max_rate = vce_h265_bit_rate * 2.5;
-
-                                        if (vce_h265_bit_rate < vce_h265_threshold * 0.7)
-                                        {
-                                            // CQ 42
-                                            vce_h265_qmin   = 27;
-                                            vce_h265_qmax   = 42;
-                                            vce_h265_qmin_p = 30;
-                                            vce_h265_qmax_p = 47;
-                                            vce_h265_max_rate = vce_h265_bit_rate * 6.5;
-
-                                            if (vce_h265_bit_rate < vce_h265_threshold * 0.6)
-                                            {
-                                                // CQ 43
-                                                vce_h265_qmin   = 31;
-                                                vce_h265_qmax   = 44;
-                                                vce_h265_qmin_p = 34;
-                                                vce_h265_qmax_p = 48;
-                                                vce_h265_max_rate = vce_h265_bit_rate * 15;
-
-                                                if (vce_h265_bit_rate < vce_h265_threshold * 0.51)
-                                                {
-                                                    // CQ 44-45
-                                                    vce_h265_qmin   = 35;
-                                                    vce_h265_qmax   = 46;
-                                                    vce_h265_qmin_p = 38;
-                                                    vce_h265_qmax_p = 49;
-                                                    vce_h265_max_rate = vce_h265_bit_rate * 19;
-
-                                                    if (vce_h265_bit_rate < vce_h265_threshold * 0.42)
-                                                    {
-                                                        // CQ 46-47
-                                                        // bit rate is insufficient for any motion
-                                                        vce_h265_qmin   = 39;
-                                                        vce_h265_qmax   = 48;
-                                                        vce_h265_qmin_p = 42;
-                                                        vce_h265_qmax_p = 50;
-                                                        vce_h265_max_rate = vce_h265_bit_rate * 22;
-
-                                                        if (vce_h265_bit_rate < vce_h265_threshold * 0.32)
-                                                        {
-                                                            // CQ 48-49
-                                                            // bit rate is entirely insufficient
-                                                            vce_h265_qmin   = 43;
-                                                            vce_h265_qmax   = 49;
-                                                            vce_h265_qmin_p = 46;
-                                                            vce_h265_qmax_p = 50;
-                                                            vce_h265_max_rate = vce_h265_bit_rate * 24;
-
-                                                            if (vce_h265_bit_rate < vce_h265_threshold * 0.24)
-                                                            {
-                                                                // CQ 50
-                                                                // there are no bits
-                                                                vce_h265_qmin   = 45;
-                                                                vce_h265_qmax   = 49;
-                                                                vce_h265_qmin_p = 49;
-                                                                vce_h265_qmax_p = 51;
-                                                                vce_h265_max_rate = vce_h265_bit_rate * 10;
-                                                            }
-
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // factor for calculating max rate and buffer size
-                vce_h265_exp_scale = FFMIN(1.0L * 1000000 / vce_h265_bit_rate, 1.0L);
-
-                // ideal max rate is ~1.3x target bit rate, diminishing on a curve as target bit rate increases
-                // this allows allows the actual bit rate to vary as needed to ensure consistent visual quality,
-                // while limiting potentially exteme one-second peaks to approximately double the target bit rate
-                if (vce_h265_max_rate == 0)
-                {
-                    vce_h265_max_rate = vce_h265_bit_rate * ((vce_h265_exp_scale * 10) + 1);
-                    vce_h265_max_rate = FFMAX(vce_h265_bit_rate * 1.05L, FFMIN(vce_h265_max_rate, vce_h265_bit_rate * 1.3L));
-                }
-                context->rc_max_rate = (int)(vce_h265_max_rate);
-
-                // ideal hrd buffer size is the calculated max rate, diminishing on a curve as target bit rate increases
-                // minimum 1/3 target bit rate ensures the buffer size is not too constrained at higher target bit rates
-                vce_h265_buffer_size = FFMAX(vce_h265_bit_rate / 3, vce_h265_max_rate - (vce_h265_max_rate / FFMAX(vce_h265_exp_scale * 150.0L, 1.5L)));
-                if (vce_h265_buffer_size / vce_h265_max_rate > 0.98L)
-                {
-                    // buffer size is nearly identical to max rate, make them equal
-                    vce_h265_buffer_size = vce_h265_max_rate;
-                }
-                context->rc_buffer_size = (int)(vce_h265_buffer_size);
-                context->rc_initial_buffer_occupancy = context->rc_buffer_size;
-
-                // ideal max au size (frame size + overhead) is 1/4 the hrd buffer size
-                // this improves bit allocation by preventing the encoder from spending too many bits early in the gop
-                // or during periods of low motion, leaving too few bits for remaining frames and objects in motion
-                // better intra-gop quality consistency also helps minimize refresh/recovery effects at gop transitions
-                // if max_au_size is set, libavcodec will also set enforce_hrd for us
-                vce_h265_max_au_size        = (int)(vce_h265_buffer_size * 0.25);
-                vce_h265_max_au_size_length = snprintf(NULL, 0, "%d", vce_h265_max_au_size);
-                vce_h265_max_au_size_char   = malloc(vce_h265_max_au_size_length + 1);
-                if( !vce_h265_max_au_size_char )
-                {
-                    hb_log( "encavcodecInit: malloc of size %d "
-                            "failed", vce_h265_max_au_size_length );
-                    ret = 1;
-                    goto done;
-                }
-                snprintf(vce_h265_max_au_size_char, vce_h265_max_au_size_length + 1, "%d", vce_h265_max_au_size);
-                av_dict_set( &av_opts, "max_au_size",  vce_h265_max_au_size_char, 0 );
-                free(vce_h265_max_au_size_char);
-            }
-            else
-            {
-                // set rc mode to cqp
-                av_dict_set( &av_opts, "rc", "cqp", 0 );
-
-                // set relatively long gop size for CQ 0
-                // does not affect quality; only IDR frequency and thus file size
-                context->gop_size = job->vquality < 1 ? 250 : (int)(FFMIN(av_q2d(fps) * 3, 180));
-
-                // CQ 0  == CQP 0
-                // CQ 51 == CQP 51
-                vce_h265_qmin   = job->vquality < 1 ? 0 : 51;
-                vce_h265_qmax   = vce_h265_qmin;
-                vce_h265_qmin_p = vce_h265_qmin;
-                vce_h265_qmax_p = vce_h265_qmin;
-                snprintf(vce_h265_q_char, 4, "%d", vce_h265_qmin);
-                av_dict_set( &av_opts, "qp_i", vce_h265_q_char, 0 );
-                av_dict_set( &av_opts, "qp_p", vce_h265_q_char, 0 );
+                av_dict_set( &av_opts, "qp_b", qualityB, 0 );
             }
 
-            context->qmin = vce_h265_qmin;
-            context->qmax = vce_h265_qmax;
-            snprintf(vce_h265_q_char, 4, "%d", vce_h265_qmin_p);
-            av_dict_set( &av_opts, "min_qp_p", vce_h265_q_char, 0 );
-            snprintf(vce_h265_q_char, 4, "%d", vce_h265_qmax_p);
-            av_dict_set( &av_opts, "max_qp_p", vce_h265_q_char, 0 );
-
-            hb_log( "encavcodec: encoding at constant quality %d", (int)(job->vquality) );
-            hb_log( "encavcodec: QP (I)      %d-%d", vce_h265_qmin, vce_h265_qmax );
-            hb_log( "encavcodec: QP (P)      %d-%d", vce_h265_qmin_p, vce_h265_qmax_p );
-            hb_log( "encavcodec: GOP Size    %d",    context->gop_size );
-            if (vce_h265_max_rate > 0)
+            hb_log( "encavcodec: encoding at CQ %.2f", job->vquality );
+            hb_log( "encavcodec: QP (I)   %.2f", job->vquality );
+            hb_log( "encavcodec: QP (P)   %.2f", adjustedQualityP );
+            if (job->vcodec != HB_VCODEC_FFMPEG_VCE_H265 &&
+                job->vcodec != HB_VCODEC_FFMPEG_VCE_H265_10BIT)
             {
-                hb_log( "encavcodec: Max Rate    %"PRId64"", context->rc_max_rate/1000 );
-                hb_log( "encavcodec: Buffer Size %d", context->rc_buffer_size/1000 );
-                hb_log( "encavcodec: Max AU Size %d", vce_h265_max_au_size/1000 );
+                hb_log( "encavcodec: QP (B)   %.2f", adjustedQualityB );
             }
+            hb_log( "encavcodec: GOP Size %d", context->gop_size );
         }
         else if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264 ||
-                 job->vcodec == HB_VCODEC_FFMPEG_MF_H265)
+                 job->vcodec == HB_VCODEC_FFMPEG_MF_H265 ||
+                 job->vcodec == HB_VCODEC_FFMPEG_MF_AV1)
         {
             char quality[7];
             snprintf(quality, 7, "%d", (int)job->vquality);
             av_dict_set(&av_opts, "rate_control", "quality", 0);
             av_dict_set(&av_opts, "quality", quality, 0);
+        }
+        else if (job->vcodec == HB_VCODEC_FFMPEG_DNXHR ||
+                 job->vcodec == HB_VCODEC_FFMPEG_DNXHR_10BIT)
+        {
+            av_dict_set( &av_opts, "quality", 0, 0 );
+            hb_log( "encavcodec: encoding at automatic quality" );
         }
         else
         {
@@ -825,7 +928,52 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     }
     context->width     = job->width;
     context->height    = job->height;
-    context->pix_fmt   = job->output_pix_fmt;
+
+    if (job->hw_pix_fmt != AV_PIX_FMT_NONE)
+    {
+        context->hw_device_ctx = av_buffer_ref(pv->job->hw_device_ctx);
+        hb_hwaccel_hwframes_ctx_init(context, job->output_pix_fmt, job->hw_pix_fmt);
+
+        if (context->hw_device_ctx == NULL)
+        {
+            ret = 1;
+            goto done;
+        }
+    }
+    else
+    {
+#if HB_PROJECT_FEATURE_QSV
+        if (hb_qsv_is_ffmpeg_supported_codec(job->vcodec) && !job->hw_device_ctx)
+        {
+            hb_hwaccel_hw_device_ctx_init(AV_HWDEVICE_TYPE_QSV,
+                                          job->hw_device_index,
+                                          (void **)&context->hw_device_ctx);
+
+            if (context->hw_device_ctx == NULL)
+            {
+                ret = 1;
+                goto done;
+            }
+        }
+#endif
+#if HB_PROJECT_FEATURE_VAAPI
+        if (hb_video_encoder_is_vaapi(job->vcodec))
+        {
+            int err;
+            context->pix_fmt = AV_PIX_FMT_VAAPI;
+            if ((err = hb_vaapi_avcodec_set_hwframe_ctx(context, 0, 20)) < 0)
+            {
+                hb_log("Failed to set the VAAPI hwframe_ctx. Error code: %s", av_err2str(err));
+                ret = 1;
+                goto done;
+            }
+        }
+        else
+#endif
+        {
+            context->pix_fmt = job->output_pix_fmt;
+        }
+    }
 
     context->sample_aspect_ratio.num = job->par.num;
     context->sample_aspect_ratio.den = job->par.den;
@@ -847,6 +995,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     context->color_primaries = hb_output_color_prim(job);
     context->color_trc       = hb_output_color_transfer(job);
     context->colorspace      = hb_output_color_matrix(job);
+    context->color_range     = job->color_range;
     context->chroma_sample_location = job->chroma_location;
 
     if (!job->inline_parameter_sets)
@@ -860,125 +1009,339 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
 
     if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H264)
     {
-        // Set profile and level
-        context->profile = FF_PROFILE_UNKNOWN;
+        context->profile = AV_PROFILE_UNKNOWN;
         if (job->encoder_profile != NULL && *job->encoder_profile)
         {
             if (!strcasecmp(job->encoder_profile, "baseline"))
-                context->profile = FF_PROFILE_H264_BASELINE;
+                context->profile = AV_PROFILE_H264_BASELINE;
             else if (!strcasecmp(job->encoder_profile, "main"))
-                 context->profile = FF_PROFILE_H264_MAIN;
+                 context->profile = AV_PROFILE_H264_MAIN;
             else if (!strcasecmp(job->encoder_profile, "high"))
-                context->profile = FF_PROFILE_H264_HIGH;
+                context->profile = AV_PROFILE_H264_HIGH;
         }
-        context->level = FF_LEVEL_UNKNOWN;
-        if (job->encoder_level != NULL && *job->encoder_level)
+        av_dict_set(&av_opts, "forced_idr", "1", 0);
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265 || job->vcodec == HB_VCODEC_FFMPEG_VCE_H265_10BIT)
+    {
+        context->profile = AV_PROFILE_UNKNOWN;
+        if (job->encoder_profile != NULL && *job->encoder_profile)
         {
-            int i = 1;
-            while (hb_h264_level_names[i] != NULL)
-            {
-                if (!strcasecmp(job->encoder_level, hb_h264_level_names[i]))
-                    context->level = hb_h264_level_values[i];
-                ++i;
+            if (!strcasecmp(job->encoder_profile, "main")) {
+                 context->profile = AV_PROFILE_HEVC_MAIN;
+            }
+
+            if (!strcasecmp(job->encoder_profile, "main10")) {
+                 context->profile = AV_PROFILE_HEVC_MAIN_10;
             }
         }
-    }
 
-    if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265)
+        av_dict_set(&av_opts, "forced_idr", "1", 0);
+        // Make VCE h.265 encoder emit an IDR for every GOP
+        av_dict_set(&av_opts, "gops_per_idr", "1", 0);
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1 || job->vcodec == HB_VCODEC_FFMPEG_VCE_AV1_10BIT)
     {
-        // Set profile and level
-        context->profile = FF_PROFILE_UNKNOWN;
+        context->profile = AV_PROFILE_UNKNOWN;
         if (job->encoder_profile != NULL && *job->encoder_profile)
         {
             if (!strcasecmp(job->encoder_profile, "main"))
-                 context->profile = FF_PROFILE_HEVC_MAIN;
+                 context->profile = AV_PROFILE_AV1_MAIN;
+            else if (!strcasecmp(job->encoder_profile, "main10"))
+                 context->profile = AV_PROFILE_AV1_MAIN;
         }
-        context->level = FF_LEVEL_UNKNOWN;
-        if (job->encoder_level != NULL && *job->encoder_level)
-        {
-            int i = 1;
-            while (hb_h265_level_names[i] != NULL)
-            {
-                if (!strcasecmp(job->encoder_level, hb_h265_level_names[i]))
-                    context->level = hb_h265_level_values[i];
-                ++i;
-            }
-        }
-        // FIXME
-        //context->tier = FF_TIER_UNKNOWN;
+        av_dict_set(&av_opts, "forced_idr", "1", 0);
     }
-
-    if (job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
-        job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
-        job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT)
+    else if (job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
+             job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT ||
+             job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
+             job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT ||
+             job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 ||
+             job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1_10BIT)
     {
         // Force IDR frames when we force a new keyframe for chapters
         av_dict_set( &av_opts, "forced-idr", "1", 0 );
 
-        // Set profile and level
         if (job->encoder_profile != NULL && *job->encoder_profile)
         {
             if (!strcasecmp(job->encoder_profile, "baseline"))
                 av_dict_set(&av_opts, "profile", "baseline", 0);
             else if (!strcasecmp(job->encoder_profile, "main"))
                 av_dict_set(&av_opts, "profile", "main", 0);
+            else if (!strcasecmp(job->encoder_profile, "main10"))
+                av_dict_set(&av_opts, "profile", "main10", 0);
+            else if (!strcasecmp(job->encoder_profile, "high10"))
+                av_dict_set(&av_opts, "profile", "high10", 0);
             else if (!strcasecmp(job->encoder_profile, "high"))
                 av_dict_set(&av_opts, "profile", "high", 0);
         }
 
-        if (job->encoder_level != NULL && *job->encoder_level)
+        // Disable unhandled SEI
+        // These might be present in the source video
+        // and passed through in side_data, but we
+        // don't want to automatically preserve them
+        av_dict_set(&av_opts, "a53cc", "0", 0);
+        av_dict_set(&av_opts, "s12m_tc", "0", 0);
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_FFV1)
+    {
+        int slices[] = {4, 6, 9, 12, 16, 24, 30};
+        context->slices = hb_get_cpu_count();
+
+        int slice_index = 0;
+        for (int i = 0; i < sizeof(slices) / sizeof(int); i++)
         {
-            int i = 1;
-            while (hb_h264_level_names[i] != NULL)
+            if (context->slices >= slices[i])
             {
-                if (!strcasecmp(job->encoder_level, hb_h264_level_names[i]))
-                    av_dict_set(&av_opts, "level", job->encoder_level, 0);
-                ++i;
+                slice_index = i;
+            }
+        }
+        context->slices = slices[slice_index];
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264 ||
+             job->vcodec == HB_VCODEC_FFMPEG_MF_H265 ||
+             job->vcodec == HB_VCODEC_FFMPEG_MF_AV1)
+    {
+        if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264)
+        {
+            context->profile = AV_PROFILE_UNKNOWN;
+            if (job->encoder_profile != NULL && *job->encoder_profile)
+            {
+                if (!strcasecmp(job->encoder_profile, "baseline"))
+                    context->profile = AV_PROFILE_H264_BASELINE;
+                else if (!strcasecmp(job->encoder_profile, "main"))
+                    context->profile = AV_PROFILE_H264_MAIN;
+                else if (!strcasecmp(job->encoder_profile, "high"))
+                    context->profile = AV_PROFILE_H264_HIGH;
+            }
+        }
+        else if (job->vcodec == HB_VCODEC_FFMPEG_MF_H265)
+        {
+            // Qualcomm's HEVC encoder does support b-frames. Some chipsets
+            // support setting this to either 1 or 2, while others only support
+            // setting it to 1.
+            context->max_b_frames = 1;
+        }
+        av_dict_set(&av_opts, "hw_encoding", "1", 0);
+        if (!av_dict_get(av_opts, "scenario", NULL, 0))
+        {
+            av_dict_set(&av_opts, "scenario", "archive", 0);
+        }
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_MPEG2)
+    {
+        context->profile = AV_PROFILE_MPEG2_MAIN;
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (!strcasecmp(job->encoder_profile, "simple"))
+                context->profile = AV_PROFILE_MPEG2_SIMPLE;
+            else if (!strcasecmp(job->encoder_profile, "main"))
+                 context->profile = AV_PROFILE_MPEG2_MAIN;
+            else if (!strcasecmp(job->encoder_profile, "snr"))
+                context->profile = AV_PROFILE_MPEG2_SNR_SCALABLE;
+            else if (!strcasecmp(job->encoder_profile, "ss"))
+                context->profile = AV_PROFILE_MPEG2_SS;
+            else if (!strcasecmp(job->encoder_profile, "high"))
+                context->profile = AV_PROFILE_MPEG2_HIGH;
+            else if (!strcasecmp(job->encoder_profile, "422"))
+                context->profile = AV_PROFILE_MPEG2_422;
+        }
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_PRORES)
+    {
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (!strcasecmp(job->encoder_profile, "proxy"))
+                context->profile = AV_PROFILE_PRORES_PROXY;
+            else if (!strcasecmp(job->encoder_profile, "lt"))
+                 context->profile = AV_PROFILE_PRORES_LT;
+            else if (!strcasecmp(job->encoder_profile, "standard"))
+                context->profile = AV_PROFILE_PRORES_STANDARD;
+            else if (!strcasecmp(job->encoder_profile, "hq"))
+                context->profile = AV_PROFILE_PRORES_HQ;
+            else if (!strcasecmp(job->encoder_profile, "4444"))
+                context->profile = AV_PROFILE_PRORES_4444;
+            else if (!strcasecmp(job->encoder_profile, "4444xq"))
+                context->profile = AV_PROFILE_PRORES_XQ;
+        }
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_DNXHR)
+    {
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (!strcasecmp(job->encoder_profile, "lb"))
+            {
+                context->profile = AV_PROFILE_DNXHR_LB;
+                av_dict_set(&av_opts, "profile", "dnxhr_lb", 0);
+            }
+            else if (!strcasecmp(job->encoder_profile, "sq"))
+            {
+                context->profile = AV_PROFILE_DNXHR_SQ;
+                av_dict_set(&av_opts, "profile", "dnxhr_sq", 0);
+            }
+            else if (!strcasecmp(job->encoder_profile, "hq") ||
+                     !strcasecmp(job->encoder_profile, "auto"))
+            {
+                context->profile = AV_PROFILE_DNXHR_HQ;
+                av_dict_set(&av_opts, "profile", "dnxhr_hq", 0);
             }
         }
     }
-
-    // Make VCE h.265 encoder emit an IDR for every GOP
-    if (job->vcodec == HB_VCODEC_FFMPEG_VCE_H265)
+    else if (job->vcodec == HB_VCODEC_FFMPEG_DNXHR_10BIT)
     {
-        av_dict_set(&av_opts, "gops_per_idr", "1", 0);
-    }
-
-    if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264)
-    {
-        context->profile = FF_PROFILE_UNKNOWN;
         if (job->encoder_profile != NULL && *job->encoder_profile)
         {
-            if (!strcasecmp(job->encoder_profile, "baseline"))
-                context->profile = FF_PROFILE_H264_BASELINE;
-            else if (!strcasecmp(job->encoder_profile, "main"))
-                 context->profile = FF_PROFILE_H264_MAIN;
-            else if (!strcasecmp(job->encoder_profile, "high"))
-                context->profile = FF_PROFILE_H264_HIGH;
+            if (!strcasecmp(job->encoder_profile, "hqx") ||
+                !strcasecmp(job->encoder_profile, "auto"))
+            {
+                context->profile = AV_PROFILE_DNXHR_HQX;
+                av_dict_set(&av_opts, "profile", "dnxhr_hqx", 0);
+            }
+            else if (!strcasecmp(job->encoder_profile, "444"))
+            {
+                context->profile = AV_PROFILE_DNXHR_444;
+                av_dict_set(&av_opts, "profile", "dnxhr_444", 0);
+            }
+        }
+    }
+#if HB_PROJECT_FEATURE_VAAPI
+    else if (hb_video_encoder_is_vaapi(job->vcodec))
+    {
+        // We use default `B frame` settings of the VAAPI decoder.
+        // Support varies between chipsets even from same vendor, e.g. AMD Navi10 vs Navi48.
+        // av_dict_set(&av_opts, "b_depth", "2", 0); // default varies, e.g. 1 on Navi48
+
+        // Set profile and level
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264)
+            {
+                // ffmpeg -h encoder=h264_vaapi
+                // "auto", "baseline", "main", "high", NULL  // default -99, constrained_baseline 578, main 77, high 100
+                if (!strcasecmp(job->encoder_profile, "auto"))
+                {
+                    av_dict_set(&av_opts, "profile", "-99", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "baseline"))
+                {
+                    av_dict_set(&av_opts, "profile", "578", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "main"))
+                {
+                    av_dict_set(&av_opts, "profile", "77", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "high"))
+                {
+                    av_dict_set(&av_opts, "profile", "100", 0);
+                }
+            }
+            else if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265)
+            {
+                // ffmpeg -h encoder=hevc_vaapi
+                // "auto", "main", "main10", "rext", NULL  // default -99, main 1, main10 2, rext 4
+                if (!strcasecmp(job->encoder_profile, "auto"))
+                {
+                    av_dict_set(&av_opts, "profile", "-99", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "main"))
+                {
+                    av_dict_set(&av_opts, "profile", "1", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "main10"))
+                {
+                    av_dict_set(&av_opts, "profile", "2", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "rext"))
+                {
+                    av_dict_set(&av_opts, "profile", "4", 0);
+                }
+            }
+            else if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_AV1)
+            {
+                // ffmpeg -h encoder=av1_vaapi
+                // "auto", "main", "high", "professional", NULL  // default -99, main 0, high 1, professional 2
+                if (!strcasecmp(job->encoder_profile, "auto"))
+                {
+                    av_dict_set(&av_opts, "profile", "-99", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "main"))
+                {
+                    av_dict_set(&av_opts, "profile", "0", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "high"))
+                {
+                    av_dict_set(&av_opts, "profile", "1", 0);
+                }
+                else if (!strcasecmp(job->encoder_profile, "professional"))
+                {
+                    av_dict_set(&av_opts, "profile", "2", 0);
+                }
+            }
         }
 
+        if (job->encoder_level != NULL && *job->encoder_level)
+        {
+            int set = 0;
+            if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H264)
+            {
+                // ffmpeg -h encoder=h264_vaapi
+                for (int i = 0; hb_h264_level_names[i] != NULL; i++)
+                {
+                    if (!strcasecmp(job->encoder_level, hb_h264_level_names[i]))
+                    {
+                        av_dict_set(&av_opts, "level", h264_vaapi_level_values[i], 0);
+                        set = 1;
+                        break;
+                    }
+                }
+                if (0 == set)
+                {
+                    av_dict_set(&av_opts, "level", "40", 0); // default 4.0
+                }
+            }
+            else if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_H265)
+            {
+                // ffmpeg -h encoder=h265_vaapi
+                for (int i = 0; hb_h265_level_names[i] != NULL; i++)
+                {
+                    if (!strcasecmp(job->encoder_level, hb_h265_level_names[i]))
+                    {
+                        av_dict_set(&av_opts, "level", h265_vaapi_level_values[i], 0);
+                        set = 1;
+                        break;
+                    }
+                }
+                if (0 == set)
+                {
+                    av_dict_set(&av_opts, "level", "120", 0); // default 4.0
+                }
+            }
+            else if (job->vcodec == HB_VCODEC_FFMPEG_VAAPI_AV1)
+            {
+                // ffmpeg -h encoder=av1_vaapi
+                for (int i = 0; hb_av1_level_names[i] != NULL; i++)
+                {
+                    if (!strcasecmp(job->encoder_level, hb_av1_level_names[i]))
+                    {
+                        av_dict_set(&av_opts, "level", av1_vaapi_level_values[i], 0);
+                        set = 1;
+                        break;
+                    }
+                }
+                if (0 == set)
+                {
+                    av_dict_set(&av_opts, "level", "8", 0); // default 4.0
+                }
+            }
+        }
     }
+#endif
 
-    if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264 ||
-        job->vcodec == HB_VCODEC_FFMPEG_MF_H265)
-    {
-        av_dict_set(&av_opts, "hw_encoding", "1", 0);
-    }
-
-    if (job->vcodec == HB_VCODEC_FFMPEG_MF_H265)
-    {
-        // Qualcomm's HEVC encoder does support b-frames. Some chipsets
-        // support setting this to either 1 or 2, while others only support
-        // setting it to 1.
-        context->max_b_frames = 1;
-    }
-
-    if( job->pass_id == HB_PASS_ENCODE_1ST ||
-        job->pass_id == HB_PASS_ENCODE_2ND )
+    if( job->pass_id == HB_PASS_ENCODE_ANALYSIS ||
+        job->pass_id == HB_PASS_ENCODE_FINAL )
     {
         char * filename = hb_get_temporary_filename("ffmpeg.log");
 
-        if( job->pass_id == HB_PASS_ENCODE_1ST )
+        if( job->pass_id == HB_PASS_ENCODE_ANALYSIS )
         {
             pv->file = hb_fopen(filename, "wb");
             if (!pv->file)
@@ -995,11 +1358,12 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
         else
         {
-            int    size;
+            long   size;
             char * log;
 
             pv->file = hb_fopen(filename, "rb");
-            if (!pv->file) {
+            if (!pv->file)
+            {
                 if (strerror_r(errno, reason, 79) != 0)
                     strcpy(reason, "unknown -- strerror_r() failed");
 
@@ -1011,6 +1375,17 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             fseek( pv->file, 0, SEEK_END );
             size = ftell( pv->file );
             fseek( pv->file, 0, SEEK_SET );
+
+            if (size == -1)
+            {
+                hb_error( "encavcodecInit: Failed to read %s", filename);
+                free(filename);
+                ret = 1;
+                fclose( pv->file );
+                pv->file = NULL;
+                goto done;
+            }
+
             log = malloc( size + 1 );
             log[size] = '\0';
             if (size > 0 &&
@@ -1038,6 +1413,28 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         free(filename);
     }
 
+    if (3 <= global_verbosity_level)
+    {
+        // Allow user to see av_opts in log file and see ffmpeg verbosity
+        int av_log_level = av_log_get_level();
+        char *av_opts_string = NULL;
+        hb_log("encavcodec: verbosity enabled: %d", global_verbosity_level);
+        if (0 <= av_dict_get_string(av_opts, &av_opts_string, '=', ',') &&
+            NULL != av_opts_string)
+        {
+            hb_log("encavcodec: avcodec_open options: %s", av_opts_string);
+            free(av_opts_string);
+        }
+        else
+        {
+            hb_log("encavcodec: Error gathering avcodec_open options");
+        }
+        if (AV_LOG_VERBOSE > av_log_level)
+        {
+            av_log_set_level(AV_LOG_VERBOSE);
+        }
+    }
+
     if (hb_avcodec_open(context, codec, &av_opts, HB_FFMPEG_THREADS_AUTO))
     {
         hb_log( "encavcodecInit: avcodec_open failed" );
@@ -1053,7 +1450,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     job->color_transfer_override = context->color_trc;
     job->color_matrix_override   = context->colorspace;
 
-    if (job->pass_id == HB_PASS_ENCODE_1ST &&
+    if (job->pass_id == HB_PASS_ENCODE_ANALYSIS &&
         context->stats_out != NULL)
     {
         // Some encoders may write stats during init in avcodec_open
@@ -1067,7 +1464,6 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
     {
         hb_log( "encavcodecInit: Unknown avcodec option %s", t->key );
     }
-    av_dict_free( &av_opts );
 
     pv->context = context;
 
@@ -1079,12 +1475,11 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
 
     if (context->extradata != NULL)
     {
-        memcpy(w->config->extradata.bytes, context->extradata,
-                                           context->extradata_size);
-        w->config->extradata.length = context->extradata_size;
+        hb_set_extradata(w->extradata, context->extradata, context->extradata_size);
     }
 
 done:
+    av_dict_free(&av_opts);
     return ret;
 }
 
@@ -1108,6 +1503,11 @@ void encavcodecClose( hb_work_object_t * w )
         hb_deep_log( 2, "encavcodec: closing libavcodec" );
         if( pv->context->codec ) {
             avcodec_flush_buffers( pv->context );
+        }
+        if (pv->context->stats_in)
+        {
+            free(pv->context->stats_in);
+            pv->context->stats_in = NULL;
         }
         hb_avcodec_free_context(&pv->context);
     }
@@ -1149,7 +1549,7 @@ static void compute_dts_offset( hb_work_private_t * pv, hb_buffer_t * buf )
         if ( ( pv->frameno_in ) == pv->job->areBframes )
         {
             pv->dts_delay = buf->s.start;
-            pv->job->config.init_delay = pv->dts_delay;
+            pv->job->init_delay = pv->dts_delay;
         }
     }
 }
@@ -1208,6 +1608,49 @@ static hb_buffer_t * process_delay_list( hb_work_private_t * pv, hb_buffer_t * b
     return NULL;
 }
 
+static uint8_t convert_pict_type(const AVPacket *pkt, uint16_t *sflags)
+{
+    const uint8_t *sd = av_packet_get_side_data(pkt, AV_PKT_DATA_QUALITY_STATS, NULL);
+
+    enum AVPictureType pict_type = sd ? sd[4] : AV_PICTURE_TYPE_NONE;
+
+    uint16_t flags = HB_FLAG_FRAMETYPE_REF;
+    uint8_t retval = 0;
+
+    switch (pict_type)
+    {
+        case AV_PICTURE_TYPE_B:
+            retval = HB_FRAME_B;
+            break;
+
+        case AV_PICTURE_TYPE_S:
+        case AV_PICTURE_TYPE_P:
+        case AV_PICTURE_TYPE_SP:
+            retval = HB_FRAME_P;
+            break;
+
+        case AV_PICTURE_TYPE_BI:
+        case AV_PICTURE_TYPE_SI:
+        case AV_PICTURE_TYPE_I:
+        default:
+            retval = HB_FRAME_I;
+            break;
+    }
+
+    if (pkt->flags & AV_PKT_FLAG_KEY)
+    {
+        flags |= HB_FLAG_FRAMETYPE_KEY;
+    }
+
+    if (pkt->flags & AV_PKT_FLAG_DISPOSABLE)
+    {
+        flags &= ~HB_FLAG_FRAMETYPE_REF;
+    }
+
+    *sflags = flags;
+    return retval;
+}
+
 static void get_packets( hb_work_object_t * w, hb_buffer_list_t * list )
 {
     hb_work_private_t * pv = w->private_data;
@@ -1235,17 +1678,13 @@ static void get_packets( hb_work_object_t * w, hb_buffer_list_t * list )
         out->s.start    = get_frame_start(pv, frameno);
         out->s.duration = get_frame_duration(pv, frameno);
         out->s.stop     = out->s.stop + out->s.duration;
-        // libav 12 deprecated context->coded_frame, so we can't determine
-        // the exact frame type any more. So until I can completely
-        // wire up ffmpeg with AV_PKT_DISPOSABLE_FRAME, all frames
-        // must be considered to potentially be reference frames
-        out->s.flags     = HB_FLAG_FRAMETYPE_REF;
-        out->s.frametype = 0;
-        if (pv->pkt->flags & AV_PKT_FLAG_KEY)
+        out->s.frametype = convert_pict_type(pv->pkt, &out->s.flags);
+
+        if (out->s.flags & HB_FLAG_FRAMETYPE_KEY)
         {
-            out->s.flags |= HB_FLAG_FRAMETYPE_KEY;
             hb_chapter_dequeue(pv->chapter_queue, out);
         }
+
         out = process_delay_list(pv, out);
 
         hb_buffer_list_append(list, out);
@@ -1253,22 +1692,17 @@ static void get_packets( hb_work_object_t * w, hb_buffer_list_t * list )
     }
 }
 
-static void Encode( hb_work_object_t *w, hb_buffer_t *in,
+static void Encode( hb_work_object_t *w, hb_buffer_t **buf_in,
                     hb_buffer_list_t *list )
 {
     hb_work_private_t * pv = w->private_data;
+    hb_buffer_t       * in = *buf_in;
     AVFrame             frame = {{0}};
+#if HB_PROJECT_FEATURE_VAAPI
+    AVFrame             *hw_frame = NULL;
+#endif
+    int                 key_frame = 0;
     int                 ret;
-
-    frame.width       = in->f.width;
-    frame.height      = in->f.height;
-    frame.format      = in->f.fmt;
-    frame.data[0]     = in->plane[0].data;
-    frame.data[1]     = in->plane[1].data;
-    frame.data[2]     = in->plane[2].data;
-    frame.linesize[0] = in->plane[0].stride;
-    frame.linesize[1] = in->plane[1].stride;
-    frame.linesize[2] = in->plane[2].stride;
 
     if (in->s.new_chap > 0 && pv->job->chapter_markers)
     {
@@ -1277,14 +1711,9 @@ static void Encode( hb_work_object_t *w, hb_buffer_t *in,
            currently buffered in the encoder remember the timestamp so
            when this frame finally pops out of the encoder we'll mark
            its buffer as the start of a chapter. */
-        frame.pict_type = AV_PICTURE_TYPE_I;
-        frame.key_frame = 1;
+        key_frame = 1;
         hb_chapter_enqueue(pv->chapter_queue, in);
     }
-
-    // For constant quality, setting the quality in AVCodecContext
-    // doesn't do the trick.  It must be set in the AVFrame.
-    frame.quality = pv->context->global_quality;
 
     // Bizarro ffmpeg requires timestamp time_base to be == framerate
     // for the encoders we care about.  It writes AVCodecContext.time_base
@@ -1303,24 +1732,76 @@ static void Encode( hb_work_object_t *w, hb_buffer_t *in,
     save_frame_info(pv, in);
     compute_dts_offset(pv, in);
 
-    frame.pts = pv->frameno_in++;
+    // Convert the hb_buffer_t to avframe
+    // This will consume the hb_buffer_t and make it NULL
+    hb_video_buffer_to_avframe(&frame, buf_in);
 
-    // Encode
-    ret = avcodec_send_frame(pv->context, &frame);
+#if HB_PROJECT_FEATURE_VAAPI
+    if (HB_VCODEC_FFMPEG_VAAPI_H264 == pv->job->vcodec)
+    {
+        frame.pts = in->s.start;
+    }
+    else
+#endif
+    {
+        frame.pts = pv->frameno_in++;
+    }
+
+    frame.sample_aspect_ratio = pv->context->sample_aspect_ratio;
+
+    frame.duration = 0;
+
+    // For constant quality, setting the quality in AVCodecContext
+    // doesn't do the trick.  It must be set in the AVFrame.
+    frame.quality = pv->context->global_quality;
+
+    if (key_frame)
+    {
+        frame.pict_type = AV_PICTURE_TYPE_I;
+        frame.flags = AV_FRAME_FLAG_KEY;
+    }
+    else
+    {
+        frame.pict_type = AV_PICTURE_TYPE_NONE;
+        frame.flags = 0;
+    }
+
+#if HB_PROJECT_FEATURE_VAAPI
+    if (hb_video_encoder_is_vaapi(pv->job->vcodec))
+    {
+        if ((ret = hb_vaapi_avcodec_send_frame(pv->context, &frame, &hw_frame)) < 0)
+            goto close;
+    }
+    else
+#endif
+    {
+        // Encode
+        ret = avcodec_send_frame(pv->context, &frame);
+    }
+
     if (ret < 0)
     {
-        hb_log("encavcodec: avcodec_send_frame failed");
-        return;
+        hb_log("encavcodec: avcodec_send_frame failed, error code: %s", av_err2str(ret));
+        goto close;
     }
 
     // Write stats
-    if (pv->job->pass_id == HB_PASS_ENCODE_1ST &&
+    if (pv->job->pass_id == HB_PASS_ENCODE_ANALYSIS &&
         pv->context->stats_out != NULL)
     {
         fprintf( pv->file, "%s", pv->context->stats_out );
     }
 
     get_packets(w, list);
+
+close:
+    av_frame_unref(&frame);
+#if HB_PROJECT_FEATURE_VAAPI
+    if (NULL != hw_frame)
+    {
+        av_frame_free(&hw_frame);
+    }
+#endif
 }
 
 static void Flush( hb_work_object_t * w, hb_buffer_list_t * list )
@@ -1331,7 +1812,7 @@ static void Flush( hb_work_object_t * w, hb_buffer_list_t * list )
 
     // Write stats
     // vpx only writes stats at final flush
-    if (pv->job->pass_id == HB_PASS_ENCODE_1ST &&
+    if (pv->job->pass_id == HB_PASS_ENCODE_ANALYSIS &&
         pv->context->stats_out != NULL)
     {
         fprintf( pv->file, "%s", pv->context->stats_out );
@@ -1367,10 +1848,73 @@ int encavcodecWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         return HB_WORK_DONE;
     }
 
-    Encode(w, in, &list);
+    Encode(w, buf_in, &list);
     *buf_out = hb_buffer_list_clear(&list);
 
     return HB_WORK_OK;
+}
+
+/**
+ * Encoder options and presets
+ */
+
+static int apply_options(hb_job_t *job, AVCodecContext *context, AVDictionary **av_opts, hb_dict_t *lavc_opts)
+{
+    /* iterate through lavc_opts and have avutil parse the options for us */
+    hb_dict_iter_t iter;
+    for (iter  = hb_dict_iter_init(lavc_opts);
+         iter != HB_DICT_ITER_DONE;
+         iter  = hb_dict_iter_next(lavc_opts, iter))
+    {
+        const char *key = hb_dict_iter_key(iter);
+        hb_value_t *value = hb_dict_iter_value(iter);
+        char *str = hb_value_get_string_xform(value);
+
+        /* Here's where the strings are passed to avutil for parsing. */
+        av_dict_set(av_opts, key, str, 0);
+        free(str);
+    }
+
+    return 0;
+}
+
+static int apply_encoder_options(hb_job_t *job, AVCodecContext *context, AVDictionary **av_opts)
+{
+#if HB_PROJECT_FEATURE_QSV
+    if (hb_qsv_is_ffmpeg_supported_codec(job->vcodec))
+    {
+        // options applied separately via hb_qsv_apply_encoder_options() call
+        return 0;
+    }
+#endif
+    /* place job->encoder_options in an hb_dict_t for convenience */
+    hb_dict_t *lavc_opts = NULL;
+    if (job->encoder_options != NULL && *job->encoder_options)
+    {
+        lavc_opts = hb_encopts_to_dict(job->encoder_options, job->vcodec);
+    }
+    else
+    {
+        lavc_opts = hb_dict_init();
+    }
+
+    switch (job->vcodec)
+    {
+        default:
+            apply_options(job, context, av_opts, lavc_opts);
+            break;
+    }
+
+    hb_dict_free(&lavc_opts);
+
+    return 0;
+}
+
+static int apply_vce_preset(AVDictionary **av_opts, int vcodec, const char *preset)
+{
+    int quality = hb_map_vce_preset_name(vcodec, preset);
+    av_dict_set_int(av_opts, "quality", quality, 0);
+    return 0;
 }
 
 static int apply_vpx_preset(AVDictionary ** av_opts, const char * preset)
@@ -1438,8 +1982,29 @@ static int apply_vp9_preset(AVDictionary ** av_opts, const char * preset)
     return apply_vpx_preset(av_opts, preset);
 }
 
-static int apply_encoder_preset(int vcodec, AVDictionary ** av_opts,
-                                const char * preset)
+static int apply_vp9_10bit_preset(AVDictionary ** av_opts, const char * preset)
+{
+    av_dict_set(av_opts, "row-mt", "1", 0);
+    av_dict_set(av_opts, "profile", "2", 0);
+    return apply_vpx_preset(av_opts, preset);
+}
+
+static int apply_ffv1_preset(AVCodecContext *context, AVDictionary **av_opts, const char *preset)
+{
+    if (preset != NULL && !strcasecmp(preset, "preservation"))
+    {
+        context->gop_size = 1;
+        context->level = 3;
+        av_dict_set(av_opts, "coder", "1", 0);
+        av_dict_set(av_opts, "context", "1", 0);
+        av_dict_set(av_opts, "slicecrc", "1", 0);
+    }
+    return 0;
+}
+
+static int apply_encoder_preset(int vcodec, AVCodecContext *context,
+                                AVDictionary **av_opts,
+                                const char *preset)
 {
     switch (vcodec)
     {
@@ -1447,17 +2012,174 @@ static int apply_encoder_preset(int vcodec, AVDictionary ** av_opts,
             return apply_vp8_preset(av_opts, preset);
         case HB_VCODEC_FFMPEG_VP9:
             return apply_vp9_preset(av_opts, preset);
-            
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
+            return apply_vp9_10bit_preset(av_opts, preset);
+
+        case HB_VCODEC_FFMPEG_VCE_H264:
+        case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
+        case HB_VCODEC_FFMPEG_VCE_AV1:
+        case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
+            return apply_vce_preset(av_opts, vcodec, preset);
+
 #if HB_PROJECT_FEATURE_NVENC
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_AV1:
+        case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
             preset = hb_map_nvenc_preset_name(preset);
             av_dict_set( av_opts, "preset", preset, 0);
             break;
 #endif
+
+#if HB_PROJECT_FEATURE_QSV
+        case HB_VCODEC_FFMPEG_QSV_H264:
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_AV1:
+        case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+            preset = hb_map_qsv_preset_name(preset);
+            av_dict_set( av_opts, "preset", preset, 0);
+            hb_log("encavcodec: encoding with preset %s", preset);
+            break;
+#endif
+
+        case HB_VCODEC_FFMPEG_FFV1:
+            return apply_ffv1_preset(context, av_opts, preset);
         default:
             break;
+    }
+
+    return 0;
+}
+
+static int apply_vp9_tune(AVDictionary ** av_opts, const char * tune)
+{
+    av_dict_set(av_opts, "tune-content", tune, 0);
+    return 0;
+}
+
+static int apply_encoder_tune(int vcodec, AVDictionary ** av_opts,
+                                const char * tune)
+{
+    switch (vcodec)
+    {
+        case HB_VCODEC_FFMPEG_VP9:
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
+            return apply_vp9_tune(av_opts, tune);
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+static int apply_encoder_level(AVCodecContext *context, AVDictionary **av_opts, int vcodec, const char *encoder_level)
+{
+    const char * const *level_names = NULL;
+    const int  *level_values = NULL;
+
+    switch (vcodec)
+    {
+        case HB_VCODEC_FFMPEG_VCE_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
+        case HB_VCODEC_FFMPEG_MF_H264:
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+            level_names = hb_h264_level_names;
+            level_values = hb_h264_level_values;
+            break;
+
+#if HB_PROJECT_FEATURE_QSV
+        case HB_VCODEC_FFMPEG_QSV_H264:
+            level_names = hb_qsv_h264_level_names;
+            level_values = hb_qsv_h264_levels;
+            break;
+#endif
+
+        case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
+        case HB_VCODEC_FFMPEG_MF_H265:
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
+            level_names = hb_h265_level_names;
+            level_values = hb_h265_level_values;
+            break;
+
+#if HB_PROJECT_FEATURE_QSV
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+            level_names = hb_qsv_h265_level_names;
+            level_values = hb_qsv_h265_levels;
+            break;
+#endif
+
+        case HB_VCODEC_FFMPEG_VCE_AV1:
+        case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_AV1:
+        case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_MF_AV1:
+        case HB_VCODEC_FFMPEG_VAAPI_AV1:
+            level_names = hb_av1_level_names;
+            level_values = hb_av1_level_values;
+            break;
+
+#if HB_PROJECT_FEATURE_QSV
+        case HB_VCODEC_FFMPEG_QSV_AV1:
+        case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+            level_names = hb_qsv_av1_level_names;
+            level_values = hb_qsv_av1_levels;
+            break;
+#endif
+
+        case HB_VCODEC_FFMPEG_FFV1:
+            level_names = hb_ffv1_level_names;
+            level_values = hb_ffv1_level_values;
+            if (!strcasecmp(encoder_level, "auto"))
+            {
+                encoder_level = "3";
+            }
+            break;
+
+        case HB_VCODEC_FFMPEG_MPEG2:
+            level_names = hb_mpeg2_level_names;
+            level_values = hb_mpeg2_level_values;
+            break;
+    }
+
+    context->level = AV_FIELD_UNKNOWN;
+
+    if (level_names == NULL || level_values == NULL)
+    {
+        return 0;
+    }
+
+    if (encoder_level != NULL && *encoder_level)
+    {
+        int i = 1;
+        while (level_names[i] != NULL)
+        {
+            if (!strcasecmp(encoder_level, level_names[i]))
+            {
+                if (vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
+                    vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT ||
+                    vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
+                    vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT ||
+                    vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 ||
+                    vcodec == HB_VCODEC_FFMPEG_NVENC_AV1_10BIT)
+                {
+                    av_dict_set(av_opts, "level", level_names[i], 0);
+                }
+                else
+                {
+                    context->level = level_values[i];
+                }
+            }
+            ++i;
+        }
     }
 
     return 0;
@@ -1469,23 +2191,57 @@ const char* const* hb_av_preset_get_names(int encoder)
     {
         case HB_VCODEC_FFMPEG_VP8:
         case HB_VCODEC_FFMPEG_VP9:
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
             return vpx_preset_names;
 
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
             return hb_vce_preset_names;
 
+        case HB_VCODEC_FFMPEG_VCE_AV1:
+        case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
+            return hb_vce_av1_preset_names;
+
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_AV1:
+        case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
             return h26x_nvenc_preset_names;
 
         case HB_VCODEC_FFMPEG_MF_H264:
         case HB_VCODEC_FFMPEG_MF_H265:
+        case HB_VCODEC_FFMPEG_MF_AV1:
             return h26x_mf_preset_name;
 
+        case HB_VCODEC_FFMPEG_FFV1:
+            return ffv1_preset_names;
+
+#if HB_PROJECT_FEATURE_QSV
+        case HB_VCODEC_FFMPEG_QSV_H264:
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_AV1:
+        case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+            return hb_qsv_preset_get_names();
+#endif
+
         default:
-            return NULL;
+            return empty_names;
+    }
+}
+
+const char* const* hb_av_tune_get_names(int encoder)
+{
+    switch (encoder)
+    {
+        case HB_VCODEC_FFMPEG_VP9:
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
+            return vp9_tune_names;
+        default:
+            return empty_tune_names;
     }
 }
 
@@ -1495,29 +2251,164 @@ const char* const* hb_av_profile_get_names(int encoder)
     {
         case HB_VCODEC_FFMPEG_NVENC_H264:
             return h264_nvenc_profile_names;
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
+            return h264_nvenc_10bit_profile_names;
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+            return h264_vaapi_profile_names;
         case HB_VCODEC_FFMPEG_NVENC_H265:
             return h265_nvenc_profile_names;
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
             return h265_nvenc_10bit_profile_names;
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
+            return h265_vaapi_profile_names;
         case HB_VCODEC_FFMPEG_MF_H264:
             return h264_mf_profile_name;
         case HB_VCODEC_FFMPEG_MF_H265:
             return h265_mf_profile_name;
-
+        case HB_VCODEC_FFMPEG_MF_AV1:
+            return av1_mf_profile_name;
+        case HB_VCODEC_FFMPEG_VAAPI_AV1:
+            return av1_vaapi_profile_names;
+        case HB_VCODEC_FFMPEG_QSV_H264:
+            return h264_qsv_profile_name;
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+            return h265_qsv_profile_name;
+        case HB_VCODEC_FFMPEG_MPEG2:
+            return hb_mpeg2_profile_names;
+        case HB_VCODEC_FFMPEG_DNXHR:
+            return hb_dnxhr_profile_names;
+        case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+            return hb_dnxhr_10bit_profile_names;
+        case HB_VCODEC_FFMPEG_PRORES:
+            return hb_prores_profile_names;
          default:
-             return NULL;
+             return empty_names;
      }
 }
 
-const int* hb_av_get_pix_fmts(int encoder)
+const char* const* hb_av_level_get_names(int encoder)
+{
+    switch (encoder)
+    {
+        case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
+        case HB_VCODEC_FFMPEG_MF_H264:
+        case HB_VCODEC_FFMPEG_VAAPI_H264:
+            return hb_h264_level_names;
+
+        case HB_VCODEC_FFMPEG_VCE_H264:
+            return hb_vce_h264_level_names; // Not quite the same as x264
+
+        case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
+        case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+        case HB_VCODEC_FFMPEG_MF_H265:
+        case HB_VCODEC_FFMPEG_VAAPI_H265:
+            return hb_h265_level_names;
+
+        case HB_VCODEC_FFMPEG_VCE_AV1:
+        case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_AV1:
+        case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_AV1:
+        case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_MF_AV1:
+        case HB_VCODEC_FFMPEG_VAAPI_AV1:
+            return hb_av1_level_names;
+
+        case HB_VCODEC_FFMPEG_FFV1:
+            return hb_ffv1_level_names;
+
+        case HB_VCODEC_FFMPEG_MPEG2:
+            return hb_mpeg2_level_names;
+
+         default:
+             return empty_names;
+     }
+}
+
+const int* hb_av_get_pix_fmts(int encoder, const char *profile)
 {
     switch (encoder)
     {
         case HB_VCODEC_FFMPEG_MF_H264:
         case HB_VCODEC_FFMPEG_MF_H265:
+        case HB_VCODEC_FFMPEG_MF_AV1:   // NV12 only
             return h26x_mf_pix_fmts;
 
+        case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_NVENC_AV1:
+            return nvenc_pix_formats;
+
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
+        case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
+            return nvenc_pix_formats_10bit;
+
+        case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
+        case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
+            return vce_pix_formats_10bit;
+
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
+            return standard_10bit_pix_fmts;
+
+        case HB_VCODEC_FFMPEG_FFV1:
+            return ffv1_pix_formats;
+
+        case HB_VCODEC_FFMPEG_QSV_H264:
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_AV1:
+            return qsv_pix_formats;
+
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+            return qsv_10bit_pix_formats;
+
+        case HB_VCODEC_FFMPEG_MPEG2:
+        {
+            if (profile && !strcasecmp(profile, "422"))
+            {
+                return standard_422_pix_fmts;
+            }
+            else
+            {
+                return standard_pix_fmts;
+            }
+        }
+
+        case HB_VCODEC_FFMPEG_PRORES:
+        {
+            if (profile && (!strcasecmp(profile, "4444") || !strcasecmp(profile, "4444xq")))
+            {
+                return standard_444_10bit_pix_fmts;
+            }
+            else
+            {
+                return standard_422_10bit_pix_fmts;
+            }
+        }
+
+        case HB_VCODEC_FFMPEG_DNXHR:
+            return standard_422_pix_fmts;
+
+        case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+        {
+            if (profile && !strcasecmp(profile, "444"))
+            {
+                return standard_444_10bit_pix_fmts;
+            }
+            else
+            {
+                return standard_422_10bit_pix_fmts;
+            }
+        }
+
          default:
-             return pix_fmts;
+             return standard_pix_fmts;
      }
 }

@@ -12,6 +12,8 @@ namespace HandBrakeWPF.Services
     using System;
     using System.Timers;
 
+    using HandBrake.App.Core.Utilities;
+
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Logging.Interfaces;
@@ -79,6 +81,10 @@ namespace HandBrakeWPF.Services
                             lowLevel / 1000 / 1000 / 1000));
                     this.queueService.Pause(true);
                     this.storageLowPause = true;
+                }
+                else
+                {
+                    this.storageLowPause = false;
                 }
             }
         }

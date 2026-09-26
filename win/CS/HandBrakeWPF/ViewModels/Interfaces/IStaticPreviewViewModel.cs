@@ -18,13 +18,15 @@ namespace HandBrakeWPF.ViewModels.Interfaces
     /// <summary>
     /// The Static Preview View Model Interface
     /// </summary>
-    public interface IStaticPreviewViewModel
+    public interface IStaticPreviewViewModel : IViewModelBase
     {
         bool IsOpen { get; set; }
 
+        bool ShowPictureSettingControls { get; set; }
+
         BitmapSource PreviewImage { get; }
 
-        void UpdatePreviewFrame(EncodeTask task, Source scannedSource);
+        void UpdatePreviewFrame(Title title, EncodeTask task, Source scannedSource);
 
         void PreviousPreview();
 

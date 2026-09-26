@@ -42,17 +42,19 @@ dnl
 <<#>>define HB_PROJECT_FEATURE_ASM               __FEATURE_asm
 <<#>>define HB_PROJECT_FEATURE_FDK_AAC           __FEATURE_fdk_aac
 <<#>>define HB_PROJECT_FEATURE_FFMPEG_AAC        __FEATURE_ffmpeg_aac
+<<#>>define HB_PROJECT_FEATURE_FFMPEG_PRORES     __FEATURE_ffmpeg_prores
 <<#>>define HB_PROJECT_FEATURE_FLATPAK           __FEATURE_flatpak
 <<#>>define HB_PROJECT_FEATURE_GTK               __FEATURE_gtk
-<<#>>define HB_PROJECT_FEATURE_GTK_MINGW         __FEATURE_gtk_mingw
-<<#>>define HB_PROJECT_FEATURE_GTK_UPDATE_CHECKS __FEATURE_gtk_update_checks
-<<#>>define HB_PROJECT_FEATURE_GST               __FEATURE_gst
 <<#>>define HB_PROJECT_FEATURE_MF                __FEATURE_mf
 <<#>>define HB_PROJECT_FEATURE_NVENC             __FEATURE_nvenc
+<<#>>define HB_PROJECT_FEATURE_VAAPI             __FEATURE_vaapi
+<<#>>define HB_PROJECT_FEATURE_NVDEC             __FEATURE_nvdec
 <<#>>define HB_PROJECT_FEATURE_QSV               __FEATURE_qsv
 <<#>>define HB_PROJECT_FEATURE_VCE               __FEATURE_vce
+<<#>>define HB_PROJECT_FEATURE_AMFDEC            __FEATURE_amfdec
 <<#>>define HB_PROJECT_FEATURE_X265              __FEATURE_x265
 <<#>>define HB_PROJECT_FEATURE_NUMA              __FEATURE_numa
+<<#>>define HB_PROJECT_FEATURE_LIBDOVI           __FEATURE_libdovi
 
 <<#>>define HB_PROJECT_SECURITY_HARDEN           __SECURITY_harden
 

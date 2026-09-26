@@ -9,11 +9,13 @@
 
 namespace HandBrakeWPF.Services.Encode.Model.Models
 {
-    using Caliburn.Micro;
+    using System;
+    using System.Text.Json.Serialization;
 
-    using HandBrake.Interop.Utilities;
+    using HandBrake.Interop.Interop.Interfaces.Model;
 
     using HandBrakeWPF.Services.Scan.Model;
+    using HandBrakeWPF.ViewModels;
 
     public class SubtitleTrack : PropertyChangedBase
     {
@@ -44,7 +46,7 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
         /// </summary>
         private bool forced;
 
-        private string srtLang;
+        private Language srtLang;
 
         private string name;
 
@@ -80,6 +82,7 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
             this.SubtitleType = subtitle.SubtitleType;
             this.SourceTrack = subtitle.SourceTrack;
             this.Name = subtitle.Name;
+            this.TrackNamingCallback = subtitle.TrackNamingCallback;
         }
 
         #endregion
@@ -185,9 +188,13 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
                     this.Forced = false;
                 }
 
-                if (this.sourceTrack != null)
+                if (TrackNamingCallback != null)
                 {
-                    this.Name = !string.IsNullOrEmpty(this.sourceTrack.Name) ? this.sourceTrack.Name : string.Empty;
+                    bool passthruName = TrackNamingCallback();
+                    if (passthruName)
+                    {
+                        this.SetTrackNamePassthru();
+                    }
                 }
             }
         }
@@ -217,7 +224,7 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
         /// <summary>
         ///   Gets or sets the SRT Language
         /// </summary>
-        public string SrtLang
+        public Language SrtLang
         {
             get
             {
@@ -226,8 +233,7 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
             set
             {
                 this.srtLang = value;
-                string iso639 = LanguageUtilities.GetLanguageCode(this.srtLang);
-                this.SrtLangCode = iso639;
+                this.SrtLangCode = value?.Code;
             }
         }
 
@@ -316,6 +322,17 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
                 return this.SrtFileName != "-" && this.SrtFileName != null;
             }
         }
+
+        public void SetTrackNamePassthru()
+        {
+            if (this.SourceTrack != null)
+            {
+                this.Name = this.SourceTrack.Name;
+            }
+        }
+
+        [JsonIgnore]
+        public Func<bool> TrackNamingCallback { get; set; }
 
         public override string ToString()
         {

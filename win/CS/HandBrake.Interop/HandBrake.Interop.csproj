@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <FileVersion>1.5.0.0</FileVersion>
-    <Version>1.5.0</Version>
+    <TargetFramework>net10.0</TargetFramework>
+    <FileVersion>1.11.0.0</FileVersion>
+    <Version>1.11.0</Version>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Authors>HandBrake Team</Authors>
     <Description>HandBrake is an open-source, GPL-licensed, multiplatform,video transcoder.</Description>
-    <Copyright>Copyright © 2003-2022 HandBrake Team</Copyright>
+    <Copyright>Copyright © 2003-2026 HandBrake Team</Copyright>
     <PackageProjectUrl>https://handbrake.fr</PackageProjectUrl>
     <RepositoryUrl>https://github.com/HandBrake/HandBrake</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -18,4 +19,11 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;CS0649</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>1701;1702;CS0649</NoWarn>
+  </PropertyGroup>
 </Project>

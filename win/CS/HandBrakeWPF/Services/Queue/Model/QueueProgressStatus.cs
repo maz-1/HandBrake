@@ -11,10 +11,9 @@ namespace HandBrakeWPF.Services.Queue.Model
 {
     using System;
 
-    using Caliburn.Micro;
-
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode.EventArgs;
+    using HandBrakeWPF.ViewModels;
 
     public class QueueProgressStatus : PropertyChangedBase
     {
@@ -23,6 +22,7 @@ namespace HandBrakeWPF.Services.Queue.Model
         private string jobStatus;
         private bool intermediateProgress;
         private double progressValue;
+        private string jobStatusShort;
 
         private EncodeProgressEventArgs progressEventArgs;
 
@@ -42,6 +42,17 @@ namespace HandBrakeWPF.Services.Queue.Model
             {
                 this.jobStatus = value;
                 this.NotifyOfPropertyChange(() => this.JobStatus);
+            }
+        }
+
+        public string JobStatusShort
+        {
+            get => this.jobStatusShort;
+            set
+            {
+                if (value == this.jobStatusShort) return;
+                this.jobStatusShort = value;
+                this.NotifyOfPropertyChange(() => this.JobStatusShort);
             }
         }
 
@@ -104,16 +115,19 @@ namespace HandBrakeWPF.Services.Queue.Model
                         null);
 
                     this.ProgressValue = e.PercentComplete;
+                    this.JobStatusShort = string.Format(Resources.QueueViewModel_ShortSubScanStatus, e.PercentComplete, totalHrsLeft);
                 }
                 else if (e.IsMuxing)
                 {
                     this.JobStatus = Resources.MainView_Muxing;
+                    this.JobStatusShort = Resources.MainView_Muxing;
                     this.IntermediateProgress = true;
                 }
                 else if (e.IsSearching)
                 {
-                    this.JobStatus = string.Format(Resources.MainView_ProgressStatusWithTask, Resources.MainView_Searching, e.PercentComplete, e.EstimatedTimeLeft, null);
+                    this.JobStatus = string.Format(Resources.MainView_ProgressStatusWithTask, Resources.MainView_Searching, e.PercentComplete, e.EstimatedTimeLeft);
                     this.ProgressValue = e.PercentComplete;
+                    this.JobStatusShort = this.JobStatus = string.Format(Resources.MainView_ProgressStatusWithTask, Resources.MainView_Searching, e.PercentComplete, e.EstimatedTimeLeft);
                 }
                 else
                 {
@@ -129,6 +143,16 @@ namespace HandBrakeWPF.Services.Queue.Model
                             null);
                     this.ProgressValue = e.PercentComplete;
                     this.AverageFrameRate = e.AverageFrameRate;
+
+                    this.JobStatusShort =
+                        string.Format(
+                            Resources.QueueViewModel_ShortEncodeStatus,
+                            e.Task,
+                            e.TaskCount,
+                            e.PercentComplete,
+                            e.CurrentFrameRate,
+                            e.AverageFrameRate,
+                            totalHrsLeft);
                 }
             }
         }

@@ -13,17 +13,15 @@ namespace HandBrakeWPF.ViewModels
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
-    using System.Runtime.ExceptionServices;
     using System.Text;
-    using System.Windows.Media;
     using System.Windows.Media.Imaging;
 
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
     using HandBrake.Interop.Interop.Interfaces.Model.Encoders;
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
 
     using HandBrakeWPF.EventArgs;
-    using HandBrakeWPF.Factories;
     using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model.Filters;
     using HandBrakeWPF.Model.Options;
@@ -34,11 +32,8 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Interfaces;
     using HandBrakeWPF.Services.Scan.Model;
-    using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModelItems.Filters;
     using HandBrakeWPF.ViewModels.Interfaces;
-
-    using VideoEncoder = HandBrakeWPF.Model.Video.VideoEncoder;
 
     public class SummaryViewModel : ViewModelBase, ISummaryViewModel
     {
@@ -133,7 +128,7 @@ namespace HandBrakeWPF.ViewModels
             {
                 return new List<OutputFormat>
                        {
-                           OutputFormat.Mp4, OutputFormat.Mkv, OutputFormat.WebM
+                           OutputFormat.Mp4, OutputFormat.Mov, OutputFormat.Mkv, OutputFormat.WebM
                        };
             }
         }
@@ -264,27 +259,27 @@ namespace HandBrakeWPF.ViewModels
                     return false;
                 }
 
-                return this.SelectedOutputFormat == OutputFormat.Mp4 && VideoEncoderHelpers.IsH264(this.task.VideoEncoder);
+                return this.SelectedOutputFormat == OutputFormat.Mp4 && this.task.VideoEncoder != null && this.task.VideoEncoder.IsH264;
             }
         }
 
         /// <summary>
-        /// Optimise MP4 Checkbox
+        /// Optimise Checkbox
         /// </summary>
-        public bool OptimizeMP4
+        public bool Optimize
         {
             get
             {
-                return this.Task?.OptimizeMP4 ?? false;
+                return this.Task?.Optimize ?? false;
             }
             set
             {
-                if (value == this.Task.OptimizeMP4)
+                if (value == this.Task.Optimize)
                 {
                     return;
                 }
-                this.Task.OptimizeMP4 = value;
-                this.NotifyOfPropertyChange(() => this.OptimizeMP4);
+                this.Task.Optimize = value;
+                this.NotifyOfPropertyChange(() => this.Optimize);
                 this.OnTabStatusChanged(null);
             }
         }
@@ -331,10 +326,10 @@ namespace HandBrakeWPF.ViewModels
 
         public bool MetadataPassthru
         {
-            get => this.task?.MetaData.PassthruMetadataEnabled ?? false;
+            get => this.task?.PassthruMetadataEnabled ?? false;
             set
             {
-                this.task.MetaData.PassthruMetadataEnabled = value;
+                this.task.PassthruMetadataEnabled = value;
                 this.NotifyOfPropertyChange(() => this.MetadataPassthru);
             }
         }
@@ -346,7 +341,6 @@ namespace HandBrakeWPF.ViewModels
             this.Source = scannedSource;
             this.CurrentTitle = selectedTitle;
             this.Task = encodeTask;
-            this.Task.MetaData = new MetaData(selectedTitle.Metadata, this.MetadataPassthru);
             this.UpdateDisplayedInfo();
             this.SetPreviewControlVisibility();
         }
@@ -368,7 +362,7 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.IsMkvOrWebm);
             this.NotifyOfPropertyChange(() => this.IsIpodAtomVisible);
 
-            this.NotifyOfPropertyChange(() => this.OptimizeMP4);
+            this.NotifyOfPropertyChange(() => this.Optimize);
             this.NotifyOfPropertyChange(() => this.IPod5GSupport);
             this.NotifyOfPropertyChange(() => this.AlignAVStart);
             this.NotifyOfPropertyChange(() => this.MetadataPassthru);
@@ -381,7 +375,7 @@ namespace HandBrakeWPF.ViewModels
                 return false;
             }
 
-            if (preset.Task.OptimizeMP4 != this.OptimizeMP4)
+            if (preset.Task.Optimize != this.Optimize)
             {
                 return false;
             }
@@ -483,10 +477,10 @@ namespace HandBrakeWPF.ViewModels
         {
             // Main Window Settings
             this.SelectedOutputFormat = selectedPreset.Task.OutputFormat;
-            this.OptimizeMP4 = selectedPreset.Task.OptimizeMP4;
+            this.Optimize = selectedPreset.Task.Optimize;
             this.IPod5GSupport = selectedPreset.Task.IPod5GSupport;
             this.AlignAVStart = selectedPreset.Task.AlignAVStart;
-            this.MetadataPassthru = selectedPreset.Task?.MetaData.PassthruMetadataEnabled ?? false;
+            this.MetadataPassthru = selectedPreset.Task?.PassthruMetadataEnabled ?? false;
         }
 
         private void SetExtension(string newExtension)
@@ -496,9 +490,6 @@ namespace HandBrakeWPF.ViewModels
             {
                 switch ((Mp4Behaviour)this.userSettingService.GetUserSetting<int>(UserSettingConstants.UseM4v))
                 {
-                    case Mp4Behaviour.Auto: // Auto
-                        newExtension = MP4Helper.RequiresM4v(this.Task) ? ".m4v" : ".mp4";
-                        break;
                     case Mp4Behaviour.MP4: // MP4
                         newExtension = ".mp4";
                         break;
@@ -511,12 +502,11 @@ namespace HandBrakeWPF.ViewModels
             // Now disable controls that are not required. The Following are for MP4 only!
             if (newExtension == ".mkv" || newExtension == ".webm")
             {
-                this.OptimizeMP4 = false;
                 this.IPod5GSupport = false;
                 this.AlignAVStart = false;
             }
 
-            if (!VideoEncoderHelpers.IsH264(this.task.VideoEncoder))
+            if (this.task.VideoEncoder == null || !this.task.VideoEncoder.IsH264)
             {
                 this.IPod5GSupport = false;
             }
@@ -544,8 +534,8 @@ namespace HandBrakeWPF.ViewModels
 
             // Dimension Section
             this.VideoTrackInfo = this.Task.Framerate == null 
-                                      ? string.Format("{0}, {1} FPS {2}", EnumHelper<VideoEncoder>.GetDisplay(this.Task.VideoEncoder), Resources.SummaryView_SameAsSource, this.Task.FramerateMode) 
-                                      : string.Format("{0}, {1} FPS {2}", EnumHelper<VideoEncoder>.GetDisplay(this.Task.VideoEncoder), this.Task.Framerate, this.Task.FramerateMode);
+                                      ? string.Format("{0}, {1} FPS {2}", this.Task.VideoEncoder?.DisplayName, Resources.SummaryView_SameAsSource, this.Task.FramerateMode) 
+                                      : string.Format("{0}, {1} FPS {2}", this.Task.VideoEncoder?.DisplayName, this.Task.Framerate, this.Task.FramerateMode);
             
             this.NotifyOfPropertyChange(() => this.VideoTrackInfo);
 
@@ -565,7 +555,7 @@ namespace HandBrakeWPF.ViewModels
             string storageDesc = Resources.SummaryView_storage;
             int? width = this.task.Width;
             int? height = this.task.Height;
-            if (this.task.Padding.Enabled)
+            if (this.task.Padding.Mode != PaddingMode.None)
             {
                 storageDesc = string.Format("{0} {1}", Resources.SummaryView_storage, Resources.SummaryView_Padded);
                 width = this.task.Width + this.task.Padding.W;
@@ -596,35 +586,19 @@ namespace HandBrakeWPF.ViewModels
 
             List<string> filters = new List<string>();
 
-            if (this.Task.Detelecine != Detelecine.Off)
+
+            foreach (var filter in this.Task.VideoFilters)
             {
-                filters.Add(Resources.SummaryView_Detelecine);
+                filters.Add(filter.DisplayName);
             }
 
-            if (this.Task.DeinterlaceFilter != DeinterlaceFilter.Off)
-            {
-                filters.Add(EnumHelper<DeinterlaceFilter>.GetShortName(this.task.DeinterlaceFilter));
-            }
+            // TODO remove Resources
+            /*
+             * SummaryView_Detelecine
+             *SummaryView_Grayscale
+             *SummaryView_Deblock
+             */
 
-            if (this.Task.Denoise != Denoise.Off)
-            {
-                filters.Add(this.Task.Denoise.ToString());
-            }
-
-            if (this.Task.Sharpen != Sharpen.Off)
-            {
-                filters.Add(this.Task.Sharpen.ToString());
-            }
-
-            if (this.Task.DeblockPreset != null && this.Task.DeblockPreset.Key != DeblockFilter.Off)
-            {
-                filters.Add(Resources.SummaryView_Deblock);
-            }
-
-            if (this.Task.Grayscale)
-            {
-                filters.Add(Resources.SummaryView_Grayscale);
-            }
 
             if (this.Task.Rotation != 0 || this.task.FlipVideo)
             {
@@ -648,7 +622,7 @@ namespace HandBrakeWPF.ViewModels
                 AudioTrack track1 = this.Task.AudioTracks[0];
                 HBMixdown mixdownName = HandBrakeEncoderHelpers.GetMixdown(track1.MixDown);
                 string mixdown = mixdownName != null ? ", " + mixdownName.DisplayName : string.Empty;
-                desc.AppendLine(string.Format("{0}{1}", EnumHelper<AudioEncoder>.GetDisplay(track1.Encoder), mixdown));
+                desc.AppendLine(string.Format("{0}{1}", track1.Encoder.DisplayName, mixdown));
             }
 
             if (this.Task.AudioTracks.Count >= 2)
@@ -656,7 +630,7 @@ namespace HandBrakeWPF.ViewModels
                 AudioTrack track2 = this.Task.AudioTracks[1];
                 HBMixdown mixdownName = HandBrakeEncoderHelpers.GetMixdown(track2.MixDown);
                 string mixdown = mixdownName != null ? ", " + mixdownName.DisplayName : string.Empty;
-                desc.AppendLine(string.Format("{0}{1}", EnumHelper<AudioEncoder>.GetDisplay(track2.Encoder), mixdown));
+                desc.AppendLine(string.Format("{0}{1}", track2.Encoder.DisplayName, mixdown));
             }
 
             if (this.Task.AudioTracks.Count > 2)
@@ -724,7 +698,6 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.FiltersInfo);
         }
 
-        [HandleProcessCorruptedStateExceptions]
         private void UpdatePreviewFrame()
         {
             // Don't preview for small images.
@@ -745,7 +718,7 @@ namespace HandBrakeWPF.ViewModels
             BitmapSource image = null;
             try
             {
-                image = this.scanService.GetPreview(this.Task, this.selectedPreview - 1); 
+                image = this.scanService.GetPreview(this.Task, this.selectedPreview - 1, false); 
             }
             catch (Exception exc)
             {

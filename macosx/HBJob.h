@@ -11,7 +11,7 @@
 @class HBVideo;
 @class HBRange;
 @class HBPicture;
-@class HBFilters;
+@class HBVideoFilters;
 @class HBAudio;
 @class HBSubtitles;
 @class HBChapter;
@@ -24,15 +24,23 @@ NS_ASSUME_NONNULL_BEGIN
 extern NSString *HBContainerChangedNotification;
 extern NSString *HBChaptersChangedNotification;
 
+typedef NS_ENUM(NSUInteger, HBJobHardwareDecoderUsage) {
+    HBJobHardwareDecoderUsageNone,
+    HBJobHardwareDecoderUsageAlways,
+    HBJobHardwareDecoderUsageFullPathOnly
+};
+
 /**
  * HBJob
  */
 @interface HBJob : NSObject <NSSecureCoding, NSCopying, HBPresetCoding, HBSecurityScope>
 
 - (nullable instancetype)initWithTitle:(HBTitle *)title preset:(HBPreset *)preset;
+- (nullable instancetype)initWithTitle:(HBTitle *)title preset:(HBPreset *)preset subtitles:(NSArray<NSURL *> *)subtitlesURLs;
 
 @property (nonatomic, readwrite, weak, nullable) HBTitle *title;
 @property (nonatomic, readonly) int titleIdx;
+@property (nonatomic, readonly) BOOL keepDuplicateTitles;
 
 // Whether the source is a single file or a DVD-Video/Blu-ray
 @property (nonatomic, readonly, getter=isStream) BOOL stream;
@@ -56,14 +64,14 @@ extern NSString *HBChaptersChangedNotification;
 @property (nonatomic, readwrite) int angle;
 
 // Container options
-@property (nonatomic, readwrite) BOOL mp4HttpOptimize;
+@property (nonatomic, readwrite) BOOL optimize;
 @property (nonatomic, readwrite) BOOL mp4iPodCompatible;
 @property (nonatomic, readwrite) BOOL alignAVStart;
 
 @property (nonatomic, readonly) HBRange *range;
 @property (nonatomic, readonly) HBVideo *video;
 @property (nonatomic, readonly) HBPicture *picture;
-@property (nonatomic, readonly) HBFilters *filters;
+@property (nonatomic, readonly) HBVideoFilters *filters;
 
 @property (nonatomic, readonly) HBAudio *audio;
 @property (nonatomic, readonly) HBSubtitles *subtitles;
@@ -72,6 +80,7 @@ extern NSString *HBChaptersChangedNotification;
 @property (nonatomic, readonly) NSArray<HBChapter *> *chapterTitles;
 
 @property (nonatomic, readwrite) BOOL metadataPassthru;
+@property (nonatomic, readwrite) HBJobHardwareDecoderUsage hwDecodeUsage;
 
 @property (nonatomic, readwrite, weak, nullable) NSUndoManager *undo;
 

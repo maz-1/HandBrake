@@ -11,24 +11,22 @@ namespace HandBrakeWPF.Services.Encode.Model
 {
     using System.Collections.Generic;
     using System.Collections.ObjectModel;
-    using System.Threading;
-
-    using HandBrake.Interop.Interop.Interfaces.Model.Filters;
+    using HandBrake.Interop.Interop.Interfaces.Model;
+    using HandBrake.Interop.Interop.Interfaces.Model.Encoders;
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
+    using HandBrake.Interop.Interop.Json.Shared;
 
     using HandBrakeWPF.Model.Filters;
+    using HandBrakeWPF.Model.Video;
     using HandBrakeWPF.Services.Encode.Model.Models;
+    using HandBrakeWPF.Services.Encode.Model.Models.Filters;
 
-    using AllowedPassthru = Models.AllowedPassthru;
     using AudioTrack = Models.AudioTrack;
     using ChapterMarker = Models.ChapterMarker;
-    using DenoisePreset = Models.DenoisePreset;
-    using DenoiseTune = Models.DenoiseTune;
     using FramerateMode = Models.FramerateMode;
     using OutputFormat = Models.OutputFormat;
     using PointToPointMode = Models.PointToPointMode;
     using SubtitleTrack = Models.SubtitleTrack;
-    using VideoEncoder = HandBrakeWPF.Model.Video.VideoEncoder;
     using VideoEncodeRateType = HandBrakeWPF.Model.Video.VideoEncodeRateType;
     using VideoLevel = Models.Video.VideoLevel;
     using VideoPreset = Models.Video.VideoPreset;
@@ -40,13 +38,15 @@ namespace HandBrakeWPF.Services.Encode.Model
         public EncodeTask()
         {
             this.Cropping = new Cropping();
+            this.VideoFilters = new ObservableCollection<AudioVideoFilter>();
             this.AudioTracks = new ObservableCollection<AudioTrack>();
             this.SubtitleTracks = new ObservableCollection<SubtitleTrack>();
             this.ChapterNames = new ObservableCollection<ChapterMarker>();
-            this.AudioPassthruOptions = new AllowedPassthru();
-            this.MetaData = new MetaData();
+            this.AudioPassthruOptions = new ObservableCollection<HBAudioEncoder>();
+            this.MetaData = new ObservableCollection<MetaDataValue>();
             this.Padding = new PaddingFilter();
             this.VideoTunes = new List<VideoTune>();
+            this.CoverArts = new ObservableCollection<CoverArt>();
         }
 
         public EncodeTask(EncodeTask task)
@@ -55,12 +55,22 @@ namespace HandBrakeWPF.Services.Encode.Model
             this.Source = task.Source;
             this.StartPoint = task.StartPoint;
             this.Title = task.Title;
+            this.KeepDuplicateTitles = task.KeepDuplicateTitles;
             this.Angle = task.Angle;
             this.EndPoint = task.EndPoint;
             this.PointToPointMode = task.PointToPointMode;
 
+            /* Destination */
+            this.Destination = task.Destination;
+
             /* Audio */
-            this.AudioPassthruOptions = new AllowedPassthru(task.AudioPassthruOptions);
+            this.AudioFallbackEncoder = task.AudioFallbackEncoder;
+            this.AudioPassthruOptions = new ObservableCollection<HBAudioEncoder>();
+            foreach (var allowed in task.AudioPassthruOptions)
+            {
+                this.AudioPassthruOptions.Add(allowed);
+            }
+            
             this.AudioTracks = new ObservableCollection<AudioTrack>();
             foreach (AudioTrack track in task.AudioTracks)
             {
@@ -85,31 +95,11 @@ namespace HandBrakeWPF.Services.Encode.Model
             }
 
             /* Filter Settings */
-            this.CustomDeinterlaceSettings = task.CustomDeinterlaceSettings;
-            this.CustomDenoise = task.CustomDenoise;
-            this.CustomDetelecine = task.CustomDetelecine;
-            this.CustomCombDetect = task.CustomCombDetect;
-            this.CombDetect = task.CombDetect;
-            this.DeblockPreset = task.DeblockPreset;
-            this.DeblockTune = task.DeblockTune;
-            this.CustomDeblock = task.CustomDeblock;
-            this.DeinterlacePreset = task.DeinterlacePreset;
-            this.DeinterlaceFilter = task.DeinterlaceFilter;
-            this.Denoise = task.Denoise;
-            this.DenoisePreset = task.DenoisePreset;
-            this.DenoiseTune = task.DenoiseTune;
-            this.Destination = task.Destination;
-            this.Detelecine = task.Detelecine;
-            this.Sharpen = task.Sharpen;
-            this.SharpenPreset = task.SharpenPreset;
-            this.SharpenTune = task.SharpenTune;
-            this.SharpenCustom = task.SharpenCustom;
-            this.Colourspace = task.Colourspace;
-            this.CustomColourspace = task.CustomColourspace;
-            this.ChromaSmooth = task.ChromaSmooth;
-            this.ChromaSmoothTune = task.ChromaSmoothTune;
-            this.CustomChromaSmooth = task.CustomChromaSmooth;
-            this.Grayscale = task.Grayscale;
+            this.VideoFilters = new ObservableCollection<AudioVideoFilter>();
+            foreach (AudioVideoFilter filter in task.VideoFilters)
+            {
+                this.VideoFilters.Add(filter);
+            }
 
             /* Picture Settings*/
             this.DisplayWidth = task.DisplayWidth;
@@ -119,7 +109,6 @@ namespace HandBrakeWPF.Services.Encode.Model
             this.Height = task.Height;
             this.AllowUpscaling = task.AllowUpscaling;
             this.OptimalSize = task.OptimalSize;
-            this.HasCropping = task.HasCropping;
             this.PixelAspectX = task.PixelAspectX;
             this.PixelAspectY = task.PixelAspectY;
             this.Cropping = new Cropping(task.Cropping);
@@ -133,11 +122,12 @@ namespace HandBrakeWPF.Services.Encode.Model
             this.Quality = task.Quality;
             this.Framerate = task.Framerate;
             this.FramerateMode = task.FramerateMode;
-            this.TurboFirstPass = task.TurboFirstPass;
-            this.TwoPass = task.TwoPass;
+            this.TurboAnalysisPass = task.TurboAnalysisPass;
+            this.MultiPass = task.MultiPass;
             this.VideoBitrate = task.VideoBitrate;
             this.VideoEncoder = task.VideoEncoder;
             this.VideoEncodeRateType = task.VideoEncodeRateType;
+            this.VideoColourRange = task.VideoColourRange;
             this.VideoLevel = task.VideoLevel;
             this.VideoProfile = task.VideoProfile;
             this.VideoPreset = task.VideoPreset;
@@ -147,18 +137,23 @@ namespace HandBrakeWPF.Services.Encode.Model
             /* Container */
             this.IPod5GSupport = task.IPod5GSupport;
             this.OutputFormat = task.OutputFormat;
-            this.OptimizeMP4 = task.OptimizeMP4;
+            this.Optimize = task.Optimize;
             this.AlignAVStart = task.AlignAVStart;
 
             /* Other */
-            this.MetaData = new MetaData(task.MetaData);
+            this.PassthruMetadataEnabled = task.PassthruMetadataEnabled;
+            this.MetaData = new ObservableCollection<MetaDataValue>(task.MetaData);
+            this.CoverArts = new ObservableCollection<CoverArt>(task.CoverArts);
         }
+        
 
         /* Source */
 
         public string Source { get; set; }
 
         public int Title { get; set; }
+
+        public bool KeepDuplicateTitles { get; set; }
 
         public int Angle { get; set; }
 
@@ -176,7 +171,7 @@ namespace HandBrakeWPF.Services.Encode.Model
 
         public OutputFormat OutputFormat { get; set; }
 
-        public bool OptimizeMP4 { get; set; }
+        public bool Optimize { get; set; }
 
         public bool IPod5GSupport { get; set; }
 
@@ -194,8 +189,6 @@ namespace HandBrakeWPF.Services.Encode.Model
 
         public Cropping Cropping { get; set; }
 
-        public bool HasCropping { get; set; }
-
         public Anamorphic Anamorphic { get; set; }
 
         public double? DisplayWidth { get; set; }
@@ -210,67 +203,23 @@ namespace HandBrakeWPF.Services.Encode.Model
 
         public bool OptimalSize { get; set; }
 
-        /* Filters */
-
-        public DeinterlaceFilter DeinterlaceFilter { get; set; }
-
-        public HBPresetTune DeinterlacePreset { get; set; }
-
-        public CombDetect CombDetect { get; set; }
-
-        public string CustomDeinterlaceSettings { get; set; }
-
-        public string CustomCombDetect { get; set; }
-
-        public Detelecine Detelecine { get; set; }
-
-        public string CustomDetelecine { get; set; }
-
-        public Denoise Denoise { get; set; }
-
-        public DenoisePreset DenoisePreset { get; set; }
-
-        public DenoiseTune DenoiseTune { get; set; }
-
-        public string CustomDenoise { get; set; }
-
-        public bool Grayscale { get; set; }
-
         public int Rotation { get; set; }
 
         public bool FlipVideo { get; set; }
 
-        public Sharpen Sharpen { get; set; }
-
-        public FilterPreset SharpenPreset { get; set; }
-
-        public FilterTune SharpenTune { get; set; }
-
-        public string SharpenCustom { get; set; }
-
-        public FilterPreset DeblockPreset { get; set; }
-
-        public FilterTune DeblockTune { get; set; }
-
-        public string CustomDeblock { get; set; }
-
         public PaddingFilter Padding { get; set; }
 
-        public FilterPreset Colourspace { get; set; }
+        /* Filters */
+        public ObservableCollection<AudioVideoFilter> VideoFilters { get; set; }
 
-        public string CustomColourspace { get; set; }
-
-        public FilterPreset ChromaSmooth { get; set; }
-
-        public FilterTune ChromaSmoothTune { get; set; }
-
-        public string CustomChromaSmooth { get; set; }
-
+        
         /* Video */
 
         public VideoEncodeRateType VideoEncodeRateType { get; set; }
 
-        public VideoEncoder VideoEncoder { get; set; }
+        public HBVideoEncoder VideoEncoder { get; set; }
+
+        public VideoColourRange VideoColourRange { get; set; }
 
         public VideoProfile VideoProfile { get; set; }
 
@@ -288,9 +237,11 @@ namespace HandBrakeWPF.Services.Encode.Model
 
         public int? VideoBitrate { get; set; }
 
-        public bool TwoPass { get; set; }
+        public bool MultiPass { get; set; }
 
-        public bool TurboFirstPass { get; set; }
+        public bool TurboAnalysisPass { get; set; }
+
+        public HDRDynamicMetadata PasshtruHDRDynamicMetadata { get; set; }
 
         public double? Framerate { get; set; }
 
@@ -299,7 +250,10 @@ namespace HandBrakeWPF.Services.Encode.Model
 
         public ObservableCollection<AudioTrack> AudioTracks { get; set; }
 
-        public AllowedPassthru AudioPassthruOptions { get; set; }
+        public IList<HBAudioEncoder> AudioPassthruOptions { get; set; }
+
+        public HBAudioEncoder AudioFallbackEncoder { get; set; }
+
 
         /* Subtitles */
 
@@ -315,8 +269,9 @@ namespace HandBrakeWPF.Services.Encode.Model
 
 
         /* Metadata */
-        
-        public MetaData MetaData { get; set; }
+        public bool PassthruMetadataEnabled { get; set; }
+        public ObservableCollection<MetaDataValue> MetaData { get; set; }
+        public ObservableCollection<CoverArt> CoverArts { get; set; }
 
         /* Previews */
 

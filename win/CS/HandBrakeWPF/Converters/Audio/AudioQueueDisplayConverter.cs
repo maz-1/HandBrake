@@ -17,9 +17,7 @@ namespace HandBrakeWPF.Converters.Audio
 
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode.Model.Models;
-    using HandBrakeWPF.Utilities;
 
-    using AudioEncoder = Services.Encode.Model.Models.AudioEncoder;
     using AudioTrack = Services.Encode.Model.Models.AudioTrack;
 
     /// <summary>
@@ -42,11 +40,15 @@ namespace HandBrakeWPF.Converters.Audio
             {
                 foreach (AudioTrack track in tracks)
                 {
-                    string trackName = string.Format(
-                        "{0} {1}",
-                        track.ScannedTrack.TrackNumber,
-                        track.ScannedTrack.Language);
-
+                    string trackName = string.Empty;
+                    if (track.ScannedTrack != null)
+                    {
+                        trackName = string.Format(
+                            "{0} {1}",
+                            track.ScannedTrack.TrackNumber,
+                            track.ScannedTrack.Language);
+                    }
+                    
                     string quality = string.Empty;
                     if (!track.IsPassthru)
                     {
@@ -61,7 +63,13 @@ namespace HandBrakeWPF.Converters.Audio
                         namedTrack = string.Format(" - \"{0}\"", track.TrackName);
                     }
 
-                    audioTracks.Append(string.Format("{0}{1}, {2} {3}{4}", trackName, namedTrack, quality, EnumHelper<AudioEncoder>.GetDisplay(track.Encoder), Environment.NewLine)); 
+                    string gain = string.Empty;
+                    if (track.Gain != 0)
+                    {
+                        gain = string.Format(", {0}dB {1}", track.Gain, Resources.AudioView_Gain);
+                    }
+
+                    audioTracks.Append(string.Format("{0}{1}, {2} {3} {4}{5}", trackName, namedTrack, quality, track.Encoder.DisplayName, gain, Environment.NewLine)); 
                 }
             }
 

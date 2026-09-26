@@ -19,7 +19,9 @@
 #import "HBRange.h"
 #import "HBVideo.h"
 #import "HBPicture.h"
-#import "HBFilters.h"
+#import "HBVideoFilters.h"
+#import "HBAudioFilters.h"
+#import "HBFilter.h"
 #import "HBAudio.h"
 #import "HBSubtitles.h"
 
@@ -50,6 +52,15 @@
 
     hb_job_set_file(job, self.destinationURL.fileSystemRepresentation);
 
+    if (self.hwDecodeUsage == HBJobHardwareDecoderUsageFullPathOnly)
+    {
+        job->hw_decode = HB_DECODE_VIDEOTOOLBOX;
+    }
+    else if (self.hwDecodeUsage == HBJobHardwareDecoderUsageAlways)
+    {
+        job->hw_decode = HB_DECODE_VIDEOTOOLBOX | HB_DECODE_FORCE_HW;
+    }
+
     // Title Angle for dvdnav
     job->angle = self.angle;
 
@@ -73,13 +84,13 @@
     else if (self.range.type == HBRangeTypeFrames)
     {
         // we are frame based start / stop
-        //Point A to Point B. Frame to frame
+        // Point A to Point B. Frame to frame
         // get the start frame from the start frame field
         int start_frame = self.range.frameStart;
         job->frame_to_start = start_frame;
         // get the frame to stop on from the end frame field
         int stop_frame = self.range.frameStop;
-        job->frame_to_stop = stop_frame - start_frame;
+        job->frame_to_stop = stop_frame - start_frame + 1;
     }
     else if (self.range.type == HBRangePreviewIndex)
     {
@@ -92,7 +103,12 @@
     job->mux = self.container;
     job->vcodec = self.video.encoder;
 
-    job->mp4_optimize = self.mp4HttpOptimize;
+    if (self.video.colorRange != HBVideoColorRangeAuto)
+    {
+        job->color_range = (int)self.video.colorRange;
+    }
+
+    job->optimize = self.optimize;
 
     if (self.container & HB_MUX_MASK_MP4)
     {
@@ -127,9 +143,20 @@
         job->chapter_markers = 0;
     }
 
-    if (self.metadataPassthru == NO && job->metadata && job->metadata->dict)
+    if (self.metadataPassthru == NO && job->metadata)
     {
-        hb_dict_clear(job->metadata->dict);
+        if (job->metadata->dict)
+        {
+            hb_dict_clear(job->metadata->dict);
+        }
+        if (job->metadata->list_coverart)
+        {
+            int count = hb_list_count(job->metadata->list_coverart);
+            for (int i = 0; i < count; i++)
+            {
+                hb_metadata_rem_coverart(job->metadata, 0);
+            }
+        }
     }
 
     if (job->vcodec & HB_VCODEC_H264_MASK)
@@ -138,12 +165,29 @@
         job->ipod_atom = self.mp4iPodCompatible;
     }
 
-    if (self.video.twoPass && ((self.video.encoder & HB_VCODEC_X264_MASK) ||
+    if (self.video.multiPass && ((self.video.encoder & HB_VCODEC_X264_MASK) ||
                                (self.video.encoder & HB_VCODEC_X265_MASK)))
     {
-        job->fastfirstpass = self.video.turboTwoPass;
+        job->fastanalysispass = self.video.turboMultiPass;
     }
-    job->twopass = self.video.twoPass;
+    job->multipass = self.video.multiPass;
+
+    switch (self.video.passthruHDRDynamicMetadata)
+    {
+        case HBVideoHDRDynamicMetadataPassthruOff:
+            job->passthru_dynamic_hdr_metadata = HB_HDR_DYNAMIC_METADATA_NONE;
+            break;
+        case HBVideoHDRDynamicMetadataPassthruHDR10Plus:
+            job->passthru_dynamic_hdr_metadata = HB_HDR_DYNAMIC_METADATA_HDR10PLUS;
+            break;
+        case HBVideoHDRDynamicMetadataPassthruDolbyVision:
+            job->passthru_dynamic_hdr_metadata = HB_HDR_DYNAMIC_METADATA_DOVI;
+            break;
+        case HBVideoHDRDynamicMetadataPassthruAll:
+        default:
+            job->passthru_dynamic_hdr_metadata = HB_HDR_DYNAMIC_METADATA_ALL;
+            break;
+    }
 
     if (hb_video_encoder_get_presets(self.video.encoder) != NULL)
     {
@@ -271,34 +315,39 @@
                 // if we are getting the subtitles from an external file
                 if (subTrack.type == IMPORTSRT || subTrack.type == IMPORTSSA)
                 {
-                    hb_subtitle_config_t sub_config;
-                    int type = subTrack.type;
-
-                    sub_config.name = subTrack.title.UTF8String;
-                    sub_config.offset = subTrack.offset;
-
-                    // we need to strncpy file name and codeset
-                    sub_config.src_filename = subTrack.fileURL.fileSystemRepresentation;
-                    strncpy(sub_config.src_codeset, subTrack.charCode.UTF8String, 39);
-                    sub_config.src_codeset[39] = 0;
-
-                    if (!subTrack.burnedIn && hb_subtitle_can_pass(type, job->mux))
+                    if (subTrack.fileURL)
                     {
-                        sub_config.dest = PASSTHRUSUB;
-                    }
-                    else if (hb_subtitle_can_burn(type))
-                    {
-                        sub_config.dest = RENDERSUB;
-                    }
+                        hb_subtitle_config_t sub_config = {0};
+                        sub_config.name = subTrack.title.UTF8String;
+                        sub_config.offset = subTrack.offset;
 
-                    sub_config.force = 0;
-                    sub_config.default_track = subTrack.def;
-                    hb_import_subtitle_add( job, &sub_config, subTrack.isoLanguage.UTF8String, type);
+                        // we need to strncpy file name and codeset
+                        sub_config.src_filename = subTrack.fileURL.fileSystemRepresentation;
+                        if (subTrack.charCode)
+                        {
+                            size_t len = sizeof(sub_config.src_codeset) - 1;
+                            strncpy(sub_config.src_codeset, subTrack.charCode.UTF8String, len);
+                            sub_config.src_codeset[len] = 0;
+                        }
+
+                        if (!subTrack.burnedIn && hb_subtitle_can_pass(subTrack.type, job->mux))
+                        {
+                            sub_config.dest = PASSTHRUSUB;
+                        }
+                        else if (hb_subtitle_can_burn(subTrack.type))
+                        {
+                            sub_config.dest = RENDERSUB;
+                        }
+
+                        sub_config.force = 0;
+                        sub_config.default_track = subTrack.def;
+                        hb_import_subtitle_add(job, &sub_config, subTrack.isoLanguage.UTF8String, subTrack.type);
+                    }
                 }
                 else
                 {
                     // We are setting a source subtitle so access the source subtitle info
-                    hb_subtitle_t * subt = (hb_subtitle_t *) hb_list_item(title->list_subtitle, sourceIdx);
+                    hb_subtitle_t *subt = (hb_subtitle_t *)hb_list_item(title->list_subtitle, sourceIdx);
 
                     if (subt != NULL)
                     {
@@ -356,13 +405,29 @@
     {
         job->acodec_copy_mask |= HB_ACODEC_MP3_PASS;
     }
+    if (audioDefaults.allowVorbisPassthru)
+    {
+        job->acodec_copy_mask |= HB_ACODEC_VORBIS_PASS;
+    }
+    if (audioDefaults.allowOpusPassthru)
+    {
+        job->acodec_copy_mask |= HB_ACODEC_OPUS_PASS;
+    }
     if (audioDefaults.allowTrueHDPassthru)
     {
         job->acodec_copy_mask |= HB_ACODEC_TRUEHD_PASS;
     }
+    if (audioDefaults.allowALACPassthru)
+    {
+        job->acodec_copy_mask |= HB_ACODEC_ALAC_PASS;
+    }
     if (audioDefaults.allowFLACPassthru)
     {
         job->acodec_copy_mask |= HB_ACODEC_FLAC_PASS;
+    }
+    if (audioDefaults.allowPCMPassthru)
+    {
+        job->acodec_copy_mask |= HB_ACODEC_PCM_PASS;
     }
 
     job->acodec_fallback = audioDefaults.encoderFallback;
@@ -373,8 +438,8 @@
     {
         if (audioTrack.isEnabled)
         {
-            hb_audio_config_t *audio = (hb_audio_config_t *)calloc(1, sizeof(*audio));
-            hb_audio_config_init(audio);
+            hb_audio_config_t audio = {0};
+            hb_audio_config_init(&audio);
 
             HBTitleAudioTrack *inputTrack = self.audio.sourceTracks[audioTrack.sourceTrackIdx];
 
@@ -382,176 +447,76 @@
                                    inputTrack.sampleRate :
                                    audioTrack.sampleRate);
 
-            audio->in.track = (int)audioTrack.sourceTrackIdx - 1;
+            audio.index = (int)audioTrack.sourceTrackIdx - 1;
 
             // We go ahead and assign values to our audio->out.<properties>
-            audio->out.track                     = audio->in.track;
-            audio->out.codec                     = audioTrack.encoder;
-            audio->out.compression_level         = hb_audio_compression_get_default(audio->out.codec);
-            audio->out.mixdown                   = audioTrack.mixdown;
-            audio->out.normalize_mix_level       = 0;
-            audio->out.bitrate                   = audioTrack.bitRate;
-            audio->out.samplerate                = sampleRateToUse;
-            audio->out.dither_method             = hb_audio_dither_get_default();
-            audio->out.name                      = audioTrack.title.UTF8String;
+            audio.out.track                     = audio.in.track;
+            audio.out.codec                     = audioTrack.encoder;
+            audio.out.compression_level         = hb_audio_compression_get_default(audio.out.codec);
+            audio.out.mixdown                   = audioTrack.mixdown;
+            audio.out.normalize_mix_level       = 0;
+            audio.out.bitrate                   = audioTrack.bitRate;
+            audio.out.samplerate                = sampleRateToUse;
+            audio.out.dither_method             = hb_audio_dither_get_default();
+            audio.out.name                      = audioTrack.title.UTF8String;
 
             // output is not passthru so apply gain
             if (!(audioTrack.encoder & HB_ACODEC_PASS_FLAG))
             {
-                audio->out.gain = audioTrack.gain;
+                audio.out.gain = audioTrack.gain;
             }
             else
             {
                 // output is passthru - the Gain dial is disabled so don't apply its value
-                audio->out.gain = 0;
+                audio.out.gain = 0;
             }
 
             if (hb_audio_can_apply_drc(inputTrack.codec,
                                        inputTrack.codecParam,
                                        audioTrack.encoder))
             {
-                audio->out.dynamic_range_compression = audioTrack.drc;
+                audio.out.dynamic_range_compression = audioTrack.drc;
             }
             else
             {
                 // source isn't AC3 or output is passthru - the DRC dial is disabled so don't apply its value
-                audio->out.dynamic_range_compression = 0;
+                audio.out.dynamic_range_compression = 0;
             }
 
-            hb_audio_add(job, audio);
-            free(audio);
+            hb_list_t *filter_list = audio.out.list_filter;
+            for (HBFilter *f in audioTrack.filters.filters)
+            {
+                hb_dict_t *filter_dict = hb_generate_filter_settings(f.filterID,
+                                                                     f.preset.UTF8String,
+                                                                     f.tune.UTF8String,
+                                                                     f.custom.UTF8String);
+                hb_filter_object_t *filter = hb_filter_init(f.filterID);
+                hb_add_filter_dict(filter_list, filter, filter_dict);
+                hb_value_free(&filter_dict);
+            }
+
+            hb_audio_add(job, &audio);
+            hb_audio_config_close(&audio);
         }
     }
 
     // Now lets call the filters if applicable.
     hb_filter_object_t *filter;
-
-    // Detelecine
-    if (![self.filters.detelecine isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_DETELECINE;
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                             self.filters.detelecine.UTF8String,
-                                                             NULL,
-                                                             self.filters.detelecineCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_value_free(&filter_dict);
-    }
-
-    // Comb Detection
-    if (![self.filters.combDetection isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_COMB_DETECT;
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                             self.filters.combDetection.UTF8String,
-                                                             NULL,
-                                                             self.filters.combDetectionCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_value_free(&filter_dict);
-    }
-
-    // Deinterlace
-    if (![self.filters.deinterlace isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_DECOMB;
-        if ([self.filters.deinterlace isEqualToString:@"deinterlace"])
-        {
-            filter_id = HB_FILTER_DEINTERLACE;
-        }
-
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                            self.filters.deinterlacePreset.UTF8String,
-                                                            NULL,
-                                                            self.filters.deinterlaceCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_value_free(&filter_dict);
-    }
+    hb_list_t *filter_list = job->list_filter;
 
     // Add framerate shaping filter
     filter = hb_filter_init(HB_FILTER_VFR);
-    hb_add_filter(job, filter, [[NSString stringWithFormat:@"mode=%d:rate=%d/%d",
+    hb_add_filter(filter_list, filter, [[NSString stringWithFormat:@"mode=%d:rate=%d/%d",
                                  fps_mode, fps_num, fps_den] UTF8String]);
-
-    // Deblock
-    if (![self.filters.deblock isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_DEBLOCK;
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                             self.filters.deblock.UTF8String,
-                                                             self.filters.deblockTune.UTF8String,
-                                                             self.filters.deblockCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_value_free(&filter_dict);
-    }
-
-    // Denoise
-    if (![self.filters.denoise isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_HQDN3D;
-        if ([self.filters.denoise isEqualToString:@"nlmeans"])
-        {
-            filter_id = HB_FILTER_NLMEANS;
-        }
-
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                  self.filters.denoisePreset.UTF8String,
-                                                  self.filters.denoiseTune.UTF8String,
-                                                  self.filters.denoiseCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_dict_free(&filter_dict);
-    }
-
-    // Chroma Smooth
-    if (![self.filters.chromaSmooth isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_CHROMA_SMOOTH;
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                             self.filters.chromaSmooth.UTF8String,
-                                                             self.filters.chromaSmoothTune.UTF8String,
-                                                             self.filters.chromaSmoothCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_value_free(&filter_dict);
-    }
 
     // Add Crop/Scale filter
     filter = hb_filter_init(HB_FILTER_CROP_SCALE);
-    hb_add_filter( job, filter,
+    hb_add_filter( filter_list, filter,
                    [NSString stringWithFormat:
                     @"width=%d:height=%d:crop-top=%d:crop-bottom=%d:crop-left=%d:crop-right=%d",
                     self.picture.width, self.picture.height,
                     self.picture.cropTop, self.picture.cropBottom,
                     self.picture.cropLeft, self.picture.cropRight].UTF8String);
-
-    // Sharpen
-    if (![self.filters.sharpen isEqualToString:@"off"])
-    {
-        int filter_id = HB_FILTER_UNSHARP;
-        if ([self.filters.sharpen isEqualToString:@"lapsharp"])
-        {
-            filter_id = HB_FILTER_LAPSHARP;
-        }
-
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                  self.filters.sharpenPreset.UTF8String,
-                                                  self.filters.sharpenTune.UTF8String,
-                                                  self.filters.sharpenCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
-        hb_dict_free(&filter_dict);
-    }
-
-    // Grayscale
-    if (self.filters.grayscale)
-    {
-        filter = hb_filter_init(HB_FILTER_GRAYSCALE);
-        hb_add_filter(job, filter, NULL);
-    }
 
     // Rotate
     if (self.picture.angle || self.picture.flip)
@@ -563,7 +528,7 @@
                                                               self.picture.angle, self.picture.flip].UTF8String);
 
         filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
+        hb_add_filter_dict(filter_list, filter, filter_dict);
         hb_dict_free(&filter_dict);
     }
 
@@ -595,20 +560,18 @@
         hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id, NULL, NULL, settings.UTF8String);
 
         filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
+        hb_add_filter_dict(filter_list, filter, filter_dict);
         hb_dict_free(&filter_dict);
     }
 
-    // Colorspace
-    if (![self.filters.colorspace isEqualToString:@"off"])
+    for (HBFilter *f in self.filters.filters)
     {
-        int filter_id = HB_FILTER_COLORSPACE;
-        hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,
-                                                             self.filters.colorspace.UTF8String,
-                                                             NULL,
-                                                             self.filters.colorspaceCustomString.UTF8String);
-        filter = hb_filter_init(filter_id);
-        hb_add_filter_dict(job, filter, filter_dict);
+        hb_dict_t *filter_dict = hb_generate_filter_settings(f.filterID,
+                                                             f.preset.UTF8String,
+                                                             f.tune.UTF8String,
+                                                             f.custom.UTF8String);
+        filter = hb_filter_init(f.filterID);
+        hb_add_filter_dict(filter_list, filter, filter_dict);
         hb_value_free(&filter_dict);
     }
 

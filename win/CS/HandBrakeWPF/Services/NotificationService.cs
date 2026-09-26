@@ -42,24 +42,35 @@ namespace HandBrakeWPF.Services
             }
         }
 
-        public void SendNotification(string header, string content)
+        public bool SendNotification(string header, string content)
         {
-            this.id += 1;
-            ToastContentBuilder toast = new ToastContentBuilder().AddArgument("tag", this.id.ToString()).AddText(header);
-
-            if (!string.IsNullOrEmpty(content))
+            try
             {
-                toast.AddText(content);
+                this.id += 1;
+                ToastContentBuilder toast = new ToastContentBuilder().AddArgument("tag", this.id.ToString())
+                    .AddText(header);
+
+                if (!string.IsNullOrEmpty(content))
+                {
+                    toast.AddText(content);
+                }
+
+                ToastNotification notification = new ToastNotification(toast.GetXml());
+                notification.ExpirationTime = DateTime.Now.AddDays(1);
+                notification.Group = "HandBrake";
+                notification.Tag = this.id.ToString();
+
+                if (this.notifier != null)
+                {
+                    notifier.Show(notification);
+                }
+
+                return true;
             }
-
-            ToastNotification notification = new ToastNotification(toast.GetXml());
-            notification.ExpirationTime = DateTime.Now.AddDays(1);
-            notification.Group = "HandBrake";
-            notification.Tag = this.id.ToString();
-
-            if (this.notifier != null)
+            catch (Exception exc)
             {
-                notifier.Show(notification);
+                Debug.WriteLine(exc);
+                return false;
             }
         }
 
@@ -103,40 +114,59 @@ namespace HandBrakeWPF.Services
                     return;
                 }
 
-                this.notifier = ToastNotificationManagerCompat.CreateToastNotifier();
-
-                isInitialised = true;
-
-                ToastNotificationManagerCompat.OnActivated += toastArgs =>
+                try
                 {
-                    // Obtain the arguments from the notification
-                    ToastArguments args = ToastArguments.Parse(toastArgs.Argument);
+                    this.notifier = ToastNotificationManagerCompat.CreateToastNotifier();
 
-                    // Remove any notifications that are clicked
-                    System.Collections.Generic.KeyValuePair<string, string> tag = args.FirstOrDefault();
-                    if (!string.IsNullOrEmpty(tag.Value))
+                    isInitialised = true;
+
+                    ToastNotificationManagerCompat.OnActivated += toastArgs =>
                     {
-                        try
+                        // Obtain the arguments from the notification
+                        ToastArguments args = ToastArguments.Parse(toastArgs.Argument);
+
+                        // Remove any notifications that are clicked
+                        System.Collections.Generic.KeyValuePair<string, string> tag = args.FirstOrDefault();
+                        if (!string.IsNullOrEmpty(tag.Value))
                         {
-                            ToastNotificationManagerCompat.History.Remove(tag.Value);
+                            try
+                            {
+                                ToastNotificationManagerCompat.History.Remove(tag.Value);
+                            }
+                            catch (Exception exc)
+                            {
+                                Debug.WriteLine(exc);
+                            }
                         }
-                        catch (Exception exc)
+
+                        // Need to dispatch to UI thread if performing UI operations
+                        Application.Current.Dispatcher.Invoke(delegate
                         {
-                            Debug.WriteLine(exc);
-                        }
+                            Window w = Application.Current.MainWindow;
+                            if (w != null)
+                            {
+                                w.WindowState = WindowState.Normal;
+                                w.BringIntoView();
+                            }
+                        });
+                    };
+                }
+                catch (Exception exc)
+                {
+                    try
+                    {
+                        this.userSettingService.SetUserSetting(UserSettingConstants.NotifyOnEncodeDone, false);
+                        this.userSettingService.SetUserSetting(UserSettingConstants.NotifyOnQueueDone, false);
+
+                        this.Uninstall();
+                    }
+                    catch (Exception exc2)
+                    {
+                        Debug.WriteLine(exc2);
                     }
 
-                    // Need to dispatch to UI thread if performing UI operations
-                    Application.Current.Dispatcher.Invoke(delegate
-                    {
-                        Window w = Application.Current.MainWindow;
-                        if (w != null)
-                        {
-                            w.WindowState = WindowState.Normal;
-                            w.BringIntoView();
-                        }
-                    });
-                };
+                    Debug.WriteLine(exc);
+                }
             }
         }
     }

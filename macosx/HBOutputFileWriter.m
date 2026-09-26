@@ -8,10 +8,13 @@
 
 @import HandBrakeKit.HBUtilities;
 
+#define HB_OUTPUT_MAX 1000000
+
 @implementation HBOutputFileWriter
 {
     FILE *f;
     NSDateFormatter *_formatter;
+    uint32_t _count;
 }
 
 - (nullable instancetype)initWithFileURL:(NSURL *)url
@@ -21,10 +24,10 @@
     {
         NSError *error;
         BOOL result;
-        result = [[NSFileManager defaultManager] createDirectoryAtPath:url.URLByDeletingLastPathComponent.path
-                                           withIntermediateDirectories:YES
-                                                            attributes:nil
-                                                                 error:&error];
+        result = [NSFileManager.defaultManager createDirectoryAtURL:url.URLByDeletingLastPathComponent
+                                        withIntermediateDirectories:YES
+                                                         attributes:nil
+                                                              error:&error];
         if (!result)
         {
             [HBUtilities writeToActivityLog:"Error: couldn't open activity log file, %@", error];
@@ -49,6 +52,7 @@
         _formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
         _formatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ssZZZZZ";
         _formatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
+        _count = 0;
 
         [self writeHeaderForReason:@"Session"];
     }
@@ -71,8 +75,22 @@
 
 - (void)write:(NSString *)text
 {
+    if (f == NULL)
+    {
+        return;
+    }
+
+    if (_count > HB_OUTPUT_MAX)
+    {
+        // Avoid creating enormous log files
+        // in case of repeated errors
+        [self clear];
+    }
+
     fprintf(f, "%s", text.UTF8String);
     fflush(f);
+
+    _count += 1;
 }
 
 - (void)redirect:(NSString *)text type:(HBRedirectType)type
@@ -82,8 +100,26 @@
 
 - (void)clear
 {
+    _count = 0;
+
+    if (f == NULL)
+    {
+        return;
+    }
+
     f = freopen(NULL, "w", f);
+
+    if (f == NULL)
+    {
+        return;
+    }
+
     f = freopen(NULL, "a", f);
+
+    if (f == NULL)
+    {
+        return;
+    }
 
     [self writeHeaderForReason:@"Session (Cleared)"];
 }

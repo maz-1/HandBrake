@@ -13,11 +13,10 @@ namespace HandBrakeWPF.Services.Queue
     using System.Collections.Generic;
 
     using HandBrake.Interop.Interop;
+    using HandBrake.Interop.Interop.Interfaces.Model.Encoders;
 
     using HandBrakeWPF.Services.Encode.Model;
     using HandBrakeWPF.Services.Interfaces;
-
-    using VideoEncoder = HandBrakeWPF.Model.Video.VideoEncoder;
 
     public class QueueResourceService
     {
@@ -48,14 +47,7 @@ namespace HandBrakeWPF.Services.Queue
 
         private void UserSettingService_SettingChanged(object sender, HandBrakeWPF.EventArgs.SettingChangedEventArgs e)
         {
-            if (e.Key == UserSettingConstants.SimultaneousEncodes)
-            {
-                this.maxAllowedInstances = this.userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
-                if (this.maxAllowedInstances > Utilities.SystemInfo.MaximumSimultaneousInstancesSupported)
-                {
-                    this.maxAllowedInstances = Utilities.SystemInfo.MaximumSimultaneousInstancesSupported;
-                }
-            }
+            this.Init();
         }
 
         public int TotalActiveInstances
@@ -73,103 +65,107 @@ namespace HandBrakeWPF.Services.Queue
         {
             this.maxAllowedInstances = this.userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
 
-            // Allow QSV adapter scaling. 
-            this.qsvGpus = HandBrakeEncoderHelpers.GetQsvAdaptorList();
-            this.totalQsvInstances = this.qsvGpus.Count * 2; // Allow two instances per GPU
-
-            // Most Nvidia cards support 3 instances.
-            this.totalNvidiaInstances = 3;
-
-            // VCE Support still TBD
-            this.totalVceInstances = 3;
-
-            this.totalMfInstances = 1;
-
             // Whether using hardware or not, some CPU is needed so don't allow more jobs than CPU.
             if (this.maxAllowedInstances > Utilities.SystemInfo.MaximumSimultaneousInstancesSupported)
             {
                 this.maxAllowedInstances = Utilities.SystemInfo.MaximumSimultaneousInstancesSupported;
             }
+
+            // Allow QSV adapter scaling. 
+            this.qsvGpus = HandBrakeEncoderHelpers.GetQsvAdaptorList();
+            this.totalQsvInstances = this.qsvGpus.Count * 2; // Allow two instances per GPU
+
+            if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncHyperEncode))
+            {
+                // When HyperEncode is supported, we encode 1 job across multiple media engines. 
+                this.totalQsvInstances = 1;
+            }
+
+            if (this.maxAllowedInstances == 1)
+            {
+                this.totalQsvInstances = 1;
+                this.totalNvidiaInstances = 1;
+                this.totalVceInstances = 1;
+                this.totalMfInstances = 1;
+                return;
+            } 
+
+            // NVEnc Support - (Most cards now support 5 with up-to-date drivers)
+            this.totalNvidiaInstances = 5;
+
+            // VCN Support
+            this.totalVceInstances = 3;
+
+            // ARM64 Support
+            this.totalMfInstances = 1;
         }
 
         public Guid? GetToken(EncodeTask task)
         {
             lock (this.lockObj)
             {
-                switch (task.VideoEncoder)
+                if (task.VideoEncoder.IsQuickSync)
                 {
-                    case VideoEncoder.QuickSync:
-                    case VideoEncoder.QuickSyncH265:
-                    case VideoEncoder.QuickSyncH26510b:
-                        if (this.qsvInstances.Count < this.totalQsvInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
-                        {
-                            this.AllocateIntelGPU(task);
+                    if (this.qsvInstances.Count < this.totalQsvInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
+                    {
+                        this.AllocateIntelGPU(task);
 
-                            Guid guid = Guid.NewGuid();
-                            this.qsvInstances.Add(guid);
-                            this.totalInstances.Add(guid);
-                            return guid;
-                        }
-                        else
-                        {
-                            return Guid.Empty; // Busy
-                        }
+                        Guid guid = Guid.NewGuid();
+                        this.qsvInstances.Add(guid);
+                        this.totalInstances.Add(guid);
+                        return guid;
+                    }
 
-                    case VideoEncoder.NvencH264:
-                    case VideoEncoder.NvencH265:
-                    case VideoEncoder.NvencH26510b:
-                        if (this.nvencInstances.Count < this.totalNvidiaInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
-                        {
-                            Guid guid = Guid.NewGuid();
-                            this.nvencInstances.Add(guid);
-                            this.totalInstances.Add(guid);
-                            return guid;
-                        }
-                        else
-                        {
-                            return Guid.Empty; // Busy
-                        }
+                    return Guid.Empty; // Busy
+                }
+                else if (task.VideoEncoder.IsNVEnc)
+                {
+                    if (this.nvencInstances.Count < this.totalNvidiaInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
+                    {
+                        Guid guid = Guid.NewGuid();
+                        this.nvencInstances.Add(guid);
+                        this.totalInstances.Add(guid);
+                        return guid;
+                    }
 
-                    case VideoEncoder.VceH264:
-                    case VideoEncoder.VceH265:
-                        if (this.vceInstances.Count < this.totalVceInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
-                        {
-                            Guid guid = Guid.NewGuid();
-                            this.vceInstances.Add(guid);
-                            this.totalInstances.Add(guid);
-                            return guid;
-                        }
-                        else
-                        {
-                            return Guid.Empty; // Busy
-                        }
+                    return Guid.Empty; // Busy
+                }
+                else if (task.VideoEncoder.IsVCN)
+                {
+                    if (this.vceInstances.Count < this.totalVceInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
+                    {
+                        Guid guid = Guid.NewGuid();
+                        this.vceInstances.Add(guid);
+                        this.totalInstances.Add(guid);
+                        return guid;
+                    }
 
-                    case VideoEncoder.MFH264:
-                    case VideoEncoder.MFH265:
-                        if (this.mfInstances.Count < this.totalMfInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
-                        {
-                            Guid guid = Guid.NewGuid();
-                            this.mfInstances.Add(guid);
-                            this.totalInstances.Add(guid);
-                            return guid;
-                        }
-                        else
-                        {
-                            return Guid.Empty; // Busy
-                        }
+                    return Guid.Empty; // Busy
+                }
+                else if (task.VideoEncoder.IsMediaFoundation)
+                {
+                    if (this.mfInstances.Count < this.totalMfInstances && this.TotalActiveInstances <= this.maxAllowedInstances)
+                    {
+                        Guid guid = Guid.NewGuid();
+                        this.mfInstances.Add(guid);
+                        this.totalInstances.Add(guid);
+                        return guid;
+                    }
 
-
-                    default:
-                        if (this.TotalActiveInstances <= this.maxAllowedInstances)
-                        {
-                            Guid guid = Guid.NewGuid();
-                            this.totalInstances.Add(guid);
-                            return guid;
-                        }
-                        else
-                        {
-                            return Guid.Empty; // Busy
-                        }
+                    return Guid.Empty; // Busy
+                }
+                else
+                {
+                    if (this.TotalActiveInstances <= this.maxAllowedInstances)
+                    {
+                        Guid guid = Guid.NewGuid();
+                        this.totalInstances.Add(guid);
+                        return guid;
+                    }
+                    else
+                    {
+                        return Guid.Empty; // Busy
+                    }
                 }
             }
         }
@@ -186,7 +182,7 @@ namespace HandBrakeWPF.Services.Queue
             }
         }
 
-        public void ReleaseToken(VideoEncoder encoder, Guid? unlockKey)
+        public void ReleaseToken(HBVideoEncoder encoder, Guid? unlockKey)
         {
             if (unlockKey == null)
             {
@@ -200,42 +196,33 @@ namespace HandBrakeWPF.Services.Queue
                     this.totalInstances.Remove(unlockKey.Value);
                 }
 
-                switch (encoder)
+                if (encoder.IsQuickSync)
                 {
-                    case VideoEncoder.QuickSync:
-                    case VideoEncoder.QuickSyncH265:
-                    case VideoEncoder.QuickSyncH26510b:
-                        if (this.qsvInstances.Contains(unlockKey.Value))
-                        {
-                            this.qsvInstances.Remove(unlockKey.Value);
-                        }
-
-                        break;
-                    case VideoEncoder.NvencH264:
-                    case VideoEncoder.NvencH265:
-                    case VideoEncoder.NvencH26510b:
-                        if (this.nvencInstances.Contains(unlockKey.Value))
-                        {
-                            this.nvencInstances.Remove(unlockKey.Value);
-                        }
-
-                        break;
-                    case VideoEncoder.VceH264:
-                    case VideoEncoder.VceH265:
-                        if (this.vceInstances.Contains(unlockKey.Value))
-                        {
-                            this.vceInstances.Remove(unlockKey.Value);
-                        }
-
-                        break;
-                    case VideoEncoder.MFH264:
-                    case VideoEncoder.MFH265:
-                        if (this.mfInstances.Contains(unlockKey.Value))
-                        {
-                            this.mfInstances.Remove(unlockKey.Value);
-                        }
-
-                        break;
+                    if (this.qsvInstances.Contains(unlockKey.Value))
+                    {
+                        this.qsvInstances.Remove(unlockKey.Value);
+                    }
+                }
+                else if (encoder.IsNVEnc)
+                {
+                    if (this.nvencInstances.Contains(unlockKey.Value))
+                    {
+                        this.nvencInstances.Remove(unlockKey.Value);
+                    }
+                }
+                else if (encoder.IsVCN)
+                {
+                    if (this.vceInstances.Contains(unlockKey.Value))
+                    {
+                        this.vceInstances.Remove(unlockKey.Value);
+                    }
+                }
+                else if (encoder.IsMediaFoundation)
+                {
+                    if (this.mfInstances.Contains(unlockKey.Value))
+                    {
+                        this.mfInstances.Remove(unlockKey.Value);
+                    }
                 }
             }
         }
@@ -245,6 +232,14 @@ namespace HandBrakeWPF.Services.Queue
             if (this.qsvGpus.Count <= 1)
             {
                 return; // Not a multi-Intel-GPU system.
+            }
+
+            // HyperEncode takes priority over load balancing when enabled. 
+            if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncHyperEncode))
+            {
+                task.ExtraAdvancedArguments = string.IsNullOrEmpty(task.ExtraAdvancedArguments)
+                                                  ? "hyperencode=adaptive" : string.Format("hyperencode=adaptive:{0}", task.ExtraAdvancedArguments);
+                return;
             }
 
             if (task.ExtraAdvancedArguments.Contains("gpu"))
@@ -280,14 +275,14 @@ namespace HandBrakeWPF.Services.Queue
                 // GPU List 1
                 task.ExtraAdvancedArguments = string.IsNullOrEmpty(task.ExtraAdvancedArguments)
                                                   ? string.Format("gpu={0}", this.qsvGpus[1])
-                                                  : string.Format("{0}:gpu={1}", task.ExtraAdvancedArguments, this.qsvGpus[1]);
+                                                  : string.Format("gpu={1}:{0}", task.ExtraAdvancedArguments, this.qsvGpus[1]);
             }
             else
             {
                 // GPU List 0
                 task.ExtraAdvancedArguments = string.IsNullOrEmpty(task.ExtraAdvancedArguments)
                     ? string.Format("gpu={0}", this.qsvGpus[0])
-                    : string.Format("{0}:gpu={1}", task.ExtraAdvancedArguments, this.qsvGpus[0]);
+                    : string.Format("gpu={1}:{0}", task.ExtraAdvancedArguments, this.qsvGpus[0]);
             }
         }
     }

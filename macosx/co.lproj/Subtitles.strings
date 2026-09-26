@@ -10,14 +10,11 @@
 /* Class = "NSTableColumn"; headerCell.title = "Language"; ObjectID = "9ka-9O-WDj"; */
 "9ka-9O-WDj.headerCell.title" = "Lingua";
 
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "ABd-Ec-K2L"; */
-"ABd-Ec-K2L.title" = "Altre viste";
-
 /* Class = "NSTextField"; ibExternalAccessibilityDescription = "SRT/SSA Offset"; ObjectID = "aJi-zQ-0cg"; */
-"aJi-zQ-0cg.ibExternalAccessibilityDescription" = "Staccamentu SRT/SSA";
+"aJi-zQ-0cg.ibExternalAccessibilityDescription" = "Spustime SRT/SSA";
 
 /* Class = "NSTextField"; ibShadowedToolTip = "Positive or negative offset in milliseconds (ms) for the selected SRT/SSA format source track. Not applicable to other formats."; ObjectID = "aJi-zQ-0cg"; */
-"aJi-zQ-0cg.ibShadowedToolTip" = "Staccamentu pusitivu o nigativu, in milliseconde (ms), per a traccia di fonte selezziunata à u furmatu SRT/SSA. Ùn s’appieca micca à l’altri furmati.";
+"aJi-zQ-0cg.ibShadowedToolTip" = "Spustime pusitivu o nigativu, in milliseconde (ms), per a traccia di fonte selezziunata à u furmatu SRT/SSA. Ùn s’appieca micca à l’altri furmati.";
 
 /* Class = "NSMenuItem"; title = "Pop Up"; ObjectID = "cSW-OC-qKA"; */
 "cSW-OC-qKA.title" = "Finestra accaduta";
@@ -29,13 +26,10 @@
 "fAW-To-EeP.title" = "Elementu 3";
 
 /* Class = "NSTableColumn"; headerCell.title = "Offset"; ObjectID = "Fgh-pZ-6uu"; */
-"Fgh-pZ-6uu.headerCell.title" = "Staccamentu";
+"Fgh-pZ-6uu.headerCell.title" = "Spustime";
 
 /* Class = "NSTableColumn"; headerCell.title = "Burned In"; ObjectID = "fIe-Fg-ufj"; */
 "fIe-Fg-ufj.headerCell.title" = "Intarsiati";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "Fr7-eG-NuL"; */
-"Fr7-eG-NuL.title" = "Altre viste";
 
 /* Class = "NSTableColumn"; headerCell.title = "Default"; ObjectID = "fvq-pE-sOC"; */
 "fvq-pE-sOC.headerCell.title" = "Predefinitu";
@@ -50,7 +44,7 @@
 "gHY-6m-ASb.title" = "Elementu 2";
 
 /* Class = "NSTextFieldCell"; title = "Text Cell"; ObjectID = "gYk-0C-2tR"; */
-"gYk-0C-2tR.title" = "Cellula di testu";
+"gYk-0C-2tR.title" = "Text Cell";
 
 /* Class = "NSButton"; ibExternalAccessibilityDescription = "Forced subtitles only"; ObjectID = "HC5-ql-Vcr"; */
 "HC5-ql-Vcr.ibExternalAccessibilityDescription" = "Solu sottutituli sfurzati";
@@ -113,7 +107,7 @@
 "QRj-KI-a03.title" = "Testu";
 
 /* Class = "NSButton"; ibShadowedToolTip = "Configure subtitle tracks Selection Behavior. These settings affect which tracks will be added to the subtitle tracks list, and the settings used for each track."; ObjectID = "QsM-28-Pya"; */
-"QsM-28-Pya.ibShadowedToolTip" = "Cunfigureghja u cumpurtamentu di selezzione di e traccie di sottutitulu. Ste preferenze affettanu a scelta di e traccie chì seranu aghjunte à a lista di e traccie di sottutitulu, ma dinù e preferenze impiegate per ogni traccia.";
+"QsM-28-Pya.ibShadowedToolTip" = "Cunfigureghja u cumpurtamentu di selezzione di e traccie di sottutitulu. Sti parametri affettanu a scelta di e traccie chì seranu aghjunte à a lista di e traccie di sottutitulu, ma dinù i parametri impiegati per ogni traccia.";
 
 /* Class = "NSPopUpButton"; ibExternalAccessibilityDescription = "SRT/SSA Character Encoding"; ObjectID = "QV0-kE-4yR"; */
 "QV0-kE-4yR.ibExternalAccessibilityDescription" = "Cudificazione di caratteru SRT/SSA";
@@ -134,7 +128,7 @@
 "S2I-Jd-Lyg.title" = "Aghjunghje tutte e traccie";
 
 /* Class = "NSScrollView"; ibShadowedToolTip = "Subtitle tracks list. Track selection behavior and settings are loaded from the selected preset, and may be configured using the subtitle Selection Behavior dialog."; ObjectID = "Syo-rH-vof"; */
-"Syo-rH-vof.ibShadowedToolTip" = "Lista di e traccie di sottutitulu. U cumpurtamentu è e preferenze di selezzione di e traccie sò caricati da a prerigatura selezziunata è ponu esse cunfigurati via u dialogu di u cumpurtamentu di selezzione di sottutitulu.";
+"Syo-rH-vof.ibShadowedToolTip" = "Lista di e traccie di sottutitulu. U cumpurtamentu è i parametri di selezzione di e traccie sò caricati da a prerigatura selezziunata è ponu esse cunfigurati via u dialogu di u cumpurtamentu di selezzione di sottutitulu.";
 
 /* Class = "NSPopUpButton"; ibExternalAccessibilityDescription = "Selected track"; ObjectID = "Tf3-cP-TGw"; */
 "Tf3-cP-TGw.ibExternalAccessibilityDescription" = "Traccia selezziunata";
@@ -147,12 +141,6 @@
 
 /* Class = "NSMenuItem"; title = "Tracks"; ObjectID = "TJO-RZ-jgb"; */
 "TJO-RZ-jgb.title" = "Traccie";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "Umu-1b-U1Z"; */
-"Umu-1b-U1Z.title" = "Altre viste";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "UOP-xa-WpP"; */
-"UOP-xa-WpP.title" = "Altre viste";
 
 /* Class = "NSMenuItem"; title = "Pop Up"; ObjectID = "vHW-fn-RSG"; */
 "vHW-fn-RSG.title" = "Finestra accaduta";

@@ -1,6 +1,7 @@
 /* fifo.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
+   Copyright 2022 NVIDIA Corporation
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -10,13 +11,15 @@
 #include "libavcodec/avcodec.h"
 
 #include "handbrake/handbrake.h"
-#if HB_PROJECT_FEATURE_QSV
-#include "handbrake/qsv_libav.h"
-#include "handbrake/qsv_common.h"
+
+#ifdef __APPLE__
+#include <CoreMedia/CoreMedia.h>
+#include "platform/macosx/vt_common.h"
+#include "platform/macosx/cv_utils.h"
 #endif
 
 #ifndef SYS_DARWIN
-#if defined( SYS_FREEBSD ) || defined ( __FreeBSD__ ) || defined(SYS_NETBSD)
+#if defined( SYS_FREEBSD ) || defined( SYS_NETBSD ) || defined( SYS_OPENBSD )
 #include <stdlib.h>
 #else
 #include <malloc.h>
@@ -108,6 +111,10 @@ void hb_buffer_pool_init( void )
     /* we allocate pools for sizes 2^10 through 2^25. requests larger than
      * 2^25 will get passed through to malloc. */
     int i;
+
+    // Create a queue with empty buffers for non native storage types
+    buffers.pool[0] = hb_fifo_init(BUFFER_POOL_MAX_ELEMENTS*10, 1);
+    buffers.pool[0]->buffer_size = 0;
 
     // Create larger queue for 2^10 bucket since all allocations smaller than
     // 2^10 come from here.
@@ -331,6 +338,11 @@ void hb_buffer_pool_free( void )
 static hb_fifo_t *size_to_pool( int size )
 {
 #if !defined(HB_NO_BUFFER_POOL)
+    if (size == 0)
+    {
+        return buffers.pool[0];
+    }
+
     int i;
     for ( i = BUFFER_POOL_FIRST; i <= BUFFER_POOL_LAST; ++i )
     {
@@ -347,11 +359,11 @@ hb_buffer_t * hb_buffer_init_internal( int size )
 {
     hb_buffer_t * b;
     // Certain libraries (hrm ffmpeg) expect buffers passed to them to
-    // end on certain alignments (ffmpeg is 8). So allocate some extra bytes.
+    // end on certain alignments. So allocate some extra bytes.
     // Note that we can't simply align the end of our buffer because
     // sometimes we feed data to these libraries starting from arbitrary
     // points within the buffer.
-    int alloc = size + AV_INPUT_BUFFER_PADDING_SIZE;
+    int alloc = size ? size + AV_INPUT_BUFFER_PADDING_SIZE : 0;
     hb_fifo_t *buffer_pool = size_to_pool( alloc );
 
     if( buffer_pool )
@@ -369,7 +381,11 @@ hb_buffer_t * hb_buffer_init_internal( int size )
             memset( b, 0, sizeof(hb_buffer_t) );
             b->alloc          = buffer_pool->buffer_size;
             b->size           = size;
-            b->data           = data;
+            if (size)
+            {
+                b->data           = data;
+            }
+            b->storage        = NULL;
             b->s.start        = AV_NOPTS_VALUE;
             b->s.stop         = AV_NOPTS_VALUE;
             b->s.renderOffset = AV_NOPTS_VALUE;
@@ -424,6 +440,11 @@ hb_buffer_t * hb_buffer_init_internal( int size )
     return b;
 }
 
+hb_buffer_t * hb_buffer_wrapper_init()
+{
+    return hb_buffer_init_internal(0);
+}
+
 hb_buffer_t * hb_buffer_init( int size )
 {
     return hb_buffer_init_internal(size);
@@ -469,38 +490,311 @@ void hb_buffer_realloc( hb_buffer_t * b, int size )
 
 void hb_buffer_reduce( hb_buffer_t * b, int size )
 {
-
-    if ( size < b->alloc / 8 || b->data == NULL )
+    if (b->storage_type == STANDARD && (size < b->alloc / 8 || b->data == NULL))
     {
-        hb_buffer_t * tmp = hb_buffer_init( size );
-
-        hb_buffer_swap_copy( b, tmp );
-        memcpy( b->data, tmp->data, size );
-        tmp->next = NULL;
-        hb_buffer_close( &tmp );
+        hb_buffer_t *tmp = hb_buffer_init(size);
+        if (tmp)
+        {
+            hb_buffer_swap_copy(b, tmp);
+            if (tmp->data)
+            {
+                memcpy(b->data, tmp->data, size);
+            }
+            tmp->next = NULL;
+        }
+        hb_buffer_close(&tmp);
     }
 }
 
-hb_buffer_t * hb_buffer_dup( const hb_buffer_t * src )
+AVFrameSideData *hb_buffer_new_side_data_from_buf(hb_buffer_t *buf,
+                                                  enum AVFrameSideDataType type,
+                                                  AVBufferRef *side_data_buf)
 {
-
-    hb_buffer_t * buf;
-
-    if ( src == NULL )
-        return NULL;
-
-    buf = hb_buffer_init( src->size );
-    if ( buf )
+    AVFrameSideData *ret;
+    if (buf->storage_type == AVFRAME)
     {
-        memcpy( buf->data, src->data, src->size );
-        buf->s = src->s;
-        buf->f = src->f;
-        if ( buf->s.type == FRAME_BUF )
-            hb_buffer_init_planes( buf );
+        AVFrame *frame = (AVFrame *)buf->storage;
+        ret = av_frame_new_side_data_from_buf(frame, type, side_data_buf);
+        buf->side_data = (void **)frame->side_data;
+        buf->nb_side_data = frame->nb_side_data;
+        return ret;
+    }
+    else
+    {
+        AVFrameSideData **tmp;
+
+        if (!buf)
+        {
+            return NULL;
+        }
+
+        if (buf->nb_side_data > INT_MAX / sizeof(*buf->side_data) - 1)
+        {
+            return NULL;
+        }
+
+        tmp = av_realloc(buf->side_data, (buf->nb_side_data + 1) * sizeof(*buf->side_data));
+        if (!tmp)
+        {
+            return NULL;
+        }
+        buf->side_data = (void **)tmp;
+
+        ret = av_mallocz(sizeof(*ret));
+        if (!ret)
+        {
+            return NULL;
+        }
+
+        ret->buf = side_data_buf;
+        ret->data = ret->buf->data;
+        ret->size = side_data_buf->size;
+        ret->type = type;
+
+        buf->side_data[buf->nb_side_data++] = ret;
+
+        return ret;
+    }
+}
+
+static void free_side_data(AVFrameSideData **ptr_sd)
+{
+    AVFrameSideData *sd = *ptr_sd;
+
+    av_buffer_unref(&sd->buf);
+    av_dict_free(&sd->metadata);
+    av_freep(ptr_sd);
+}
+
+void hb_buffer_remove_side_data(hb_buffer_t *buf, enum AVFrameSideDataType type)
+{
+    if (buf->storage_type == AVFRAME)
+    {
+        AVFrame *frame = (AVFrame *)buf->storage;
+        av_frame_remove_side_data(frame, type);
+        buf->nb_side_data = frame->nb_side_data;
+    }
+    else
+    {
+        for (int i = buf->nb_side_data - 1; i >= 0; i--)
+        {
+            AVFrameSideData *sd = buf->side_data[i];
+            if (sd->type == type)
+            {
+                free_side_data((AVFrameSideData **)&buf->side_data[i]);
+                buf->side_data[i] = buf->side_data[buf->nb_side_data - 1];
+                buf->nb_side_data--;
+            }
+        }
+    }
+}
+
+void hb_buffer_wipe_side_data(hb_buffer_t *buf)
+{
+    for (int i = 0; i < buf->nb_side_data; i++)
+    {
+        free_side_data((AVFrameSideData **)&buf->side_data[i]);
+    }
+    buf->nb_side_data = 0;
+
+    av_freep(&buf->side_data);
+}
+
+void hb_buffer_copy_side_data(hb_buffer_t *dst, const hb_buffer_t *src)
+{
+    for (int i = 0; i < src->nb_side_data; i++)
+    {
+        const AVFrameSideData *sd_src = src->side_data[i];
+        AVBufferRef *ref = av_buffer_ref(sd_src->buf);
+        AVFrameSideData *sd_dst = hb_buffer_new_side_data_from_buf(dst, sd_src->type, ref);
+        if (!sd_dst)
+        {
+            av_buffer_unref(&ref);
+            hb_buffer_wipe_side_data(dst);
+        }
+    }
+}
+
+void hb_buffer_copy_props(hb_buffer_t *dst, const hb_buffer_t *src)
+{
+    dst->s = src->s;
+    hb_buffer_copy_side_data(dst, src);
+}
+
+int hb_buffer_is_writable(const hb_buffer_t *buf)
+{
+    switch (buf->storage_type)
+    {
+        case AVFRAME:
+            return av_frame_is_writable((AVFrame *)buf->storage);
+        case STANDARD:
+            return 1;
+#ifdef __APPLE__
+        case COREMEDIA:
+            return hb_cv_get_io_surface_usage_count(buf) == 1;
+#endif
+        default:
+            return 0;
+    }
+}
+
+static int copy_hwframe_to_video_buffer(const AVFrame *frame, hb_buffer_t *buf)
+{
+    int ret;
+    AVFrame *hw_frame = av_frame_alloc();
+
+    ret = av_frame_copy_props(hw_frame, frame);
+    if (ret < 0)
+    {
+        hb_log("fifo: av_frame_copy_props");
+    }
+    ret = av_hwframe_get_buffer(frame->hw_frames_ctx, hw_frame, 0);
+    if (ret < 0)
+    {
+        hb_log("fifo: av_hwframe_get_buffer failed");
+    }
+    ret = av_hwframe_transfer_data(hw_frame, frame, 0);
+    if (ret < 0)
+    {
+        hb_log("fifo: av_hwframe_transfer_data failed");
     }
 
-#if HB_PROJECT_FEATURE_QSV
-    memcpy(&buf->qsv_details, &src->qsv_details, sizeof(src->qsv_details));
+    buf->storage = hw_frame;
+    buf->storage_type = AVFRAME;
+
+    return ret;
+}
+
+hb_buffer_t * hb_buffer_shallow_dup(const hb_buffer_t *src)
+{
+    hb_buffer_t *buf = NULL;
+
+    if (src == NULL)
+    {
+        return NULL;
+    }
+
+    if (src->storage_type == AVFRAME &&
+        ((AVFrame *)src->storage)->buf[0] != NULL)
+    {
+        buf = hb_buffer_wrapper_init();
+        if (buf)
+        {
+            buf->f = src->f;
+            buf->s = src->s;
+
+            AVFrame *frame_copy = av_frame_alloc();
+            if (frame_copy == NULL)
+            {
+                hb_buffer_close(&buf);
+                return NULL;
+            }
+
+            int ret = av_frame_ref(frame_copy, src->storage);
+            if (ret < 0)
+            {
+                hb_buffer_close(&buf);
+                av_frame_free(&frame_copy);
+                return NULL;
+            }
+
+            buf->storage_type = AVFRAME;
+            buf->storage = frame_copy;
+
+            buf->side_data = (void **)frame_copy->side_data;
+            buf->nb_side_data = frame_copy->nb_side_data;
+
+            for (int pp = 0; pp <= buf->f.max_plane; pp++)
+            {
+                buf->plane[pp].data   = frame_copy->data[pp];
+                buf->plane[pp].width  = src->plane[pp].width;
+                buf->plane[pp].height = src->plane[pp].height;
+                buf->plane[pp].stride = frame_copy->linesize[pp];
+                buf->plane[pp].size   = src->plane[pp].size;
+            }
+        }
+    }
+    else
+    {
+        buf = hb_buffer_dup(src);
+    }
+
+    return buf;
+}
+
+hb_buffer_t * hb_buffer_dup(const hb_buffer_t *src)
+{
+    hb_buffer_t *buf = NULL;
+
+    if (src == NULL)
+    {
+        return NULL;
+    }
+
+    if (src->storage_type == STANDARD)
+    {
+        buf = hb_buffer_init(src->size);
+        if (buf)
+        {
+            buf->f = src->f;
+            hb_buffer_copy_props(buf, src);
+
+            if (buf->s.type == FRAME_BUF)
+            {
+                hb_buffer_init_planes(buf);
+            }
+
+            memcpy(buf->data, src->data, src->size);
+        }
+    }
+    else if (src->storage_type == AVFRAME)
+    {
+        const AVFrame *frame = (AVFrame *)src->storage;
+
+        // If it's an hardware frame, make a copy
+        // into another hardware AVFrame.
+        if (frame->hw_frames_ctx)
+        {
+#ifdef __APPLE__
+            if (frame->format == AV_PIX_FMT_VIDEOTOOLBOX)
+            {
+                buf = hb_vt_buffer_dup(src);
+            }
+            else
+#endif
+            {
+                buf = hb_buffer_wrapper_init();
+                if (buf)
+                {
+                    buf->f = src->f;
+                    hb_buffer_copy_props(buf, src);
+                    copy_hwframe_to_video_buffer(frame, buf);
+                }
+            }
+        }
+        // If not, copy the content to a standard hb_buffer
+        else
+        {
+            buf = hb_frame_buffer_init(src->f.fmt, src->f.width, src->f.height);
+            if (buf)
+            {
+                buf->f = src->f;
+                hb_buffer_copy_props(buf, src);
+
+                for (int pp = 0; pp <= buf->f.max_plane; pp++)
+                {
+                    hb_image_copy_plane(buf->plane[pp].data, frame->data[pp],
+                                        buf->plane[pp].stride, frame->linesize[pp],
+                                        buf->plane[pp].height);
+                }
+            }
+        }
+    }
+#ifdef __APPLE__
+    else if (src->storage_type == COREMEDIA)
+    {
+        buf = hb_vt_buffer_dup(src);
+    }
 #endif
 
     return buf;
@@ -515,8 +809,8 @@ int hb_buffer_copy(hb_buffer_t * dst, const hb_buffer_t * src)
         return -1;
 
     memcpy( dst->data, src->data, src->size );
-    dst->s = src->s;
     dst->f = src->f;
+    hb_buffer_copy_props(dst, src);
     if (dst->s.type == FRAME_BUF)
         hb_buffer_init_planes(dst);
 
@@ -532,12 +826,10 @@ void hb_buffer_init_planes(hb_buffer_t * b)
     {
         b->plane[pp].data = data;
         b->plane[pp].stride        = hb_image_stride(b->f.fmt, b->f.width, pp);
-        b->plane[pp].height_stride = hb_image_height_stride(b->f.fmt,
-                                                            b->f.height, pp);
         b->plane[pp].width         = hb_image_width(b->f.fmt, b->f.width, pp);
         b->plane[pp].height        = hb_image_height(b->f.fmt, b->f.height, pp);
         b->plane[pp].size          = b->plane[pp].stride *
-                                     b->plane[pp].height_stride;
+                                     b->plane[pp].height;
         data                      += b->plane[pp].size;
     }
 }
@@ -568,7 +860,7 @@ hb_buffer_t * hb_frame_buffer_init( int pix_fmt, int width, int height )
         {
             has_plane[pp] = 1;
             size += hb_image_stride( pix_fmt, width, pp ) *
-                    hb_image_height_stride( pix_fmt, height, pp );
+                    hb_image_height( pix_fmt, height, pp );
         }
     }
 
@@ -584,13 +876,14 @@ hb_buffer_t * hb_frame_buffer_init( int pix_fmt, int width, int height )
     buf->f.fmt = pix_fmt;
 
     hb_buffer_init_planes(buf);
+
     return buf;
 }
 
 void hb_frame_buffer_blank_stride(hb_buffer_t * buf)
 {
     uint8_t * data;
-    int       pp, yy, width, height, stride, height_stride;
+    int       pp, yy, width, height, stride;
 
     for (pp = 0; pp <= buf->f.max_plane; pp++)
     {
@@ -598,7 +891,6 @@ void hb_frame_buffer_blank_stride(hb_buffer_t * buf)
         width         = buf->plane[pp].width;
         height        = buf->plane[pp].height;
         stride        = buf->plane[pp].stride;
-        height_stride = buf->plane[pp].height_stride;
 
         if (data != NULL)
         {
@@ -607,60 +899,66 @@ void hb_frame_buffer_blank_stride(hb_buffer_t * buf)
             {
                 memset(data + yy * stride + width, 0x80, stride - width);
             }
-            // Blank bottom margin
-            for (yy = height; yy < height_stride; yy++)
-            {
-                memset(data + yy * stride, 0x80, stride);
-            }
         }
     }
 }
+
+#define DEF_MIRROR_STRIDE_FUNC(name, nbits)                                  \
+static void name##_##nbits(uint8_t *data, int width, int height, int stride) \
+{                                                                            \
+    int pos, margin, margin_front, margin_back, bps;                         \
+    uint##nbits##_t *data_in = (uint##nbits##_t *)data;                      \
+                                                                             \
+    bps = nbits > 8 ? 2 : 1;                                                 \
+    stride      /= bps;                                                      \
+    margin       = stride - width;                                           \
+    margin_front = margin / 2;                                               \
+    margin_back  = margin - margin_front;                                    \
+    for (int yy = 0; yy < height; yy++)                                      \
+    {                                                                        \
+        /* Mirror final row pixels into front of stride region */            \
+        pos = yy * stride + width;                                           \
+        for (int ii = 0; ii < margin_back; ii++)                             \
+        {                                                                    \
+            *(data_in + pos + ii) = *(data_in + pos - ii - 1);               \
+        }                                                                    \
+        /* Mirror start of next row into end of stride region */             \
+        pos = (yy + 1) * stride - 1;                                         \
+        for (int ii = 0; ii < margin_front; ii++)                            \
+        {                                                                    \
+            *(data_in + pos - ii) = *(data_in + pos + ii + 1);               \
+        }                                                                    \
+    }                                                                        \
+}                                                                            \
+
+DEF_MIRROR_STRIDE_FUNC(mirror_stride, 16)
+DEF_MIRROR_STRIDE_FUNC(mirror_stride, 8)
 
 void hb_frame_buffer_mirror_stride(hb_buffer_t * buf)
 {
-    uint8_t * data;
-    int       pp, ii, yy, width, height, stride, height_stride;
-    int       pos, margin, margin_front, margin_back;
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(buf->f.fmt);
+    int   depth = desc->comp[0].depth > 8 ? 2 : 1;
 
-    for (pp = 0; pp <= buf->f.max_plane; pp++)
+    for (int pp = 0; pp <= buf->f.max_plane; pp++)
     {
-        data          = buf->plane[pp].data;
-        width         = buf->plane[pp].width;
-        height        = buf->plane[pp].height;
-        stride        = buf->plane[pp].stride;
-        height_stride = buf->plane[pp].height_stride;
-        if (data != NULL)
+        if (buf->plane[pp].data != NULL)
         {
-            margin       = stride - width;
-            margin_front = margin / 2;
-            margin_back  = margin - margin_front;
-            for (yy = 0; yy < height; yy++)
+            switch (depth)
             {
-                // Mirror final row pixels into front of stride region
-                pos = yy * stride + width;
-                for (ii = 0; ii < margin_back; ii++)
-                {
-                    *(data + pos + ii) = *(data + pos - ii - 1);
-                }
-                // Mirror start of next row into end of stride region
-                pos = (yy + 1) * stride - 1;
-                for (ii = 0; ii < margin_front; ii++)
-                {
-                    *(data + pos - ii) = *(data + pos + ii + 1);
-                }
-            }
-            // Mirror bottom rows into height_stride
-            pos = height * stride;
-            for (ii = 0; ii < height_stride - height; ii++)
-            {
-                memcpy(data + pos + ii * stride,
-                       data + pos - ((ii + 1) * stride), stride);
+                case 8:
+                    mirror_stride_8(buf->plane[pp].data, buf->plane[pp].width,
+                                    buf->plane[pp].height, buf->plane[pp].stride);
+                    break;
+                default:
+                    mirror_stride_16(buf->plane[pp].data, buf->plane[pp].width,
+                                     buf->plane[pp].height, buf->plane[pp].stride);
+                    break;
             }
         }
     }
 }
 
-// this routine reallocs a buffer for an uncompressed YUV420 video frame
+// this routine reallocs a buffer for an uncompressed video frame
 // with dimensions width x height.
 void hb_video_buffer_realloc( hb_buffer_t * buf, int width, int height )
 {
@@ -686,7 +984,7 @@ void hb_video_buffer_realloc( hb_buffer_t * buf, int width, int height )
         {
             has_plane[pp] = 1;
             size += hb_image_stride(buf->f.fmt, width, pp) *
-                    hb_image_height_stride(buf->f.fmt, height, pp );
+                    hb_image_height(buf->f.fmt, height, pp );
         }
     }
 
@@ -715,6 +1013,26 @@ void hb_buffer_swap_copy( hb_buffer_t *src, hb_buffer_t *dst )
     src->alloc = alloc;
 }
 
+static void free_buffer_resources(hb_buffer_t *b)
+{
+    if (b->storage_type == AVFRAME)
+    {
+        av_frame_unref((AVFrame *)b->storage);
+        av_frame_free((AVFrame **)&b->storage);
+    }
+#ifdef __APPLE__
+    else if (b->storage_type == COREMEDIA && b->storage != NULL)
+    {
+        CFRelease((CMSampleBufferRef)b->storage);
+    }
+#endif
+    if (b->storage_type != AVFRAME)
+    {
+        hb_buffer_wipe_side_data(b);
+        av_freep(&b->side_data);
+    }
+}
+
 // Frees the specified buffer list.
 void hb_buffer_close( hb_buffer_t ** _b )
 {
@@ -722,39 +1040,6 @@ void hb_buffer_close( hb_buffer_t ** _b )
 
     while( b )
     {
-#if HB_PROJECT_FEATURE_QSV
-        // Reclaim QSV resources before dropping the buffer.
-        // when decoding without QSV, the QSV atom will be NULL.
-        if(b->qsv_details.frame && b->qsv_details.ctx != NULL)
-        {
-            mfxFrameSurface1 *surface = (mfxFrameSurface1*)b->qsv_details.frame->data[3];
-            if(surface)
-            {
-                hb_qsv_release_surface_from_pool_by_surface_pointer(b->qsv_details.qsv_frames_ctx, surface);
-                b->qsv_details.frame->data[3] = 0;
-            }
-            av_frame_unref(b->qsv_details.frame);
-        }
-        if (b->qsv_details.qsv_atom != NULL && b->qsv_details.ctx != NULL)
-        {
-            hb_qsv_stage *stage = hb_qsv_get_last_stage(b->qsv_details.qsv_atom);
-            if (stage != NULL)
-            {
-                hb_qsv_wait_on_sync(b->qsv_details.ctx, stage);
-                if (stage->out.sync->in_use > 0)
-                {
-                    ff_qsv_atomic_dec(&stage->out.sync->in_use);
-                }
-                if (stage->out.p_surface->Data.Locked > 0)
-                {
-                    ff_qsv_atomic_dec(&stage->out.p_surface->Data.Locked);
-                }
-            }
-            hb_qsv_flush_stages(b->qsv_details.ctx->pipes,
-                                (hb_qsv_list**)&b->qsv_details.qsv_atom);
-        }
-#endif
-
         hb_buffer_t * next = b->next;
         hb_fifo_t *buffer_pool = size_to_pool( b->alloc );
 
@@ -765,7 +1050,10 @@ void hb_buffer_close( hb_buffer_t ** _b )
         hb_list_rem(buffers.alloc_list, b);
         hb_unlock(buffers.lock);
 #endif
-        if( buffer_pool && b->data && !hb_fifo_is_full( buffer_pool ) )
+
+        free_buffer_resources(b);
+
+        if (buffer_pool && !hb_fifo_is_full(buffer_pool))
         {
 #if defined(HB_BUFFER_DEBUG)
             if (hb_fifo_contains(buffer_pool, b))
@@ -780,7 +1068,7 @@ void hb_buffer_close( hb_buffer_t ** _b )
         }
         // either the pool is full or this size doesn't use a pool
         // free the buf
-        if( b->data )
+        if (b->data && b->storage_type == STANDARD)
         {
             av_free(b->data);
             hb_lock(buffers.lock);
@@ -825,7 +1113,7 @@ hb_image_t * hb_image_init(int pix_fmt, int width, int height)
         {
             has_plane[pp] = 1;
             size += hb_image_stride( pix_fmt, width, pp ) *
-                    hb_image_height_stride( pix_fmt, height, pp );
+                    hb_image_height( pix_fmt, height, pp );
         }
     }
 
@@ -845,12 +1133,10 @@ hb_image_t * hb_image_init(int pix_fmt, int width, int height)
     {
         image->plane[pp].data   = data;
         image->plane[pp].stride = hb_image_stride(pix_fmt, width, pp);
-        image->plane[pp].height_stride =
-                                hb_image_height_stride(pix_fmt, height, pp);
         image->plane[pp].width  = hb_image_width(pix_fmt, width, pp);
         image->plane[pp].height = hb_image_height(pix_fmt, height, pp);
         image->plane[pp].size   = image->plane[pp].stride *
-                                  image->plane[pp].height_stride;
+                                  image->plane[pp].height;
         data                   += image->plane[pp].size;
     }
     return image;
@@ -873,7 +1159,6 @@ hb_image_t * hb_buffer_to_image(hb_buffer_t *buf)
     image->color_prim     = buf->f.color_prim;
     image->color_transfer = buf->f.color_transfer;
     image->color_matrix   = buf->f.color_matrix;
-    memcpy(image->data, buf->data, buf->size);
 
     int p;
     uint8_t *data = image->data;
@@ -883,8 +1168,10 @@ hb_image_t * hb_buffer_to_image(hb_buffer_t *buf)
         image->plane[p].width = buf->plane[p].width;
         image->plane[p].height = buf->plane[p].height;
         image->plane[p].stride = buf->plane[p].stride;
-        image->plane[p].height_stride = buf->plane[p].height_stride;
         image->plane[p].size = buf->plane[p].size;
+
+        memcpy(image->plane[p].data, buf->plane[p].data, buf->plane[p].size);
+
         data += image->plane[p].size;
     }
     return image;

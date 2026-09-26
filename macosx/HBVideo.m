@@ -31,11 +31,14 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 - (instancetype)initWithJob:(HBJob *)job
 {
     self = [super init];
-    if (self) {
+    if (self)
+    {
         _encoder = HB_VCODEC_X264;
         _avgBitrate = 1000;
         _quality = 18.0;
         _qualityMaxValue = 51.0f;
+        _colorRange = HBVideoColorRangeLimited;
+        _passthruHDRDynamicMetadata = HBVideoHDRDynamicMetadataPassthruAll;
         _job = job;
 
         _preset = @"medium";
@@ -69,27 +72,30 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
  */
 - (void)updateQualityBounds
 {
-    // Get the current slider maxValue to check for a change in slider scale
-    // later so that we can choose a new similar value on the new slider scale
-    double previousMaxValue             = self.qualityMaxValue;
-    double previousPercentOfSliderScale = (self.quality / (self.qualityMaxValue - self.qualityMinValue + 1));
-
     int direction;
     float minValue, maxValue, granularity;
-    hb_video_quality_get_limits(self.encoder,
-                                &minValue, &maxValue, &granularity, &direction);
+    hb_video_quality_get_limits(self.encoder, &minValue, &maxValue, &granularity, &direction);
 
     self.qualityMinValue = minValue;
     self.qualityMaxValue = maxValue;
 
-    // check to see if we have changed slider scales
-    if (previousMaxValue != maxValue)
+    // Ensure the quality value is not out of the new bounds
+    if (!(self.undo.isUndoing || self.undo.isRedoing))
     {
-        // if so, convert the old setting to the new scale as close as possible
-        // based on percentages
-        if (!(self.undo.isUndoing || self.undo.isRedoing))
+        double integral;
+        double fractional = modf(self.quality, &integral);
+
+        if ((int)(fractional * 100) % (int)(granularity * 100))
         {
-            self.quality = floor((maxValue - minValue + 1.) * (previousPercentOfSliderScale));
+            self.quality = ceil(self.quality);
+        }
+        if (self.quality > maxValue)
+        {
+            self.quality = maxValue;
+        }
+        else if (self.quality < minValue)
+        {
+            self.quality = minValue;
         }
     }
 }
@@ -165,23 +171,33 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
     [self postChangedNotification];
 }
 
-- (void)setTwoPass:(BOOL)twoPass
+- (void)setColorRange:(HBVideoColorRange)colorRange
 {
-    if (twoPass != _twoPass)
+    if (colorRange != _colorRange)
     {
-        [[self.undo prepareWithInvocationTarget:self] setTwoPass:_twoPass];
+        [[self.undo prepareWithInvocationTarget:self] setColorRange:_colorRange];
     }
-    _twoPass = twoPass;
+    _colorRange = colorRange;
     [self postChangedNotification];
 }
 
-- (void)setTurboTwoPass:(BOOL)turboTwoPass
+- (void)setMultiPass:(BOOL)multiPass
 {
-    if (turboTwoPass != _turboTwoPass)
+    if (multiPass != _multiPass)
     {
-        [[self.undo prepareWithInvocationTarget:self] setTurboTwoPass:_turboTwoPass];
+        [[self.undo prepareWithInvocationTarget:self] setMultiPass:_multiPass];
     }
-    _turboTwoPass = turboTwoPass;
+    _multiPass = multiPass;
+    [self postChangedNotification];
+}
+
+- (void)setTurboMultiPass:(BOOL)turboMultiPass
+{
+    if (turboMultiPass != _turboMultiPass)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setTurboMultiPass:_turboMultiPass];
+    }
+    _turboMultiPass = turboMultiPass;
     [self postChangedNotification];
 }
 
@@ -286,14 +302,20 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 
 - (void)validateQualityType
 {
-    if (self.qualityType != 0 && !hb_video_quality_is_supported(self.encoder))
+    if (self.qualityType != HBVideoQualityTypeAvgBitrate && !hb_video_quality_is_supported(self.encoder))
     {
-        self.qualityType = 0;
+        self.qualityType = HBVideoQualityTypeAvgBitrate;
     }
 
-    if (!hb_video_twopass_is_supported(self.encoder))
+    if (self.qualityType != HBVideoQualityTypeConstantQuality && !hb_video_bitrate_is_supported(self.encoder))
     {
-        self.twoPass = NO;
+        self.qualityType = HBVideoQualityTypeConstantQuality;
+    }
+
+    if (! (hb_video_multipass_is_supported(self.encoder, false)
+            || hb_video_multipass_is_supported(self.encoder, true)))
+    {
+        self.multiPass = NO;
     }
 }
 
@@ -331,7 +353,7 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
         self.level = levels.firstObject;
     }
 
-    if (!(self.encoder & HB_VCODEC_X264_MASK))
+    if (!(self.encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_SVT_AV1_MASK)))
     {
         self.fastDecode = NO;
     }
@@ -386,14 +408,13 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 {
     NSMutableArray<NSString *> *temp = [NSMutableArray array];
 
-    [temp addObject:@"none"];
-
     const char * const *tunes = hb_video_encoder_get_tunes(self.encoder);
 
     for (int i = 0; tunes != NULL && tunes[i] != NULL; i++)
     {
         // we filter out "fastdecode" as we have a dedicated checkbox for it
-        if (!(self.encoder & HB_VCODEC_X264_MASK) || strcasecmp(tunes[i], "fastdecode") != 0)
+        if (!(self.encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_SVT_AV1_MASK))
+            || strcasecmp(tunes[i], "fastdecode") != 0)
         {
             [temp addObject:@(tunes[i])];
         }
@@ -466,8 +487,12 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
         copy->_frameRate = _frameRate;
         copy->_frameRateMode = _frameRateMode;
 
-        copy->_twoPass = _twoPass;
-        copy->_turboTwoPass = _turboTwoPass;
+        copy->_colorRange = _colorRange;
+
+        copy->_multiPass = _multiPass;
+        copy->_turboMultiPass = _turboMultiPass;
+
+        copy->_passthruHDRDynamicMetadata = _passthruHDRDynamicMetadata;
 
         copy->_preset = [_preset copy];
         copy->_tune = [_tune copy];
@@ -505,8 +530,12 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
     encodeInt(_frameRate);
     encodeInteger(_frameRateMode);
 
-    encodeBool(_twoPass);
-    encodeBool(_turboTwoPass);
+    encodeInteger(_colorRange);
+
+    encodeBool(_multiPass);
+    encodeBool(_turboMultiPass);
+
+    encodeInteger(_passthruHDRDynamicMetadata);
 
     encodeObject(_preset);
     encodeObject(_tune);
@@ -533,8 +562,13 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 
     decodeInt(_frameRate); if (_frameRate < 0) { goto fail; }
     decodeInteger(_frameRateMode); if (_frameRateMode < HBVideoFrameRateModeVFR_PFR || _frameRateMode > HBVideoFrameRateModeCFR) { goto fail; }
-    decodeBool(_twoPass);
-    decodeBool(_turboTwoPass);
+
+    decodeInteger(_colorRange); if (_colorRange != HBVideoColorRangeAuto && _colorRange != HBVideoColorRangeLimited && _colorRange != HBVideoColorRangeFull) { goto fail; }
+
+    decodeBool(_multiPass);
+    decodeBool(_turboMultiPass);
+
+    decodeInteger(_passthruHDRDynamicMetadata); if (_passthruHDRDynamicMetadata < HBVideoHDRDynamicMetadataPassthruOff || _passthruHDRDynamicMetadata > HBVideoHDRDynamicMetadataPassthruAll) { goto fail; }
 
     decodeObjectOrFail(_preset, NSString);
     decodeObjectOrFail(_tune, NSString);
@@ -691,11 +725,30 @@ fail:
     }
     self.frameRate = intValue;
 
+    self.colorRange = (HBVideoColorRange)[settings[@"Video"][@"ColorRange"] intValue];
+
     // 2 Pass Encoding.
-    self.twoPass = [preset[@"VideoTwoPass"] boolValue];
+    self.multiPass = [preset[@"VideoMultiPass"] boolValue];
 
     // Turbo 1st pass for 2 Pass Encoding.
-    self.turboTwoPass = [preset[@"VideoTurboTwoPass"] boolValue];
+    self.turboMultiPass = [preset[@"VideoTurboMultiPass"] boolValue];
+
+    if ([preset[@"VideoPasshtruHDRDynamicMetadata"] isEqualToString:@"off"])
+    {
+        self.passthruHDRDynamicMetadata = HBVideoHDRDynamicMetadataPassthruOff;
+    }
+    else if ([preset[@"VideoPasshtruHDRDynamicMetadata"] isEqualToString:@"hdr10plus"])
+    {
+        self.passthruHDRDynamicMetadata = HBVideoHDRDynamicMetadataPassthruHDR10Plus;
+    }
+    else if ([preset[@"VideoPasshtruHDRDynamicMetadata"] isEqualToString:@"dovi"])
+    {
+        self.passthruHDRDynamicMetadata = HBVideoHDRDynamicMetadataPassthruDolbyVision;
+    }
+    else
+    {
+        self.passthruHDRDynamicMetadata = HBVideoHDRDynamicMetadataPassthruAll;
+    }
 
     self.notificationsEnabled = YES;
 }
@@ -751,8 +804,37 @@ fail:
         }
     }
 
-    preset[@"VideoTwoPass"] = @(self.twoPass);
-    preset[@"VideoTurboTwoPass"] = @(self.turboTwoPass);
+    switch (self.colorRange)
+    {
+        case HBVideoColorRangeAuto:
+            preset[@"VideoColorRange"] = @"auto";
+            break;
+        case HBVideoColorRangeFull:
+            preset[@"VideoColorRange"] = @"full";
+            break;
+        case HBVideoColorRangeLimited:
+            preset[@"VideoColorRange"] = @"limited";
+            break;
+    }
+
+    preset[@"VideoMultiPass"] = @(self.multiPass);
+    preset[@"VideoTurboMultiPass"] = @(self.turboMultiPass);
+
+    switch (self.passthruHDRDynamicMetadata)
+    {
+        case HBVideoHDRDynamicMetadataPassthruOff:
+            preset[@"VideoPasshtruHDRDynamicMetadata"] = @"off";
+            break;
+        case HBVideoHDRDynamicMetadataPassthruHDR10Plus:
+            preset[@"VideoPasshtruHDRDynamicMetadata"] = @"hdr10plus";
+            break;
+        case HBVideoHDRDynamicMetadataPassthruDolbyVision:
+            preset[@"VideoPasshtruHDRDynamicMetadata"] = @"dolbyvision";
+            break;
+        case HBVideoHDRDynamicMetadataPassthruAll:
+            preset[@"VideoPasshtruHDRDynamicMetadata"] = @"all";
+            break;
+    }
 }
 
 @end

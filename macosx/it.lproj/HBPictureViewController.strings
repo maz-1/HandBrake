@@ -7,6 +7,9 @@
 /* Class = "NSMenuItem"; title = "Off"; ObjectID = "1O3-th-4M5"; */
 "1O3-th-4M5.title" = "Spento";
 
+/* Class = "NSMenuItem"; title = "Conservative"; ObjectID = "1Pn-6x-bhx"; */
+"1Pn-6x-bhx.title" = "Conservativo";
+
 /* Class = "NSTextField"; ibExternalAccessibilityDescription = "Crop bottom"; ObjectID = "1Z0-JT-vst"; */
 "1Z0-JT-vst.ibExternalAccessibilityDescription" = "Ritaglio dal fondo";
 
@@ -55,9 +58,6 @@
 /* Class = "NSStepper"; ibExternalAccessibilityDescription = "Crop bottom"; ObjectID = "6W6-RI-fBx"; */
 "6W6-RI-fBx.ibExternalAccessibilityDescription" = "Ritaglio dal fondo";
 
-/* Class = "NSMenuItem"; title = "Automatic"; ObjectID = "7rG-Qv-khx"; */
-"7rG-Qv-khx.title" = "Automatico";
-
 /* Class = "NSTextFieldCell"; title = "Anamorphic:"; ObjectID = "8vS-Mw-bny"; */
 "8vS-Mw-bny.title" = "Anamorfico:";
 
@@ -82,8 +82,8 @@
 /* Class = "NSTextField"; ibExternalAccessibilityDescription = "Custom border color"; ObjectID = "aby-WS-tzS"; */
 "aby-WS-tzS.ibExternalAccessibilityDescription" = "Colore personalizzato del bordo";
 
-/* Class = "NSTextField"; ibShadowedToolTip = "Custom border color"; ObjectID = "aby-WS-tzS"; */
-"aby-WS-tzS.ibShadowedToolTip" = "Colore personalizzato del bordo";
+/* Class = "NSTextField"; ibShadowedToolTip = "Custom border color in English, or a 0xRRGGBB sequence"; ObjectID = "aby-WS-tzS"; */
+"aby-WS-tzS.ibShadowedToolTip" = "Colore del bordo personalizzato in inglese o una sequenza 0xRRGGBB";
 
 /* Class = "NSTextField"; ibExternalAccessibilityDescription = "Display width"; ObjectID = "Ag1-Tk-hCm"; */
 "Ag1-Tk-hCm.ibExternalAccessibilityDescription" = "Larghezza visualizzazione";
@@ -202,6 +202,9 @@
 /* Class = "NSMenuItem"; title = "Gray"; ObjectID = "K6n-ea-Zty"; */
 "K6n-ea-Zty.title" = "Grigio";
 
+/* Class = "NSMenuItem"; title = "Automatic"; ObjectID = "Kay-sv-ssX"; */
+"Kay-sv-ssX.title" = "Automatico";
+
 /* Class = "NSTextFieldCell"; title = "Storage Size:"; ObjectID = "kOg-k4-0N2"; */
 "kOg-k4-0N2.title" = "Dim. di archiviazione:";
 
@@ -276,9 +279,6 @@
 
 /* Class = "CocoaBindingsConnection"; ibShadowedIsNilPlaceholder = "0"; ObjectID = "QSp-61-LWu"; */
 "QSp-61-LWu.ibShadowedIsNilPlaceholder" = "0";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "qSV-uB-Iup"; */
-"qSV-uB-Iup.title" = "OtherViews";
 
 /* Class = "NSMenuItem"; title = "1080p HD"; ObjectID = "qzy-K8-2tY"; */
 "qzy-K8-2tY.title" = "1080p HD";

@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)launchAction;
 
-- (void)openURL:(NSURL *)fileURL;
+- (void)openURLs:(NSArray<NSURL *> *)fileURLs recursive:(BOOL)recursive;
 - (void)openJob:(HBJob *)job completionHandler:(void (^)(BOOL result))handler;
 
 - (IBAction)browseSources:(id)sender;
@@ -28,11 +28,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Queue
 - (IBAction)addToQueue:(id)sender;
+- (IBAction)addTitlesToQueue:(id)sender;
 - (IBAction)addAllTitlesToQueue:(id)sender;
 
 - (IBAction)toggleStartCancel:(id)sender;
 - (IBAction)togglePauseResume:(id)sender;
-
+- (IBAction)togglePresets:(id)sender;
 - (IBAction)selectPresetFromMenu:(id)sender;
 
 // Manage User presets

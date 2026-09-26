@@ -1,6 +1,6 @@
 /* ssautil.h
  *
- * Copyright (c) 2003-2022 HandBrake Team
+ * Copyright (c) 2003-2026 HandBrake Team
  * This file is part of the HandBrake source code
  * Homepage: <http://handbrake.fr/>.
  * It may be used under the terms of the GNU General Public License v2.
@@ -20,9 +20,9 @@ typedef struct hb_tx3g_style_context_s hb_tx3g_style_context_t;
 #define HB_STYLE_FLAG_BOLD      0x0002
 #define HB_STYLE_FLAG_UNDERLINE 0x0004
 
-hb_subtitle_style_context_t * hb_subtitle_style_init(const char * ssa_header);
+hb_subtitle_style_context_t * hb_subtitle_style_init(const uint8_t * ssa_buf, int size);
 hb_tx3g_style_context_t     * hb_tx3g_style_init(
-                                        int height, const char * ssa_header);
+                                        int height, const uint8_t * ssa_buf, int size);
 void hb_subtitle_style_close(hb_subtitle_style_context_t ** ctx);
 void hb_tx3g_style_close(hb_tx3g_style_context_t ** ctx);
 

@@ -5,7 +5,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:Properties="clr-namespace:HandBrakeWPF.Properties"
              xmlns:loc="clr-namespace:HandBrakeWPF.Services.Presets.Model"
-             xmlns:cm="http://caliburnmicro.com"
              xmlns:converters="clr-namespace:HandBrakeWPF.Converters"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="400">
@@ -21,6 +20,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid.Resources>
@@ -62,22 +62,48 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Button Background="Transparent" cm:Message.Attach="[Event Click] = [Action PresetAdd]" AutomationProperties.Name="Add Preset" Height="29" BorderThickness="0"  ToolTip="{x:Static Properties:ResourcesTooltips.MainView_AddPreset}">
+                <Button Command="{Binding RelayCommand}" CommandParameter="PresetAdd" AutomationProperties.Name="Add Preset" Height="29" 
+                        ToolTip="{x:Static Properties:ResourcesTooltips.MainView_AddPreset}">
                     <Button.Content>
                         <StackPanel Orientation="Horizontal">
                             <Image Width="18" Height="18" SnapsToDevicePixels="True" Source="{Binding Converter={StaticResource themeConverter}, ConverterParameter='Add.png'}" />
-                            <TextBlock Margin="2,0,0,0" VerticalAlignment="Center" Text="{x:Static Properties:Resources.MainView_SaveNewPreset}" />
+                            <TextBlock Margin="2,0,0,0" VerticalAlignment="Center" Text="{x:Static Properties:Resources.AddPresetView_AddPreset}" />
                         </StackPanel>
                     </Button.Content>
                 </Button>
 
-                <Button Background="Transparent" cm:Message.Attach="[Event Click] = [Action OpenPresetWindow]" AutomationProperties.Name="Add Preset" Height="29" BorderThickness="0" Grid.Column="2" >
+                <Button x:Name="presetOptionsBtn" Grid.Column="2" Margin="0,0,0,0" Click="PresetOptionsBtn_OnClick" Height="29">
                     <Button.Content>
                         <StackPanel Orientation="Horizontal">
-                            <Image Width="18" Height="18" SnapsToDevicePixels="True" Source="{Binding Converter={StaticResource themeConverter}, ConverterParameter='Advanced.png'}" />
-                            <TextBlock Margin="2,0,0,0" VerticalAlignment="Center" Text="{x:Static Properties:Resources.PresetManger_Title}" />
+                            <Image Source="{Binding Converter={StaticResource themeConverter}, ConverterParameter='Advanced.png'}" Width="20" Height="20" VerticalAlignment="Center" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{x:Static Properties:Resources.QueueView_Options}" Margin="5,0,0,0" />
+                            <Path Height="5" Margin="2,2,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                  Data="M 0 0 L 4 4 L 8 0 Z"
+                                  Fill="{DynamicResource ButtonGlyphBrush}" x:Name="dropdownArrowPreset" />
                         </StackPanel>
                     </Button.Content>
+
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="MainContextMenu" PlacementRectangle="{Binding RelativeSource={RelativeSource Self}}">
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetImport" Header="{x:Static Properties:Resources.ManagePresetView_Import}" />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetExport" Header="{x:Static Properties:Resources.ManagePresetView_Export}" />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="ExportUserPresets" Header="{x:Static Properties:Resources.ManagePresetView_ExportUserPresets}" />
+                            <Separator />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetSetDefault" Header="{x:Static Properties:Resources.ManagePresetView_SetDefault}" />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetManage" Header="{x:Static Properties:Resources.MainView_PresetManage}" />
+                            <MenuItem Command="{Binding PresetClone}" CommandParameter="{Binding}" Header="{x:Static Properties:Resources.MainView_PresetClone}" />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetRemoveSelected" Header="{x:Static Properties:Resources.PresetManagerView_Delete}" />
+                            <Separator />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetReset" Header="{x:Static Properties:Resources.MainView_ResetPresets}" />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetDeleteBuildIn" Header="{x:Static Properties:Resources.ManagePresetView_DeleteBuiltIn}" />
+                            <Separator />
+                            <MenuItem Command="{Binding RelayCommand}" CommandParameter="ShowHidePresetDesc" Header="{x:Static Properties:Resources.PresetPane_ShowPresetDesc}" x:Name="presetDescMenuItem" />
+                            <Separator />
+                            <MenuItem Header="{x:Static Properties:Resources.Shared_ExpandAll}" x:Name="presetExpandAllOptions" Click="PresetExpandAll_OnClick"  />
+                            <MenuItem Header="{x:Static Properties:Resources.Shared_CollapseAll}" x:Name="presetCollapseAllOptions" Click="PresetCollapseAll_OnClick" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
                 </Button>
             </Grid>
 
@@ -110,19 +136,37 @@
 
                 <TreeView.ContextMenu>
                     <ContextMenu AutomationProperties.Name="Presets List Context Menu" Opened="ContextMenu_OnOpened">
-                        <MenuItem Header="{x:Static Properties:Resources.MainView_SetDefault}" cm:Message.Attach="[Event Click] = [Action PresetSetDefault]" />
+                        <MenuItem Header="{x:Static Properties:Resources.MainView_SetDefault}" x:Name="setDefault" Command="{Binding RelayCommand}" CommandParameter="PresetSetDefault" />
+                        <Separator x:Name="moveSplitter1" />
+                        <MenuItem Header="{x:Static Properties:Resources.MainView_PresetManage}" x:Name="editPresetMenuItem" Command="{Binding RelayCommand}" CommandParameter="PresetManage" />
+                        <MenuItem Command="{Binding PresetClone}" CommandParameter="{Binding}"  x:Name="clonePresetMenuItem" Header="{x:Static Properties:Resources.MainView_PresetClone}" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetManagerView_Delete}"  x:Name="deletePresetMenuItem" Click="Delete_OnClick" InputGestureText="Del" />
+                        <Separator x:Name="moveSplitter2" />
+                        <MenuItem Header="{x:Static Properties:Resources.Preset_Import}" Command="{Binding RelayCommand}" CommandParameter="PresetImport" />
+                        <MenuItem Header="{x:Static Properties:Resources.Preset_Export}" Command="{Binding RelayCommand}" CommandParameter="PresetExport" />
+                        <Separator x:Name="moveSplitter" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveUp}" x:Name="moveUp" Command="{Binding PresetMove}" CommandParameter="up" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveDown}" x:Name="moveDown" Command="{Binding PresetMove}" CommandParameter="down" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveToTop}" x:Name="moveTop" Command="{Binding PresetMove}" CommandParameter="top" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveToBottom}" x:Name="moveBottom" Command="{Binding PresetMove}" CommandParameter="bottom" />
                         <Separator />
-                        <MenuItem Header="{x:Static Properties:Resources.MainView_PresetManage}" x:Name="editPresetMenuItem" cm:Message.Attach="[Event Click] = [Action PresetManage]" />
-                        <MenuItem Header="{x:Static Properties:Resources.PresetManagerView_Delete}" Click="Delete_OnClick" InputGestureText="Del" />
-                        <Separator />
-                        <MenuItem Header="{x:Static Properties:Resources.Preset_Import}" cm:Message.Attach="[Event Click] = [Action PresetImport]" />
-                        <MenuItem Header="{x:Static Properties:Resources.Preset_Export}" cm:Message.Attach="[Event Click] = [Action PresetExport]" />
-                        <Separator />
-                        <MenuItem Header="{x:Static Properties:Resources.MainView_ResetBuiltInPresets}" cm:Message.Attach="[Event Click] = [Action PresetReset]" />
-                        <MenuItem Header="{x:Static Properties:Resources.ManagePresetView_DeleteBuiltIn}" cm:Message.Attach="[Event Click] = [Action PresetDeleteBuildIn]" />
+                        <MenuItem Header="{x:Static Properties:Resources.Shared_ExpandAll}" x:Name="presetExpandAll" Click="PresetExpandAll_OnClick"  />
+                        <MenuItem Header="{x:Static Properties:Resources.Shared_CollapseAll}" x:Name="presetCollapseAll" Click="PresetCollapseAll_OnClick" />
                     </ContextMenu>
                 </TreeView.ContextMenu>
             </TreeView>
+
+            <Grid Grid.Row="3" Visibility="{Binding IsPresetDescriptionVisible, Converter={StaticResource boolToVisConverter}}"
+                  Width="285">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="{x:Static Properties:Resources.PresetPane_Desc}" Margin="0,5,0,2" Style="{StaticResource subHeaderSmall}" />
+                <TextBox IsReadOnly="True" Text="{Binding SelectedPreset.Description}" Height="75" TextWrapping="Wrap" Grid.Row="1"
+                         VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" />
+            </Grid>
         </Grid>
 
     </Border>

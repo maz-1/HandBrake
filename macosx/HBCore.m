@@ -93,6 +93,43 @@ HB_OBJC_DIRECT_MEMBERS
     hb_register_error_handler(&hb_error_handler);
 }
 
++ (nullable NSURL *)temporaryDirectoryURL
+{
+    const char *path = hb_get_temporary_directory();
+    if (path)
+    {
+        return [[NSURL alloc] initFileURLWithFileSystemRepresentation:path isDirectory:YES relativeToURL:nil];
+    }
+    else
+    {
+        return nil;
+    }
+}
+
++ (void)cleanTemporaryFiles
+{
+    NSURL *directory = [HBCore temporaryDirectoryURL];
+
+    if (directory)
+    {
+        NSFileManager *manager = [[NSFileManager alloc] init];
+        NSArray<NSURL *> *contents = [manager contentsOfDirectoryAtURL:directory
+                                            includingPropertiesForKeys:nil
+                                                               options:NSDirectoryEnumerationSkipsSubdirectoryDescendants | NSDirectoryEnumerationSkipsPackageDescendants
+                                                                 error:NULL];
+
+        for (NSURL *url in contents)
+        {
+            NSError *error = nil;
+            BOOL result = [manager removeItemAtURL:url error:&error];
+            if (result == NO && error)
+            {
+                [HBUtilities writeToActivityLog:"Could not remove existing temporary file at: %s", url.lastPathComponent.UTF8String];
+            }
+        }
+    }
+}
+
 - (instancetype)init
 {
     return [self initWithLogLevel:0 queue:dispatch_get_main_queue()];
@@ -118,6 +155,19 @@ HB_OBJC_DIRECT_MEMBERS
         if (!_hb_handle)
         {
             return nil;
+        }
+
+        if (@available(macOS 14, *))
+        {
+            // macOS Sonoma moved the parent of our temporary folder
+            // to the app sandbox container, and the user might have deleted it,
+            // so ensure the whole path is available to avoid failing later
+            // when trying to write the temp files
+            NSURL *directoryURL = HBCore.temporaryDirectoryURL;
+            if (directoryURL)
+            {
+                [NSFileManager.defaultManager createDirectoryAtURL:directoryURL withIntermediateDirectories:YES attributes:nil error:NULL];
+            }
         }
     }
 
@@ -182,88 +232,97 @@ HB_OBJC_DIRECT_MEMBERS
 
 #pragma mark - Scan
 
-- (BOOL)canScan:(NSURL *)url error:(NSError * __autoreleasing *)error
+- (BOOL)canScan:(NSArray<NSURL *> *)urls error:(NSError * __autoreleasing *)error
 {
-    NSAssert(url, @"[HBCore canScan:] called with nil url.");
+    NSAssert(urls, @"[HBCore canScan:] called with nil urls.");
 
-#ifdef __SANDBOX_ENABLED__
-    __unused HBSecurityAccessToken *token = [HBSecurityAccessToken tokenWithObject:url];
-#endif
-
-    if (![[NSFileManager defaultManager] fileExistsAtPath:url.path]) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"HBErrorDomain"
-                                         code:100
-                                     userInfo:@{ NSLocalizedDescriptionKey: @"Unable to find the file at the specified URL" }];
-        }
-
-        return NO;
-    }
-
-    HBDVDDetector *detector = [HBDVDDetector detectorForPath:url.path];
-
-    if (detector.isVideoDVD || detector.isVideoBluRay)
+    for (NSURL *url in urls)
     {
-        [HBUtilities writeToActivityLog:"%s trying to open a physical disc at: %s", self.name.UTF8String, url.path.UTF8String];
-        void *lib = NULL;
+#ifdef __SANDBOX_ENABLED__
+        __unused HBSecurityAccessToken *token = [HBSecurityAccessToken tokenWithObject:url];
+#endif
 
-        if (detector.isVideoDVD)
+        if (![url checkResourceIsReachableAndReturnError:NULL])
         {
-            lib = dlopen("libdvdcss.2.dylib", RTLD_LAZY);
-            if (!lib)
+            if (error)
             {
-                lib = dlopen("/usr/local/lib/libdvdcss.2.dylib", RTLD_LAZY);
-            }
-        }
-        else if (detector.isVideoBluRay)
-        {
-            lib = dlopen("libaacs.dylib", RTLD_LAZY);
-            if (!lib)
-            {
-                lib = dlopen("/usr/local/lib/libaacs.dylib", RTLD_LAZY);
-            }
-        }
-
-        if (lib)
-        {
-            dlclose(lib);
-            [HBUtilities writeToActivityLog:"%s library found for decrypting physical disc", self.name.UTF8String];
-        }
-        else
-        {
-            const char *dlError = dlerror();
-
-            if (dlError)
-            {
-                [HBUtilities writeToActivityLog:"dlopen error: %s", dlError];
-            }
-
-            // Notify the user that we don't support removal of copy protection.
-            [HBUtilities writeToActivityLog:"%s, library not found for decrypting physical disc", self.name.UTF8String];
-
-            if (error) {
                 *error = [NSError errorWithDomain:@"HBErrorDomain"
-                                             code:101
-                                         userInfo:@{ NSLocalizedDescriptionKey: @"library not found for decrypting physical disc" }];
+                                             code:100
+                                         userInfo:@{ NSLocalizedDescriptionKey: @"Unable to find the file at the specified URL" }];
+            }
+            
+            return NO;
+        }
+        
+        HBDVDDetector *detector = [HBDVDDetector detectorForPath:url.path];
+        
+        if (detector.isVideoDVD || detector.isVideoBluRay)
+        {
+            [HBUtilities writeToActivityLog:"%s trying to open a physical disc at: %s", self.name.UTF8String, url.path.UTF8String];
+            void *lib = NULL;
+            
+            if (detector.isVideoDVD)
+            {
+                lib = dlopen("libdvdcss.2.dylib", RTLD_LAZY);
+                if (!lib)
+                {
+                    lib = dlopen("/usr/local/lib/libdvdcss.2.dylib", RTLD_LAZY);
+                }
+            }
+            else if (detector.isVideoBluRay)
+            {
+                lib = dlopen("libaacs.dylib", RTLD_LAZY);
+                if (!lib)
+                {
+                    lib = dlopen("/usr/local/lib/libaacs.dylib", RTLD_LAZY);
+                }
+            }
+            
+            if (lib)
+            {
+                dlclose(lib);
+                [HBUtilities writeToActivityLog:"%s library found for decrypting physical disc", self.name.UTF8String];
+            }
+            else
+            {
+                const char *dlError = dlerror();
+                
+                if (dlError)
+                {
+                    [HBUtilities writeToActivityLog:"dlopen error: %s", dlError];
+                }
+                
+                // Notify the user that we don't support removal of copy protection.
+                [HBUtilities writeToActivityLog:"%s, library not found for decrypting physical disc", self.name.UTF8String];
+                
+                if (error) {
+                    *error = [NSError errorWithDomain:@"HBErrorDomain"
+                                                 code:101
+                                             userInfo:@{ NSLocalizedDescriptionKey: @"library not found for decrypting physical disc" }];
+                }
             }
         }
-    }
 
 #ifdef __SANDBOX_ENABLED__
-    token = nil;
+        token = nil;
 #endif
+    }
 
     return YES;
 }
 
-- (void)scanURL:(NSURL *)url titleIndex:(NSUInteger)index previews:(NSUInteger)previewsNum minDuration:(NSUInteger)seconds keepPreviews:(BOOL)keepPreviews progressHandler:(HBCoreProgressHandler)progressHandler completionHandler:(HBCoreCompletionHandler)completionHandler
+- (void)scanURLs:(NSArray<NSURL *> *)urls titleIndex:(NSUInteger)index previews:(NSUInteger)previewsNum minDuration:(NSUInteger)minSeconds maxDuration:(NSUInteger)maxSeconds keepPreviews:(BOOL)keepPreviews hardwareDecoder:(BOOL)hardwareDecoder keepDuplicateTitles:(BOOL)keepDuplicateTitles progressHandler:(HBCoreProgressHandler)progressHandler completionHandler:(HBCoreCompletionHandler)completionHandler
 {
     NSAssert(self.state == HBStateIdle, @"[HBCore scanURL:] called while another scan or encode already in progress");
-    NSAssert(url, @"[HBCore scanURL:] called with nil url.");
+    NSAssert(urls, @"[HBCore scanURL:] called with nil url.");
 
 #ifdef __SANDBOX_ENABLED__
-    __block HBSecurityAccessToken *token = [HBSecurityAccessToken tokenWithObject:url];
-    self.cleanupHandler = ^{ token = nil; };
+    __block NSMutableArray<HBSecurityAccessToken *> *tokens = [[NSMutableArray alloc] init];
+    for (NSURL *url in urls)
+    {
+        [tokens addObject:[HBSecurityAccessToken tokenWithObject:url]];
+    }
+    self.cleanupHandler = ^{ tokens = nil; };
 #endif
 
     // Reset the titles array
@@ -273,8 +332,14 @@ HB_OBJC_DIRECT_MEMBERS
     self.progressHandler = progressHandler;
     self.completionHandler = completionHandler;
 
+    // Set the state, so the UI can be update
+    // to reflect the current state instead of
+    // waiting for libhb to set it in a background thread.
+    self.state = HBStateScanning;
+
     // convert minTitleDuration from seconds to the internal HB time
-    uint64_t min_title_duration_ticks = 90000LL * seconds;
+    uint64_t min_title_duration_ticks = 90000LL * minSeconds;
+    uint64_t max_title_duration_ticks = 90000LL * maxSeconds;
 
     // If there is no title number passed to scan, we use 0
     // which causes the default behavior of a full source scan
@@ -282,26 +347,30 @@ HB_OBJC_DIRECT_MEMBERS
     {
         [HBUtilities writeToActivityLog:"%s scanning specifically for title: %d", self.name.UTF8String, index];
     }
-    else
+    else if (minSeconds > 0)
     {
         // minimum title duration doesn't apply to title-specific scan
         // it doesn't apply to batch scan either, but we can't tell it apart from DVD & BD folders here
-        [HBUtilities writeToActivityLog:"%s scanning titles with a duration of %d seconds or more", self.name.UTF8String, seconds];
+        [HBUtilities writeToActivityLog:"%s scanning titles with a duration of %d seconds or more", self.name.UTF8String, minSeconds];
     }
 
     [self preventAutoSleep];
 
-    hb_scan(_hb_handle, url.fileSystemRepresentation,
-            (int)index, (int)previewsNum,
-            keepPreviews, min_title_duration_ticks);
+    hb_list_t *files_list = hb_list_init();
+    for (NSURL *url in urls)
+    {
+        hb_list_add(files_list, (char *)url.fileSystemRepresentation);
+    }
+
+    hb_scan(_hb_handle, files_list,
+              (int)index, (int)previewsNum,
+              keepPreviews, min_title_duration_ticks, max_title_duration_ticks,
+              0, 0, NULL, hardwareDecoder ? HB_DECODE_VIDEOTOOLBOX : 0, keepDuplicateTitles);
+
+    hb_list_close(&files_list);
 
     // Start the timer to handle libhb state changes
     [self startUpdateTimerWithInterval:0.2];
-
-    // Set the state, so the UI can be update
-    // to reflect the current state instead of
-    // waiting for libhb to set it in a background thread.
-    self.state = HBStateScanning;
 }
 
 /**
@@ -335,6 +404,165 @@ HB_OBJC_DIRECT_MEMBERS
 
 #pragma mark - Preview images
 
+static void pix_buf_callback(void * CV_NULLABLE releaseRefCon,
+                             const void * CV_NULLABLE dataPtr, size_t dataSize,
+                             size_t numberOfPlanes, const void * CV_NULLABLE planeAddresses[CV_NULLABLE])
+{
+    hb_image_t *image = (hb_image_t *)releaseRefCon;
+    if (image)
+    {
+        hb_image_close(&image);
+    }
+}
+
+- (nullable CVPixelBufferRef)copyPixelBufferAtIndex:(NSUInteger)index job:(HBJob *)job CF_RETURNS_RETAINED
+{
+    CVPixelBufferRef pix_buf = NULL;
+
+    hb_job_t *hb_job = job.hb_job;
+    hb_dict_t *job_dict = hb_job_to_dict(hb_job);
+    hb_job_close(&hb_job);
+
+    hb_image_t *image = hb_get_preview(_hb_handle, job_dict, (int)index, 0, -1);
+    hb_value_free(&job_dict);
+
+    if (image)
+    {
+        OSType pixelFormatType = kCVPixelFormatType_420YpCbCr8Planar;
+        size_t numberOfPlanes = 3;
+
+        void *planeBaseAddress[3] = {image->plane[0].data, image->plane[1].data, image->plane[2].data};
+        size_t planeWidth[3] = {image->plane[0].width, image->plane[1].width, image->plane[2].width};
+        size_t planeHeight[3] = {image->plane[0].height, image->plane[1].height, image->plane[2].height};
+        size_t planeBytesPerRow[3] = {image->plane[0].stride, image->plane[1].stride, image->plane[2].stride};
+
+        CVReturn err = CVPixelBufferCreateWithPlanarBytes(
+                                                 kCFAllocatorDefault,
+                                                 image->width,
+                                                 image->height,
+                                                 pixelFormatType,
+                                                 image->data,
+                                                 0,
+                                                 numberOfPlanes,
+                                                 planeBaseAddress,
+                                                 planeWidth,
+                                                 planeHeight,
+                                                 planeBytesPerRow,
+                                                 pix_buf_callback,
+                                                 image,
+                                                 NULL,
+                                                 &pix_buf);
+
+        if (err != kCVReturnSuccess)
+        {
+            hb_image_close(&image);
+        }
+
+        CFStringRef prim = CVColorPrimariesGetStringForIntegerCodePoint(image->color_prim);
+        CFStringRef transfer = CVTransferFunctionGetStringForIntegerCodePoint(image->color_transfer);
+        CFStringRef matrix = CVYCbCrMatrixGetStringForIntegerCodePoint(image->color_matrix);
+
+        if (prim)
+        {
+            CVBufferSetAttachment(pix_buf, kCVImageBufferColorPrimariesKey, prim, kCVAttachmentMode_ShouldPropagate);
+        }
+        if (transfer)
+        {
+            CVBufferSetAttachment(pix_buf, kCVImageBufferTransferFunctionKey, transfer, kCVAttachmentMode_ShouldPropagate);
+        }
+        if (matrix)
+        {
+            CVBufferSetAttachment(pix_buf, kCVImageBufferYCbCrMatrixKey, matrix, kCVAttachmentMode_ShouldPropagate);
+        }
+
+        hb_rational_t par = { job.picture.parNum, job.picture.parDen };
+
+        int scaled_width  = image->width;
+        int scaled_height = image->height;
+
+        if (par.num >= par.den)
+        {
+            scaled_width = scaled_width * par.num / par.den;
+        }
+        else
+        {
+            scaled_height = scaled_height * par.den / par.num;
+        }
+
+        CFNumberRef display_width  = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &scaled_width);
+        CFNumberRef display_height = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &scaled_height);
+
+        const void *display_size_keys[2] =
+        {
+            kCVImageBufferDisplayWidthKey, kCVImageBufferDisplayHeightKey
+        };
+
+        const void *display_size_values[2] =
+        {
+            display_width, display_height
+        };
+
+        CFDictionaryRef display_size = CFDictionaryCreate(kCFAllocatorDefault,
+                                                          display_size_keys,
+                                                          display_size_values,
+                                                          2,
+                                                          &kCFTypeDictionaryKeyCallBacks,
+                                                          &kCFTypeDictionaryValueCallBacks);
+
+        CVBufferSetAttachment(pix_buf, kCVImageBufferDisplayDimensionsKey, display_size, kCVAttachmentMode_ShouldPropagate);
+
+        CFRelease(display_width);
+        CFRelease(display_height);
+        CFRelease(display_size);
+
+        CFNumberRef par_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &par.num);
+        CFNumberRef par_den = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &par.den);
+
+
+        const void *par_keys[2] =
+        {
+            kCVImageBufferPixelAspectRatioHorizontalSpacingKey, kCVImageBufferPixelAspectRatioVerticalSpacingKey
+        };
+
+        const void *par_values[2] =
+        {
+            par_num, par_den
+        };
+
+        CFDictionaryRef aspect_ratio = CFDictionaryCreate(kCFAllocatorDefault,
+                                                          par_keys,
+                                                          par_values,
+                                                          2,
+                                                          &kCFTypeDictionaryKeyCallBacks,
+                                                          &kCFTypeDictionaryValueCallBacks);
+
+        CVBufferSetAttachment(pix_buf, kCVImageBufferPixelAspectRatioKey, aspect_ratio, kCVAttachmentMode_ShouldPropagate);
+
+        CFRelease(par_num);
+        CFRelease(par_den);
+        CFRelease(aspect_ratio);
+    }
+
+    return pix_buf;
+}
+
+#ifdef CGIMAGE_WRAP_HB_IMAGE
+static const void * cgimage_get_byte_pointer_callback(void *info)
+{
+    hb_image_t *image = (hb_image_t *)info;
+    return (const void *)image->plane[0].data;
+}
+
+static void cgimage_release_byte_pointer_callback(void *info, const void *pointer)
+{
+    hb_image_t *image = (hb_image_t *)info;
+    if (image)
+    {
+        hb_image_close(&image);
+    }
+}
+#endif
+
 - (nullable CGImageRef)copyImageAtIndex:(NSUInteger)index job:(HBJob *)job CF_RETURNS_RETAINED
 {
     CGImageRef img = NULL;
@@ -342,13 +570,25 @@ HB_OBJC_DIRECT_MEMBERS
     hb_job_t *hb_job = job.hb_job;
     hb_dict_t *job_dict = hb_job_to_dict(hb_job);
     hb_job_close(&hb_job);
-    hb_image_t *image = hb_get_preview3(_hb_handle, (int)index, job_dict);
+
+    hb_image_t *image = hb_get_preview(_hb_handle, job_dict, (int)index, 1, 2);
+    hb_value_free(&job_dict);
 
     if (image)
     {
+        // The image data returned by hb_get_preview
+        // is 3 bytes per pixel, AV_PIX_FMT_RGB24 format.
+#ifdef CGIMAGE_WRAP_HB_IMAGE
+        // Wrap the hb_image_t in a CGImageRef.
+        CGDataProviderDirectCallbacks callbacks = {0};
+        callbacks.getBytePointer = cgimage_get_byte_pointer_callback;
+        callbacks.releaseBytePointer = cgimage_release_byte_pointer_callback;
+
+        CGDataProviderRef dataProvider = CGDataProviderCreateDirect(image, image->plane[0].size, &callbacks);
+
+        size_t stride = image->plane[0].stride;
+#else
         // Create an CGImageRef and copy the libhb image into it.
-        // The image data returned by hb_get_preview3 is 4 bytes per pixel, BGRA format.
-        // Alpha is ignored.
         CFMutableDataRef imgData = CFDataCreateMutable(kCFAllocatorDefault, 0);
         CFDataSetLength(imgData, 3 * image->width * image->height);
 
@@ -359,41 +599,42 @@ HB_OBJC_DIRECT_MEMBERS
             UInt8 *src = src_line;
             for (int c = 0; c < image->width; c++)
             {
-                *dst++ = src[2];
-                *dst++ = src[1];
                 *dst++ = src[0];
-                src += 4;
+                *dst++ = src[1];
+                *dst++ = src[2];
+                src += 3;
             }
             src_line += image->plane[0].stride;
         }
 
-        CGDataProviderRef provider = CGDataProviderCreateWithCFData(imgData);
+        size_t stride = image->width * 3;
+#endif
 
         CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault | kCGImageAlphaNone;
         CGColorSpaceRef colorSpace = copyColorSpace(image->color_prim,
                                                     image->color_transfer,
                                                     image->color_matrix);
 
+        CGDataProviderRef dataProvider = CGDataProviderCreateWithCFData(imgData);
         img = CGImageCreate(image->width,
                             image->height,
                             8,
-                            24,
-                            image->width * 3,
+                            8 * 3,
+                            stride,
                             colorSpace,
                             bitmapInfo,
-                            provider,
+                            dataProvider,
                             NULL,
                             NO,
                             kCGRenderingIntentDefault);
 
         CGColorSpaceRelease(colorSpace);
-        CGDataProviderRelease(provider);
+        CGDataProviderRelease(dataProvider);
+#ifndef CGIMAGE_WRAP_HB_IMAGE
         CFRelease(imgData);
-
         hb_image_close(&image);
+#endif
     }
-
-    hb_value_free(&job_dict);
 
     return img;
 }
@@ -413,6 +654,11 @@ HB_OBJC_DIRECT_MEMBERS
     // Copy the progress/completion blocks
     self.progressHandler = progressHandler;
     self.completionHandler = completionHandler;
+
+    // Set the state, so the UI can be update
+    // to reflect the current state instead of
+    // waiting for libhb to set it in a background thread.
+    self.state = HBStateWorking;
 
 #ifdef __SANDBOX_ENABLED__
     HBJob *jobCopy = [job copy];
@@ -434,11 +680,6 @@ HB_OBJC_DIRECT_MEMBERS
 
     // Start the timer to handle libhb state changes
     [self startUpdateTimerWithInterval:0.5];
-
-    // Set the state, so the UI can be update
-    // to reflect the current state instead of
-    // waiting for libhb to set it in a background thread.
-    self.state = HBStateWorking;
 
     [HBUtilities writeToActivityLog:"%s started encoding %s", self.name.UTF8String, job.destinationFileName.UTF8String];
     [HBUtilities writeToActivityLog:"%s with preset %s", self.name.UTF8String, job.presetName.UTF8String];

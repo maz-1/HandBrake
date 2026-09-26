@@ -1,20 +1,22 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0-windows10.0.17763.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <PackageId>HandBrake</PackageId>
     <Authors>HandBrake Team</Authors>
     <Company>HandBrake Team</Company>
     <Product>HandBrake</Product>
-    <Copyright>Copyright © 2003-2022 HandBrake Team</Copyright>
+    <Copyright>Copyright © 2003-2026 HandBrake Team</Copyright>
     <Description>HandBrake is an open-source, GPL-licensed, multiplatform,video transcoder.</Description>
     <PackageProjectUrl>https://handbrake.fr</PackageProjectUrl>
     <RepositoryUrl>https://github.com/HandBrake/HandBrake</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
+    <AssemblyVersion>1.11.0.0</AssemblyVersion>
+    <Version>1.11.0</Version>
     <Platforms>AnyCPU</Platforms>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ApplicationIcon>handbrakepineapple.ico</ApplicationIcon>
@@ -23,40 +25,60 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <LangVersion>latest</LangVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>bin\Debug</OutputPath>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1605</WarningsAsErrors>
+    <NoWarn>1701;1702;CS0067</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>bin\Release</OutputPath>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1605</WarningsAsErrors>
+    <NoWarn>1701;1702;CS0067</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Factories\**" />
+    <EmbeddedResource Remove="Factories\**" />
+    <None Remove="Factories\**" />
+    <Page Remove="Factories\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="handbrakepineapple.ico" />
+    <None Remove="public.4096.key" />
+    <None Remove="Views\Images\close_no_ring.png" />
     <None Remove="Views\Images\Dark\Reorder.png" />
+    <None Remove="Views\Images\EmptyCoverArt.png" />
+    <None Remove="Views\Images\error.png" />
     <None Remove="Views\Images\Light\Reorder.png" />
     <None Remove="Views\Images\pause_small.png" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Caliburn.Micro" Version="4.0.136-rc" />
-    <PackageReference Include="gong-wpf-dragdrop" Version="2.4.3" />
-    <PackageReference Include="MahApps.Metro" Version="2.4.9" />
-    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.2" />
-    <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
-    <PackageReference Include="System.Management" Version="6.0.0" />
+	<PackageReference Include="Autofac" Version="9.3.2" />
+    <PackageReference Include="gong-wpf-dragdrop" Version="4.0.0" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.161" />
+    <PackageReference Include="System.Management" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HandBrake.App.Core\HandBrake.App.Core.csproj" />
     <ProjectReference Include="..\HandBrake.Interop\HandBrake.Interop.csproj" />
+    <ProjectReference Include="..\HandBrake.Worker\HandBrake.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="handbrakepineapple.ico" />
     <Resource Include="Views\Images\close64.png" />
     <Resource Include="Views\Images\close64_dark.png" />
+    <Resource Include="Views\Images\close_no_ring.png" />
     <Resource Include="Views\Images\Complete.png" />
     <Resource Include="Views\Images\Dark\Activity.png" />
     <Resource Include="Views\Images\Dark\Activity2.png" />
@@ -78,6 +100,8 @@
     <Resource Include="Views\Images\Dark\Source.png" />
     <Resource Include="Views\Images\Disc.png" />
     <Resource Include="Views\Images\disc_small.png" />
+    <Resource Include="Views\Images\EmptyCoverArt.png" />
+    <Resource Include="Views\Images\error.png" />
     <Resource Include="Views\Images\ErrorX.png" />
     <Resource Include="Views\Images\information.png" />
     <Resource Include="Views\Images\information64.png" />
@@ -118,7 +142,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="public.key" />
+    <EmbeddedResource Include="public.4096.key" />
   </ItemGroup>
 
   <ItemGroup>
@@ -173,9 +197,4 @@
   <ItemGroup>
     <Folder Include="Properties\PublishProfiles\" />
   </ItemGroup>
-
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy ..\HandBrake.Worker\bin\$(ConfigurationName)\*.*  bin\$(ConfigurationName)" />
-  </Target>
-  
 </Project>

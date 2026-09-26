@@ -1,6 +1,6 @@
 /* cropscale.c
 
-   Copyright (c) 2003-2015 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -9,10 +9,9 @@
 
 #include "handbrake/common.h"
 #include "handbrake/avfilter_priv.h"
+#include "handbrake/hbffmpeg.h"
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
 #include "handbrake/qsv_common.h"
-#include "libavutil/hwcontext_qsv.h"
-#include "libavutil/hwcontext.h"
 #endif
 
 static int crop_scale_init(hb_filter_object_t * filter,
@@ -30,6 +29,7 @@ hb_filter_object_t hb_filter_crop_scale =
     .enforce_order     = 1,
     .skip              = 1,
     .name              = "Crop and Scale",
+    .short_name        = "cropscale",
     .settings          = NULL,
     .init              = crop_scale_init,
     .work              = hb_avfilter_null_work,
@@ -98,15 +98,8 @@ static int crop_scale_init(hb_filter_object_t * filter, hb_filter_init_t * init)
     hb_dict_t * avsettings = hb_dict_init();
 
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-    if (hb_qsv_hw_filters_are_enabled(init->job))
+    if (init->hw_pix_fmt == AV_PIX_FMT_QSV)
     {
-        int result = hb_create_ffmpeg_pool(init->job, width, height, init->pix_fmt, HB_QSV_POOL_SURFACE_SIZE, 0, &init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->hw_frames_ctx);
-        if (result < 0)
-        {
-            hb_error("hb_create_ffmpeg_pool vpp allocation failed");
-            return result;
-        }
-
         if (top > 0 || bottom > 0 || left > 0 || right > 0)
         {
             hb_dict_set_int(avsettings, "cx", left);
@@ -117,73 +110,62 @@ static int crop_scale_init(hb_filter_object_t * filter, hb_filter_init_t * init)
 
         hb_dict_set_int(avsettings, "w", width);
         hb_dict_set_int(avsettings, "h", height);
-        if (init->job->qsv.ctx->vpp_scale_mode)
+        hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
+        if (init->job->qsv_ctx->vpp_scale_mode)
         {
-            hb_dict_set_string(avsettings, "mode", init->job->qsv.ctx->vpp_scale_mode);
+            hb_dict_set_string(avsettings, "scale_mode", init->job->qsv_ctx->vpp_scale_mode);
+            hb_log("qsv: scaling filter mode %s", init->job->qsv_ctx->vpp_scale_mode);
         }
-        if (init->job->qsv.ctx->vpp_interpolation_method)
+        else
         {
-            hb_dict_set_string(avsettings, "method", init->job->qsv.ctx->vpp_interpolation_method);
+            hb_dict_set_string(avsettings, "scale_mode", "hq");
         }
-        hb_log("qsv: scaling filter mode %s", init->job->qsv.ctx->vpp_scale_mode ? init->job->qsv.ctx->vpp_scale_mode : "default");
-        hb_log("qsv: scaling filter interpolation method %s", init->job->qsv.ctx->vpp_interpolation_method ? init->job->qsv.ctx->vpp_interpolation_method : "default");
         hb_dict_set(avfilter, "vpp_qsv", avsettings);
-
-        AVHWFramesContext *frames_ctx;
-        AVQSVFramesContext *frames_hwctx;
-        AVBufferRef *hw_frames_ctx;
-
-        hw_frames_ctx = init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->hw_frames_ctx;
-        frames_ctx   = (AVHWFramesContext*)hw_frames_ctx->data;
-        frames_hwctx = frames_ctx->hwctx;
-        mfxHDLPair* handle_pair = (mfxHDLPair*)frames_hwctx->surfaces[0].Data.MemId;
-        init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->input_texture = ((size_t)handle_pair->second != MFX_INFINITE) ? handle_pair->first : NULL;
-
-        /* allocate the memory ids for the external frames */
-        av_buffer_unref(&init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->mids_buf);
-        init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->mids_buf = hb_qsv_create_mids(init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->hw_frames_ctx);
-        if (!init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->mids_buf)
-            return AVERROR(ENOMEM);
-        init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->mids    = (QSVMid*)init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->mids_buf->data;
-        init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->nb_mids = frames_hwctx->nb_surfaces;
-        memset(init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->pool, 0, init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->nb_mids * sizeof(init->job->qsv.ctx->hb_vpp_qsv_frames_ctx->pool[0]));
     }
     else
 #endif
     {
-        hb_dict_set_int(avsettings, "width", width);
-        hb_dict_set_int(avsettings, "height", height);
-        hb_dict_set_string(avsettings, "flags", "lanczos+accurate_rnd");
-        hb_dict_set(avfilter, "scale", avsettings);
-    }
-    
-    hb_value_array_append(avfilters, avfilter);
-
-    avfilter   = hb_dict_init();
-    avsettings = hb_dict_init();
-
-#if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-    if (!hb_qsv_hw_filters_are_enabled(init->job))
-#endif
-    {
-        char * out_pix_fmt = NULL;
-
-        // "out_pix_fmt" is a private option used internally by
-        // handbrake for preview generation
-        hb_dict_extract_string(&out_pix_fmt, settings, "out_pix_fmt");
-        if (out_pix_fmt != NULL)
+        if (init->hw_pix_fmt == AV_PIX_FMT_CUDA)
         {
-            hb_dict_set_string(avsettings, "pix_fmts", out_pix_fmt);
-            free(out_pix_fmt);
+            hb_dict_set_int(avsettings, "w", width);
+            hb_dict_set_int(avsettings, "h", height);
+            hb_dict_set_string(avsettings, "interp_algo", "lanczos");
+            hb_dict_set_string(avsettings, "format", av_get_pix_fmt_name(init->pix_fmt));
+            hb_dict_set(avfilter, "scale_cuda", avsettings);
+        }
+        else if (init->hw_pix_fmt == AV_PIX_FMT_D3D11)
+        {
+            hb_dict_set_int(avsettings, "width", width);
+            hb_dict_set_int(avsettings, "height", height);
+            hb_dict_set(avfilter, "scale_d3d11", avsettings);
+        }
+        else if (init->hw_pix_fmt == AV_PIX_FMT_AMF_SURFACE)
+        {
+            hb_dict_set_int(avsettings, "w", width);
+            hb_dict_set_int(avsettings, "h", height);
+            hb_dict_set_string(avsettings, "scale_type", "bilinear");
+            hb_dict_set_string(avsettings, "format", av_get_pix_fmt_name(init->pix_fmt));
+            hb_dict_set(avfilter, "vpp_amf", avsettings);
+        }
+        else if (hb_av_can_use_zscale(init->pix_fmt,
+                                      init->geometry.width, init->geometry.height,
+                                      width, height))
+        {
+            hb_dict_set_int(avsettings, "width", width);
+            hb_dict_set_int(avsettings, "height", height);
+            hb_dict_set_string(avsettings, "filter", "lanczos");
+            hb_dict_set(avfilter, "zscale", avsettings);
         }
         else
         {
-            hb_dict_set_string(avsettings, "pix_fmts",
-                av_get_pix_fmt_name(init->pix_fmt));
+            hb_dict_set_int(avsettings, "width", width);
+            hb_dict_set_int(avsettings, "height", height);
+            hb_dict_set_string(avsettings, "flags", "lanczos+accurate_rnd");
+            hb_dict_set(avfilter, "scale", avsettings);
         }
-        hb_dict_set(avfilter, "format", avsettings);
-        hb_value_array_append(avfilters, avfilter);
     }
+    
+    hb_value_array_append(avfilters, avfilter);
 
     init->crop[0] = top;
     init->crop[1] = bottom;

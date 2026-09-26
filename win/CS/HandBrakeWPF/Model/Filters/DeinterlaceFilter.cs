@@ -11,11 +11,14 @@ namespace HandBrakeWPF.Model.Filters
 {
     using HandBrake.Interop.Attributes;
 
+    using HandBrakeWPF.Properties;
+
     /// <summary>
     /// The deinterlace.
     /// </summary>
     public enum DeinterlaceFilter
     {
+        [DisplayName(typeof(Resources), "DeinterlaceFilter_Off")]
         [ShortName("off")]
         Off = 0,
 
@@ -23,6 +26,9 @@ namespace HandBrakeWPF.Model.Filters
         Yadif = 1,
 
         [ShortName("Decomb")]
-        Decomb = 2
+        Decomb = 2,
+
+        [ShortName("Bwdif")]
+        Bwdif = 3,
     }
 }

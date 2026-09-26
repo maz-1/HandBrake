@@ -12,6 +12,7 @@ namespace HandBrake.Worker
     using System;
     using System.Collections.Generic;
     using System.Net;
+    using System.Runtime.CompilerServices;
     using System.Threading;
 
     using HandBrake.Interop.Interop;
@@ -28,6 +29,8 @@ namespace HandBrake.Worker
         private static ApiRouter router;
         private static ManualResetEvent manualResetEvent = new ManualResetEvent(false);
 
+        private static int parentProcessId = -1;
+
         public static void Main(string[] args)
         {
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
@@ -43,28 +46,38 @@ namespace HandBrake.Worker
             }
 
             int port = 8037; // Default Port;
-            string token;
-            
-            if (args.Length != 0)
-            {
-                foreach (string argument in args)
-                {
-                    if (argument.StartsWith("--port"))
-                    {
-                        string value = argument.TrimStart("--port=".ToCharArray());
-                        if (int.TryParse(value, out var parsedPort))
-                        {
-                            port = parsedPort;
-                        }
-                    }
 
-                    if (argument.StartsWith("--token"))
-                    {
-                        token = argument.TrimStart("--token=".ToCharArray());
-                        TokenService.RegisterToken(token);
-                    }
+            string envVar = Environment.GetEnvironmentVariable("HB_PORT");
+            if (!string.IsNullOrWhiteSpace(envVar))
+            {
+                if (int.TryParse(envVar, out var parsedPort))
+                {
+                    port = parsedPort;
                 }
             }
+
+            string token = Environment.GetEnvironmentVariable("HB_TOKEN");
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                TokenService.RegisterToken(token);
+            }
+
+            envVar = Environment.GetEnvironmentVariable("HB_PID");
+            if (!string.IsNullOrWhiteSpace(envVar))
+            {
+                if (int.TryParse(envVar, out var parsedPid))
+                {
+                    parentProcessId = parsedPid;
+                }
+            }
+
+            // Clear the environment variables for this process. We no longer need them.
+            Environment.SetEnvironmentVariable("HB_PORT", string.Empty);
+            Environment.SetEnvironmentVariable("HB_TOKEN", string.Empty);
+            Environment.SetEnvironmentVariable("HB_PID", string.Empty);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
 
             if (!TokenService.IsTokenSet())
             {
@@ -74,6 +87,12 @@ namespace HandBrake.Worker
             }
 
             ConsoleOutput.WriteLine("Worker: Starting HandBrake Engine ...", ConsoleColor.White, true);
+            if (parentProcessId != -1)
+            {
+                ConsoleOutput.WriteLine(string.Format("Worker: Parent Process Id {0}", parentProcessId), ConsoleColor.White, true);
+                // TODO Support Process Termination if the Parent process dies.
+            }
+
             router = new ApiRouter();
             router.TerminationEvent += Router_TerminationEvent;
 
@@ -81,15 +100,18 @@ namespace HandBrake.Worker
 
             Dictionary<string, Func<HttpListenerRequest, string>> apiHandlers = RegisterApiHandlers();
             HttpServer webServer = new HttpServer(apiHandlers, port, TokenService);
-            if (webServer.Run().Result)
+            int runCode = webServer.Run();
+            if (runCode == 0)
             {
                 ConsoleOutput.WriteLine("Worker: Server Started", ConsoleColor.White, true);
                 manualResetEvent.WaitOne();
                 webServer.Stop();
+                ConsoleOutput.WriteLine("Worker: Server Stopped", ConsoleColor.White, true);
             }
             else
             {
-                ConsoleOutput.WriteLine("Worker is exiting ...");
+                ConsoleOutput.WriteLine(string.Format("Worker is exiting ... ({0})", runCode));
+                Environment.Exit(runCode);
             }
         }
 
@@ -114,23 +136,30 @@ namespace HandBrake.Worker
             apiHandlers.Add("GetLogMessagesFromIndex", router.GetLogMessagesFromIndex);
             apiHandlers.Add("ResetLogging", router.ResetLogging);
 
-            // HandBrake APIs
+            // Encode APIs
             apiHandlers.Add("StartEncode", router.StartEncode);
             apiHandlers.Add("PauseEncode", router.PauseEncode);
             apiHandlers.Add("ResumeEncode", router.ResumeEncode);
             apiHandlers.Add("StopEncode", router.StopEncode);
             apiHandlers.Add("PollEncodeProgress", router.PollEncodeProgress);
-            
+
+            // Scan APIs
+            apiHandlers.Add("StartScan", router.StartScan);
+            apiHandlers.Add("StopScan", router.StopScan);
+            apiHandlers.Add("PollScanProgress", router.PollScanProgress);
+            apiHandlers.Add("GetTitles", router.GetScanTitles);
+            apiHandlers.Add("GetMainTitle", router.GetMainScanTitle);
+            apiHandlers.Add("GetPreview", router.GetPreview);
+
             return apiHandlers;
         }
 
         private static string RegisterToken(HttpListenerRequest request)
         {
             string requestPostData = HttpUtilities.GetRequestPostData(request);
-            if (!string.IsNullOrEmpty(requestPostData))
+            if (!string.IsNullOrEmpty(requestPostData) && !TokenService.IsTokenSet())
             {
-                TokenService.RegisterToken(requestPostData);
-                return true.ToString();
+                return TokenService.RegisterToken(requestPostData).ToString();
             }
 
             return false.ToString();

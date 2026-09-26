@@ -1,6 +1,6 @@
 /* taskset.h
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -11,8 +11,6 @@
 #define HANDBRAKE_TASKSET_H
 
 #define TASKSET_POSIX_COMPLIANT 1
-
-#include "handbrake/bits.h"
 
 typedef struct hb_tasket_thread_t {
     hb_thread_t      * thread;

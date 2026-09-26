@@ -2,6 +2,7 @@
 win/CS/*/bin
 win/CS/*/obj
 win/CS/.vs
+.vs/**/*
 win/CS/**/*.suo
 win/CS/*.VC.opendb
 win/CS/*.VC.db
@@ -15,6 +16,7 @@ win/CS/HandBrakeAppX/AppPackages/**/*
 win/CS/HandBrakeAppX/BundleArtifacts/**/*
 *.ide
 win/CS/*.DotSettings
+win/CS/*.props
 
 # Xcode
 macosx/**/xcuserdata
@@ -34,6 +36,7 @@ gtk/autom4te.cache
 gtk/compile
 gtk/config.*
 gtk/configure
+gtk/configure~
 gtk/depcomp
 gtk/install-sh
 gtk/ltmain.sh
@@ -41,4 +44,4 @@ gtk/m4
 gtk/missing
 gtk/po/Makevars.template
 gtk/po/*.gmo
-gtk/po/*.po~
+gtk/po/*~

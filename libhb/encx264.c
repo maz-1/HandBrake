@@ -1,6 +1,6 @@
 /* encx264.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -8,10 +8,11 @@
  */
 
 #include <stdarg.h>
-
+#include "libavutil/avutil.h"
 #include "handbrake/handbrake.h"
 #include "handbrake/hb_dict.h"
 #include "handbrake/encx264.h"
+#include "handbrake/extradata.h"
 
 int  encx264Init( hb_work_object_t *, hb_job_t * );
 int  encx264Work( hb_work_object_t *, hb_buffer_t **, hb_buffer_t ** );
@@ -129,11 +130,6 @@ static void * x264_lib_open_ubuntu_10bit(void)
     return h;
 }
 #endif
-
-static inline int64_t rescale(hb_rational_t q, int b)
-{
-    return av_rescale(q.num, b, q.den);
-}
 
 void hb_x264_global_init(void)
 {
@@ -399,9 +395,22 @@ int encx264Init( hb_work_object_t * w, hb_job_t * job )
     param.vui.i_colorprim = hb_output_color_prim(job);
     param.vui.i_transfer  = hb_output_color_transfer(job);
     param.vui.i_colmatrix = hb_output_color_matrix(job);
+    param.vui.b_fullrange = (job->color_range == AVCOL_RANGE_JPEG);
     if (job->chroma_location != AVCHROMA_LOC_UNSPECIFIED)
     {
         param.vui.i_chroma_loc = job->chroma_location - 1;
+    }
+
+    /* Stereoscopic 3D: signal the frame packing arrangement in the
+     * elementary stream, so players that rely on the SEI (payload type 45)
+     * rather than on container level metadata can detect the layout. */
+    if (job->stereo_3d.type == HB_STEREO3D_SIDEBYSIDE)
+    {
+        param.i_frame_packing = 3;
+    }
+    else if (job->stereo_3d.type == HB_STEREO3D_TOPBOTTOM)
+    {
+        param.i_frame_packing = 4;
     }
 
 #if X264_BUILD >= 163
@@ -412,16 +421,16 @@ int encx264Init( hb_work_object_t * w, hb_job_t * job )
         if (job->mastering.has_primaries && job->mastering.has_luminance)
         {
             param.mastering_display.b_mastering_display = 1;
-            param.mastering_display.i_red_x   = rescale(job->mastering.display_primaries[0][0], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_red_y   = rescale(job->mastering.display_primaries[0][1], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_green_x = rescale(job->mastering.display_primaries[1][0], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_green_y = rescale(job->mastering.display_primaries[1][1], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_blue_x  = rescale(job->mastering.display_primaries[2][0], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_blue_y  = rescale(job->mastering.display_primaries[2][1], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_white_x = rescale(job->mastering.white_point[0], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_white_y = rescale(job->mastering.white_point[1], MASTERING_CHROMA_DEN);
-            param.mastering_display.i_display_max = rescale(job->mastering.max_luminance, MASTERING_LUMA_DEN);
-            param.mastering_display.i_display_min = rescale(job->mastering.min_luminance, MASTERING_LUMA_DEN);
+            param.mastering_display.i_red_x   = hb_rescale_rational(job->mastering.display_primaries[0][0], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_red_y   = hb_rescale_rational(job->mastering.display_primaries[0][1], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_green_x = hb_rescale_rational(job->mastering.display_primaries[1][0], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_green_y = hb_rescale_rational(job->mastering.display_primaries[1][1], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_blue_x  = hb_rescale_rational(job->mastering.display_primaries[2][0], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_blue_y  = hb_rescale_rational(job->mastering.display_primaries[2][1], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_white_x = hb_rescale_rational(job->mastering.white_point[0], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_white_y = hb_rescale_rational(job->mastering.white_point[1], MASTERING_CHROMA_DEN);
+            param.mastering_display.i_display_max = hb_rescale_rational(job->mastering.max_luminance, MASTERING_LUMA_DEN);
+            param.mastering_display.i_display_min = hb_rescale_rational(job->mastering.min_luminance, MASTERING_LUMA_DEN);
         }
 
         /*  Content light level */
@@ -547,24 +556,40 @@ int encx264Init( hb_work_object_t * w, hb_job_t * job )
         param.rc.i_rc_method = X264_RC_ABR;
         param.rc.i_bitrate = job->vbitrate;
         hb_log( "encx264: encoding at average bitrate %d", param.rc.i_bitrate );
-        if( job->pass_id == HB_PASS_ENCODE_1ST ||
-            job->pass_id == HB_PASS_ENCODE_2ND )
+        if( job->pass_id == HB_PASS_ENCODE_ANALYSIS ||
+            job->pass_id == HB_PASS_ENCODE_FINAL )
         {
             pv->filename = hb_get_temporary_filename("x264.log");
         }
         switch( job->pass_id )
         {
-            case HB_PASS_ENCODE_1ST:
+            case HB_PASS_ENCODE_ANALYSIS:
                 param.rc.b_stat_read  = 0;
                 param.rc.b_stat_write = 1;
                 param.rc.psz_stat_out = pv->filename;
                 break;
-            case HB_PASS_ENCODE_2ND:
+            case HB_PASS_ENCODE_FINAL:
                 param.rc.b_stat_read  = 1;
                 param.rc.b_stat_write = 0;
                 param.rc.psz_stat_in  = pv->filename;
                 break;
         }
+    }
+
+    switch (job->output_pix_fmt)
+    {
+        case AV_PIX_FMT_YUV422P:
+        case AV_PIX_FMT_YUV422P10:
+        case AV_PIX_FMT_YUV422P12:
+        case AV_PIX_FMT_YUV422P16:
+            param.i_csp = X264_CSP_I422;
+            break;
+        case AV_PIX_FMT_YUV444P:
+        case AV_PIX_FMT_YUV444P10:
+        case AV_PIX_FMT_YUV444P12:
+        case AV_PIX_FMT_YUV444P16:
+            param.i_csp = X264_CSP_I444;
+            break;
     }
 
     /* Apply profile and level settings last, if present. */
@@ -588,8 +613,8 @@ int encx264Init( hb_work_object_t * w, hb_job_t * job )
         }
     }
 
-    /* Turbo first pass */
-    if( job->pass_id == HB_PASS_ENCODE_1ST && job->fastfirstpass == 1 )
+    /* Turbo analysis pass */
+    if (job->pass_id == HB_PASS_ENCODE_ANALYSIS && job->fastanalysispass == 1)
     {
         pv->api->param_apply_fastfirstpass( &param );
     }
@@ -633,17 +658,19 @@ int encx264Init( hb_work_object_t * w, hb_job_t * job )
 
     pv->api->encoder_headers( pv->x264, &nal, &nal_count );
 
-    /* Sequence Parameter Set */
-    memcpy(w->config->h264.sps, nal[0].p_payload + 4, nal[0].i_payload - 4);
-    w->config->h264.sps_length = nal[0].i_payload - 4;
-
-    /* Picture Parameter Set */
-    memcpy(w->config->h264.pps, nal[1].p_payload + 4, nal[1].i_payload - 4);
-    w->config->h264.pps_length = nal[1].i_payload - 4;
+    if (hb_set_h264_extradata(w->extradata,
+                              nal[0].p_payload + 4, nal[0].i_payload - 4,
+                              nal[1].p_payload + 4, nal[1].i_payload - 4))
+    {
+        hb_error("encx264: set extradata failed.");
+        free( pv );
+        w->private_data = NULL;
+        return 1;
+    }
 
     pv->api->picture_init( &pv->pic_in );
 
-    pv->pic_in.img.i_csp = X264_CSP_I420;
+    pv->pic_in.img.i_csp = param.i_csp;
     if (pv->api->bit_depth > 8)
     {
         pv->pic_in.img.i_csp |= X264_CSP_HIGH_DEPTH;
@@ -677,9 +704,14 @@ static hb_buffer_t *nal_encode( hb_work_object_t *w, x264_picture_t *pic_out,
     hb_buffer_t *buf = NULL;
     hb_work_private_t *pv = w->private_data;
     hb_job_t *job = pv->job;
+    int payload_size = 0;
 
-    /* Should be way too large */
-    buf = hb_video_buffer_init( job->width, job->height );
+    for (int i = 0; i < i_nal; i++)
+    {
+        payload_size += nal[i].i_payload;
+    }
+
+    buf = hb_buffer_init(payload_size);
     buf->size = 0;
     buf->s.frametype = 0;
 
@@ -688,9 +720,9 @@ static hb_buffer_t *nal_encode( hb_work_object_t *w, x264_picture_t *pic_out,
     buf->s.start        = pic_out->i_pts;
     buf->s.stop         = AV_NOPTS_VALUE;
     buf->s.renderOffset = pic_out->i_dts;
-    if ( !w->config->init_delay && pic_out->i_dts < 0 )
+    if (!*w->init_delay && pic_out->i_dts < 0)
     {
-        w->config->init_delay = -pic_out->i_dts;
+        *w->init_delay = -pic_out->i_dts;
     }
 
     /* Determine what type of frame we have. */
@@ -734,16 +766,16 @@ static hb_buffer_t *nal_encode( hb_work_object_t *w, x264_picture_t *pic_out,
              be other stuff like SPS and/or PPS). If there are multiple
              frames we only get the duration of the first which will
              eventually screw up the muxer & decoder. */
-    int i;
     buf->s.flags &= ~HB_FLAG_FRAMETYPE_REF;
-    for( i = 0; i < i_nal; i++ )
+    for (int i = 0; i < i_nal; i++)
     {
         int size = nal[i].i_payload;
-        memcpy(buf->data + buf->size, nal[i].p_payload, size);
-        if( size < 1 )
+        if (size < 1)
         {
             continue;
         }
+
+        memcpy(buf->data + buf->size, nal[i].p_payload, size);
 
         /* H.264 in .mp4 or .mkv */
         switch( nal[i].i_type )
@@ -792,22 +824,34 @@ static hb_buffer_t *nal_encode( hb_work_object_t *w, x264_picture_t *pic_out,
     return buf;
 }
 
-static hb_buffer_t * expand_buf(int bit_depth, hb_buffer_t *in)
+static hb_buffer_t * expand_buf(int bit_depth, hb_buffer_t *in, int input_pix_fmt)
 {
     hb_buffer_t *buf;
-    int          pp;
-    int          shift = bit_depth - 8;
+    const int    shift = bit_depth - 8;
+    int          output_pix_fmt;
 
-    buf = hb_frame_buffer_init(AV_PIX_FMT_YUV420P16BE,
-                               in->f.width, in->f.height);
-    for (pp = 0; pp < 3; pp++)
+    switch (input_pix_fmt)
     {
-        int       xx, yy;
+        case AV_PIX_FMT_YUV420P:
+            output_pix_fmt = AV_PIX_FMT_YUV420P16;
+            break;
+        case AV_PIX_FMT_YUV422P:
+            output_pix_fmt = AV_PIX_FMT_YUV422P16;
+            break;
+        case AV_PIX_FMT_YUV444P:
+        default:
+            output_pix_fmt = AV_PIX_FMT_YUV444P16;
+            break;
+    }
+
+    buf = hb_frame_buffer_init(output_pix_fmt, in->f.width, in->f.height);
+    for (int pp = 0; pp < 3; pp++)
+    {
         uint8_t  *src =  in->plane[pp].data;
         uint16_t *dst = (uint16_t*)buf->plane[pp].data;
-        for (yy = 0; yy < in->plane[pp].height; yy++)
+        for (int yy = 0; yy < in->plane[pp].height; yy++)
         {
-            for (xx = 0; xx < in->plane[pp].width; xx++)
+            for (int xx = 0; xx < in->plane[pp].width; xx++)
             {
                 dst[xx] = (uint16_t)src[xx] << shift;
             }
@@ -826,9 +870,11 @@ static hb_buffer_t *x264_encode( hb_work_object_t *w, hb_buffer_t *in )
 
     /* Point x264 at our current buffers Y(UV) data.  */
     if (pv->pic_in.img.i_csp & X264_CSP_HIGH_DEPTH &&
-        job->output_pix_fmt == AV_PIX_FMT_YUV420P)
+        (job->output_pix_fmt == AV_PIX_FMT_YUV420P ||
+         job->output_pix_fmt == AV_PIX_FMT_YUV422P ||
+         job->output_pix_fmt == AV_PIX_FMT_YUV444P))
     {
-        tmp = expand_buf(pv->api->bit_depth, in);
+        tmp = expand_buf(pv->api->bit_depth, in, job->output_pix_fmt);
         pv->pic_in.img.i_stride[0] = tmp->plane[0].stride;
         pv->pic_in.img.i_stride[1] = tmp->plane[1].stride;
         pv->pic_in.img.i_stride[2] = tmp->plane[2].stride;
@@ -1075,10 +1121,10 @@ int apply_h264_level(const x264_api_t *api, x264_param_t *param,
     {
         // Main or Baseline (equivalent)
         HB_ENCX264_PROFILE_MAIN,
-        // High (no 4:2:2 or 10-bit support, so anything lossy is equivalent)
         HB_ENCX264_PROFILE_HIGH,
         HB_ENCX264_PROFILE_HIGH10,
-        // Lossless (4:2:0 8-bit for now)
+        HB_ENCX264_PROFILE_HIGH422,
+        // Lossless
         HB_ENCX264_PROFILE_HIGH444,
     } hb_encx264_profile;
 
@@ -1098,6 +1144,10 @@ int apply_h264_level(const x264_api_t *api, x264_param_t *param,
         if (!strcasecmp(h264_profile, "high444"))
         {
             hb_encx264_profile = HB_ENCX264_PROFILE_HIGH444;
+        }
+        else if (!strcasecmp(h264_profile, "high422"))
+        {
+            hb_encx264_profile = HB_ENCX264_PROFILE_HIGH422;
         }
         else if (!strcasecmp(h264_profile, "main") ||
                  !strcasecmp(h264_profile, "baseline"))
@@ -1121,7 +1171,11 @@ int apply_h264_level(const x264_api_t *api, x264_param_t *param,
         else if (param->analyse.b_transform_8x8 ||
                  param->i_cqm_preset != X264_CQM_FLAT)
         {
-            if (api->bit_depth == 10)
+            if (h264_profile != NULL && !strcasecmp(h264_profile, "high422"))
+            {
+                hb_encx264_profile = HB_ENCX264_PROFILE_HIGH422;
+            }
+            else if (api->bit_depth == 10)
             {
                 hb_encx264_profile = HB_ENCX264_PROFILE_HIGH10;
             }

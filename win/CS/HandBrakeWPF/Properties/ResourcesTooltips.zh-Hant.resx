@@ -112,13 +112,13 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="FilterView_Deblock" xml:space="preserve">
-    <value>Deblock 可減少低品質視訊壓縮造成的塊狀瑕疵。</value>
+    <value>去區塊（Deblock）可減少低品質視訊壓縮造成的塊狀瑕疵。</value>
   </data>
   <data name="FilterView_DecombDeinterlace" xml:space="preserve">
     <value>選擇 Decomb 或去交錯濾鏡的選項。
@@ -163,15 +163,11 @@ HQDN3D 是個適應性的低通濾鏡，速度較 NLMeans 快，但保留精細�
 藍光及 DVD 來源通常具有多個標題，一般時間最長的是正片。</value>
   </data>
   <data name="PictureSettingsView_Anamorphic" xml:space="preserve">
-    <value>Anamorphic 允許任意的儲存尺寸，同時在播放時保留原始長寬比。
+    <value>寬螢幕變形允許在播放時維持原始比例的情況下，使用任意的儲存尺寸。
 
-None：停用 Anamorphic。影片的儲存尺寸與顯示尺寸相同，可保持與某些傳統裝置的相容性。
-
-Automatic：建議使用。在保留原始顯示長寬比時，最大化儲存解析度。
-
-Loose：與 Auto 相似，但會試圖保留儲存長寬比。與 Auto 相比，可能會稍微損失儲存解析度。
-
-Custom：允許手動設定所有參數。適用於矯正錯誤的顯示長寬比，以及需要進行進階後製的專業人士。</value>
+None：停用變形。影片的儲存尺寸與顯示尺寸將完全相同。僅在需要相容於特定舊裝置時使用。
+Automatic：在維持原始顯示長寬比的同時，最大化儲存解析度，建議使用。
+Custom：允許手動設定所有參數。適用於修正來源檔案錯誤的顯示比例，或需要進階後製控制的專業人士。</value>
   </data>
   <data name="PictureSettingsView_AutoCrop" xml:space="preserve">
     <value>自動裁切影片周圍的黑邊。</value>
@@ -217,14 +213,13 @@ Custom：允許手動設定所有參數。適用於矯正錯誤的顯示長寬�
     <value>將工作狀態重設為等待中。</value>
   </data>
   <data name="QueueView_SendJobBack" xml:space="preserve">
-    <value>回到主畫面編輯該作業。</value>
+    <value>回到主畫面編輯該工作。</value>
   </data>
   <data name="Video_AvgBitrate" xml:space="preserve">
-    <value>設定位元速率平均值。
+    <value>設定平均位元率。
 
-瞬時位元速率可能遠低於或高於此數值。
-然而長時間的平均值可由此處決定。
-若需要限制瞬時位元速率，可使用 x264 的 vbv-bufsize 及 vbv-maxrate 設定。</value>
+瞬時位元率可能遠低於或高於此數值，然而長時間的平均值可由此處決定。
+若需要限制瞬時位元率，可使用 x264 的 vbv-bufsize 及 vbv-maxrate 設定。</value>
   </data>
   <data name="Video_ConstantFramerate" xml:space="preserve">
     <value>啟用恆定影格率輸出。</value>
@@ -245,12 +240,12 @@ Custom：允許手動設定所有參數。適用於矯正錯誤的顯示長寬�
   <data name="Video_FastDecode" xml:space="preserve">
     <value>減少解碼器的 CPU 使用率。
 
-若您的裝置在播放輸出檔時有困難（如：丟失影格）請選此項。</value>
+若您的裝置在播放輸出檔時有困難（如：有捨棄的畫框）請選此項。</value>
   </data>
   <data name="Video_Framerate" xml:space="preserve">
     <value>輸出的影格率。
 
-推薦「和來源相同」。若來源影片具有可變影格率，「和來源相同」將保留它。</value>
+推薦選擇「Same as source」（和來源相同）。若來源影片具有可變影格率，「Same as source」也會保留。</value>
   </data>
   <data name="Video_Level" xml:space="preserve">
     <value>設定並確保符合指定的等級。
@@ -261,12 +256,12 @@ Custom：允許手動設定所有參數。適用於矯正錯誤的顯示長寬�
     <value>啟用可變影格率輸出，其峰值影格率由影格率設定決定。</value>
   </data>
   <data name="Video_Presets" xml:space="preserve">
-    <value>調整編碼器設定以權衡壓縮效率與編碼速度。
+    <value>調整編碼器設定，在壓縮效率與編碼速度之間進行權衡。
 
-以此建立預設編碼器設定。
-Tunes、profiles、levels 及其他進階選項字串亦套用於此。
-一般而言，在可允許的程度內愈慢愈好，
-因為較慢的設定會產出較高品質或較小的檔案。</value>
+這將決定您的預設編碼器設定。微調（Tunes）、設定檔（Profiles）、層級（Levels） 以及進階選項字串都將套用至此設定。
+通常建議將此選項設定為您所能忍受的最慢速度，因為較慢的設定會帶來更好的畫質或更小的檔案。
+
+將滑桿向右移動可提升壓縮效率，但會犧牲編碼速度；向左移動則可提高編碼速度，但會犧牲壓縮效率。</value>
   </data>
   <data name="Video_Profile" xml:space="preserve">
     <value>設定並確保符合指定的設定值。
@@ -281,19 +276,17 @@ x264 的尺度是對數級的，且數值越低表示更佳品質。
 因此，即使數值微幅增加，檔案大小也會逐步增大。
 數值 0 表示非破壞性壓縮，且可能導致最終檔案大小大於原始檔，
 除非來源檔亦為非破壞性壓縮品質。
-建議數值：標準畫質 18～20；高畫質 20～23。
+建議數值：來源檔若為標準解析度使用 18～20；高解析度則使用 20～23。
 
 FFMpeg 及 Theora 的尺度較線性，且沒有非破壞性壓縮模式。</value>
   </data>
-  <data name="Video_TurboFirstPass" xml:space="preserve">
-    <value>在 2 Pass 編碼的首輪，使用處理速度更快的設定值。</value>
+  <data name="Video_TurboAnalysisPass" xml:space="preserve">
+    <value>在多階段編碼的首輪，使用處理速度更快的設定。</value>
   </data>
-  <data name="Video_TwoPass" xml:space="preserve">
-    <value>進行 2 Pass 編碼。
+  <data name="Video_MultiPass" xml:space="preserve">
+    <value>進行多階段編碼。
 
-需使用「位元速率」選項。
-此方式將進行 2 輪編碼。
-將於首輪收集分析資料，並作為第二輪分配位元速率時的參考資料。</value>
+需使用「位元率」選項。在分析階段會先收集影片的統計資訊，作為最終階段分配位元率時的參考資料。</value>
   </data>
   <data name="Video_VariableFramerate" xml:space="preserve">
     <value>啟用可變影格率輸出。
@@ -307,10 +300,10 @@ FFMpeg 及 Theora 的尺度較線性，且沒有非破壞性壓縮模式。</val
     <value>瀏覽並選取輸出檔案的路徑及檔名。</value>
   </data>
   <data name="MainView_Angle" xml:space="preserve">
-    <value>欲編碼的影片視角。僅適用多視角 DVD 及藍光。</value>
+    <value>欲編碼的影片視角。僅適用多視角 DVD 及藍光光碟。</value>
   </data>
   <data name="MainView_AddPreset" xml:space="preserve">
-    <value>新增一個設定檔。</value>
+    <value>新增設定檔。</value>
   </data>
   <data name="MainView_PresetAdditionalOptions" xml:space="preserve">
     <value>額外的設定檔選項。</value>
@@ -324,9 +317,9 @@ FFMpeg 及 Theora 的尺度較線性，且沒有非破壞性壓縮模式。</val
     <value>移除選取的設定檔。</value>
   </data>
   <data name="SourceSelection_TitleSpecific" xml:space="preserve">
-    <value>有些來源可能包含多個影片片段或標題。藍光及 DVD 來源常有多個標題。
+    <value>有些來源可能包含多個影片片段或標題。藍光光碟及 DVD 來源常有多個標題。
 
-您可以指定欲掃描的標題名稱。此欄位為空時 HandBrake 才會掃描來源檔中的所有標題。</value>
+您可以指定欲編碼的標題名稱。此欄位為空時 HandBrake 才會掃描來源檔中的所有標題。</value>
   </data>
   <data name="FilterView_CustomDenoiseParams" xml:space="preserve">
     <value>自訂的降噪參數。
@@ -346,33 +339,35 @@ HQDN3D 預設值：y-spatial=3:cb-spatial=2:cr-spatial=2:y-temporal=2:cb-tempora
 
 - 無：使用預設設定值。
 
-- Film：對於動作片效果更好。
+- Film：針對大多數真人實拍內容進行最佳化微調。
 
 - Grain：僅處理彩色通道。有助於保留電影感的顆粒，同時減少彩色噪點。
 
-- Animation：適合 CEL 動畫，如動漫及卡通。
+- High Motion：透過跳過色彩通道的時域處理，減少高動態場景中的色彩拖影。適用於體育賽事與動作影片。
 
-- Tape：適用於 VHS 這類攝影機的磁帶來源，Film 模式對其效果不理想。
+- Animation：適合賽璐珞動畫，如動漫及卡通。
+
+- Tape：適用於低細節的錄影帶來源（如 VHS），且 Film 模式效果不理想時使用。
 
 - Sprite：適用於像素風格的 2D 遊戲，此模式並非設計給高畫質影片使用。</value>
   </data>
   <data name="FilterView_Deinterlace" xml:space="preserve">
-    <value>去交錯濾鏡可去除畫面中的橫紋。
+    <value>去交錯可移除影像中的梳狀條紋（Comb artifacts）。
 
-Yadif 是流行且快速的去交錯演算法。
+Bwdif 與 Yadif 是兩款熱門且快速的去交錯演算法。
 
-Decomb 會在多種插值演算法間切換，以提升速度及品質。</value>
+Decomb 會在多種內插演算法之間切換，以兼顧處理速度與影像品質。</value>
   </data>
   <data name="FilterView_DeinterlaceCustom" xml:space="preserve">
     <value>自訂去交錯參數。
  
- Yadif 語法：mode=m:parity=p
+Bwdif 和 Yadif 語法：mode=m:parity=p
  
- Yadif 預設值：mode=3
+Bwdif 和 Yadif 預設值：mode=3
  
- Decomb 語法：mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
+Decomb 語法：mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
  
- Decomb 預設值：mode=7</value>
+Decomb 預設值：mode=7</value>
   </data>
   <data name="FilterView_DeinterlacePreset" xml:space="preserve">
     <value>去交錯濾鏡設定檔。
@@ -381,9 +376,9 @@ Default 妥善平衡了處理速度及品質。
 
 Skip Spatial Check 會使 Yadif 不矯正某些可避免的瑕疵，以換取稍微快的處理速度。
 
-EEDI2 讓 Decomb 使用速度更慢，但品質更好的插值演算法。適用於很難處理的來源。
+EEDI2 讓 Decomb 使用速度更慢，但品質更好的內插演算法。適用於很難處理的來源。
 
-Bob 會試圖保留畫面動態，然而鋸齒、抖動較明顯。</value>
+Bob 會試圖保留畫面動態，然而代價是視覺解析度會略微下降。</value>
   </data>
   <data name="FilterView_Flip" xml:space="preserve">
     <value>水平翻轉影像（鏡像）。</value>
@@ -399,7 +394,7 @@ Bob 會試圖保留畫面動態，然而鋸齒、抖動較明顯。</value>
 預設值：mode=3:spatial-metric=2:motion-thresh=1:spatial-thresh=1:filter-mode=2:block-thresh=40:block-width=16:block-height=16</value>
   </data>
   <data name="FilterView_Rotate" xml:space="preserve">
-    <value>對影像順時針旋轉90度。</value>
+    <value>對影像順時針旋轉 90 度。</value>
   </data>
   <data name="MainView_Duration" xml:space="preserve">
     <value>來源選取範圍的時間長度（時：分：秒）</value>
@@ -435,16 +430,16 @@ Lapsharp 藉由近似拉普拉斯邊緣濾鏡的卷積核銳利化，有時能�
 
 Unsharp 可用 Ultrafine、Fine、Medium、Coarse、Very Coarse 等多種方式調整銳利化。依輸出影像的解析度、畫面精細度來選擇。
 
-Lapsharp's Film 適用大部分動作畫面。Film 使用各項同性的拉普拉斯核心來銳利化所有邊緣，並使亮度資訊比色度更為銳利。
+Lapsharp 的 Film 模式：適用大部分真人實拍內容的畫面。Film 模式使用等向性拉普拉斯核心來銳利化所有邊緣，並使亮度資訊比色度更為銳利。
 
-Lapsharp's Grain 與 Film 相似，惟 Grain 使用各項同性的 Laplacian of Gaussian 核心以減少噪訊及顆粒，適用於想保留畫面顆粒時。
+Lapsharp 的 Grain 模式與 Film 模式相似，惟 Grain 模式使用高斯-拉普拉斯核心以減少噪訊及顆粒，適用於想保留畫面顆粒感時，或作為 Film 模式的通用替代方案。
 
-Lapsharp's Animation  適用於動漫、卡通等 CEL 動畫。Animation 與 Film 相同，僅減少強度以避免造成瑕疵。
+Lapsharp 的 Animation 模式：適用於動漫、卡通等賽璐珞動畫。Animation 與 Film 相同，僅減少強度以避免造成瑕疵。
 
-Lapsharp's Sprite 適用於像素風格的 2D 遊戲。Sprite 使用四鄰域拉普拉斯核心，比起對角邊緣，更加強化垂直與水平的邊緣。</value>
+Lapsharp 的 Sprite 模式：適用於像素風格的 2D 遊戲。Sprite 模式使用四鄰域拉普拉斯核心，比起對角邊緣，更加強化垂直與水平的邊緣。</value>
   </data>
   <data name="MainView_AlignAVStart" xml:space="preserve">
-    <value>藉由插入空影格或捨去影格，來對齊視訊、音訊流的初始時間戳記。可改善聲畫不同步的問題。</value>
+    <value>藉由插入空影格或捨去影格，來對齊視訊、音訊流的初始時間戳記。可改善使用不遵守 MP4 編輯清單的播放器所產生的聲畫不同步問題。</value>
   </data>
   <data name="MainView_PresetOptionsContextMenu" xml:space="preserve">
     <value>控制設定檔的選項。</value>
@@ -505,11 +500,61 @@ HB_EXIT_CODE
 建議校驗輸出檔案是否完好後再對其操作。</value>
   </data>
   <data name="Options_AdditionalFormatOptions" xml:space="preserve">
-    <value>輸出的檔案格式。除了檔案系統支援的字元外，亦可使用預留文字，將在變更標題、掃描來源或更新某些設定時自動將其替換。</value>
+    <value>輸出檔案的檔名格式。除了檔案系統支援的字元外，您還可以使用下列特殊字串。當您變更標題、掃描來源或更新某些設定時，系統會自動替換這些變數內容。
+
+{source} - 來源檔案名稱。
+{title} - 整數值，代表光碟標題編號。
+{chapters} - 所選的章節範圍。
+{creation-date} - 來源檔案的建立日期（若可用）。
+{creation-time} - 來源檔案的建立時間（若可用）。
+{modification-date} - 來源檔案的最後修改日期（若可用）。
+{modification-time} - 來源檔案的最後修改時間（若可用）。
+{date} - 今天，加入佇列時的日期。
+{time} - 現在時間，加入佇列時的時間。
+{quality_bitrate} - RF/CQ 值或位元率。
+{quality_type} - 根據影片標籤頁中所選的品質模式，紀錄「kbps」或「Q」。
+{preset} - 所選的預設值名稱。
+{encode_bit_depth} - 整數值，例如：8、10 或 12。
+{width} - 輸出的儲存寬度。
+{height} - 輸出的儲存高度。
+{codec} - 顯示影片格式。
+{encoder} - 顯示所用編碼器的短格式代碼 (Key)。
+
+系統將會自動移除任何不合法的路徑字元。</value>
   </data>
   <data name="OptionsView_RightToleftMode" xml:space="preserve">
     <value>對於由右至左的語言，可以從兩種模式中擇一使用。「僅有文字」只會將文字由右至左呈現；「整體使用者介面」則將所有控制項由右至左呈現。
 
 請留意，使用這些模式時使用者介面版面可能會有問題。依據不同語言，可嘗試何者效果最佳。</value>
+  </data>
+  <data name="AudioView_Quality" xml:space="preserve">
+    <value>針對音訊品質指定等級。數值越高，品質越好。
+
+位元率視來源內容而有所不同。</value>
+  </data>
+  <data name="OptionsView_DestinationReplacementOptions" xml:space="preserve">
+    <value>下列特殊字串可以單獨使用，或組合使用以建立目的地路徑：
+
+{source_path} - 與來源路徑位於相同資料夾（若可用）。
+{source_folder_name} – 來源檔案所在的資料夾名稱（不含完整路徑）。
+{source} - 來源檔案名稱。</value>
+  </data>
+  <data name="OptionsView_LaunchsHelp" xml:space="preserve">
+    <value>開啟位於 https://handbrake.fr/docs 的文件網站</value>
+  </data>
+  <data name="Options_RemovePunctuation" xml:space="preserve">
+    <value>連字號（-）、小數點（.）與逗號（,）</value>
+  </data>
+  <data name="PictureSettingsView_OptimalSize" xml:space="preserve">
+    <value>使用上述設定允許的最高解析度</value>
+  </data>
+  <data name="PictureSettingsView_AllowUpscaling" xml:space="preserve">
+    <value>若未啟用，縮放後的尺寸將不會比來源尺寸更大。</value>
+  </data>
+  <data name="PictureSettingsView_AutomaticKeepAR" xml:space="preserve">
+    <value>更改顯示尺寸，將展開視訊畫面</value>
+  </data>
+  <data name="Video_ColourRange" xml:space="preserve">
+    <value>色彩範圍，決定參考用的純黑色與純白色的數值。設定為「Limited」可確保最佳的相容性。</value>
   </data>
 </root>

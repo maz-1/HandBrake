@@ -1,6 +1,6 @@
 /* ssautil.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -116,6 +116,11 @@ static int ssa_update_style(const char *ssa, hb_subtitle_style_context_t *ctx)
         // Skip any malformed markup junk
         while (strchr("\\}", ssa[pos]) == NULL) pos++;
         pos++;
+        // Early exit if there is no tag
+        if (ssa[pos] == '\0')
+        {
+            break;
+        }
         // Check for an index that is in some markup (e.g. font color)
         if (isdigit(ssa[pos]))
         {
@@ -351,7 +356,7 @@ static char ** get_fields(char * line, int last)
     {
         result[ii] = get_field(&pos);
     }
-    result[ii] = strdup(pos);
+    result[ii] = pos != NULL ? strdup(pos) : NULL;
 
     return result;
 }
@@ -537,7 +542,7 @@ static int add_style(hb_subtitle_style_context_t *ctx,
     value = field_value(style, field_indices->bold_index);
     if (value == NULL)
     {
-        flag = HB_STYLE_FLAG_BOLD;
+        flag = 0;
     }
     else
     {
@@ -548,7 +553,7 @@ static int add_style(hb_subtitle_style_context_t *ctx,
     value = field_value(style, field_indices->italic_index);
     if (value == NULL)
     {
-        flag = HB_STYLE_FLAG_ITALIC;
+        flag = 0;
     }
     else
     {
@@ -559,7 +564,7 @@ static int add_style(hb_subtitle_style_context_t *ctx,
     value = field_value(style, field_indices->underline_index);
     if (value == NULL)
     {
-        flag = HB_STYLE_FLAG_UNDERLINE;
+        flag = 0;
     }
     else
     {
@@ -572,9 +577,17 @@ static int add_style(hb_subtitle_style_context_t *ctx,
     return 0;
 }
 
-hb_subtitle_style_context_t * hb_subtitle_style_init(const char * ssa_header)
+hb_subtitle_style_context_t * hb_subtitle_style_init(const uint8_t * ssa_buf, int size)
 {
     hb_subtitle_style_context_t * ctx;
+    char * ssa_header = malloc(size + 1);
+
+    if (ssa_header == NULL)
+    {
+        return NULL;
+    }
+    memcpy(ssa_header, ssa_buf, size);
+    ssa_header[size] = 0;
 
     ctx = calloc(1, sizeof(*ctx));
     if (ctx == NULL)
@@ -592,7 +605,6 @@ hb_subtitle_style_context_t * hb_subtitle_style_init(const char * ssa_header)
             if (pos != NULL)
             {
                 char ** fields;
-                int     next = 7;
                 char  * line = sgetline(pos + 8);
 
                 fields = get_fields(line, 0);
@@ -609,7 +621,7 @@ hb_subtitle_style_context_t * hb_subtitle_style_init(const char * ssa_header)
                     {
                         char ** style;
 
-                        line = sgetline(pos + next);
+                        line = sgetline(pos + 7);
                         style = get_fields(line, 0);
                         free(line);
 
@@ -618,10 +630,8 @@ hb_subtitle_style_context_t * hb_subtitle_style_init(const char * ssa_header)
                             hb_str_vfree(style);
                             break;
                         }
-                        pos = strchr(pos + next, '\n');
-                        next = 1;
-
                         hb_str_vfree(style);
+                        pos = strstr(pos + 7, "\nStyle:");
                     }
 
                     hb_str_vfree(fields);
@@ -630,6 +640,7 @@ hb_subtitle_style_context_t * hb_subtitle_style_init(const char * ssa_header)
         }
     }
     ssa_style_reset(ctx);
+    free(ssa_header);
     return ctx;
 }
 
@@ -698,11 +709,17 @@ static int tx3g_update_style_atoms(hb_tx3g_style_context_t *ctx, int stop)
     style_entry = ctx->style_atoms.buf + pos;
 
     if (ctx->out_style.flags & HB_STYLE_FLAG_BOLD)
+    {
         face |= 1;
+    }
     if (ctx->out_style.flags & HB_STYLE_FLAG_ITALIC)
+    {
         face |= 2;
+    }
     if (ctx->out_style.flags & HB_STYLE_FLAG_UNDERLINE)
+    {
         face |= 4;
+    }
 
     style_entry[0]  = (ctx->style_start >> 8) & 0xff;   // startChar
     style_entry[1]  = ctx->style_start & 0xff;
@@ -757,7 +774,7 @@ static int tx3g_update_style(hb_tx3g_style_context_t *ctx, int utf8_end_pos)
 }
 
 hb_tx3g_style_context_t *
-hb_tx3g_style_init(int height, const char * ssa_header)
+hb_tx3g_style_init(int height, const uint8_t * ssa_buf, int size)
 {
     hb_tx3g_style_context_t * ctx;
 
@@ -766,7 +783,7 @@ hb_tx3g_style_init(int height, const char * ssa_header)
     {
         return NULL;
     }
-    ctx->in_style = hb_subtitle_style_init(ssa_header);
+    ctx->in_style = hb_subtitle_style_init(ssa_buf, size);
     ctx->height            = height;
     ctx->style_atoms.buf   = NULL;
     ctx->style_atoms.size  = 0;
@@ -850,6 +867,11 @@ void hb_muxmp4_process_subtitle_style(
     }
     while (ssa_text[in_pos] != '\0')
     {
+        if (ctx->style_atom_count > INT16_MAX)
+        {
+            goto fail;
+        }
+
         text = ssa_to_text(ssa_text + in_pos, &consumed, ctx->in_style);
         if (text == NULL)
             break;

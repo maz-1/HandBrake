@@ -14,13 +14,14 @@ namespace HandBrakeWPF.ViewModels.Interfaces
     using System.ComponentModel;
 
     using HandBrakeWPF.Model;
+    using HandBrakeWPF.Model.Queue;
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Model;
 
     /// <summary>
     /// The Add Preset View Model
     /// </summary>
-    public interface IQueueSelectionViewModel
+    public interface IQueueSelectionViewModel : IViewModelBase
     {
         /// <summary>
         /// Gets the selected titles.
@@ -39,6 +40,6 @@ namespace HandBrakeWPF.ViewModels.Interfaces
         /// <param name="preset">
         /// The preset.
         /// </param>
-        void Setup(Source scannedSource, Action<IEnumerable<SelectionTitle>> addAction, Preset preset);
+        void Setup(Source scannedSource, Action<IEnumerable<SelectionTitle>, QueueAddRangeLimit> addAction, Preset preset);
     }
 }

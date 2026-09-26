@@ -12,12 +12,10 @@ namespace HandBrakeWPF.Services.Queue.Model
     using System;
     using System.IO;
 
-    using Caliburn.Micro;
-
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode.EventArgs;
     using HandBrakeWPF.Services.Encode.Model.Models;
-    using HandBrakeWPF.Services.Scan.Model;
+    using HandBrakeWPF.ViewModels;
 
     public class QueueStats : PropertyChangedBase
     {
@@ -71,10 +69,7 @@ namespace HandBrakeWPF.Services.Queue.Model
 
         public DateTime EndTime
         {
-            get
-            {
-                return this.endTime;
-            }
+            get => this.endTime;
 
             set
             {
@@ -97,7 +92,7 @@ namespace HandBrakeWPF.Services.Queue.Model
             {
                 if (this.endTime == DateTime.MinValue)
                 {
-                    return string.Empty;
+                    return Resources.QueueView_NotAvailable;
                 }
 
                 return this.endTime.ToString();
@@ -123,7 +118,7 @@ namespace HandBrakeWPF.Services.Queue.Model
 
                 if (this.PausedDuration == TimeSpan.Zero)
                 {
-                    return string.Empty;
+                    return Resources.QueueView_NotAvailable;
                 }
 
                 return this.PausedDuration.Days >= 1 ? string.Format(@"{0:d\:hh\:mm\:ss}", this.PausedDuration) : string.Format(@"{0:hh\:mm\:ss}", this.PausedDuration);
@@ -149,7 +144,7 @@ namespace HandBrakeWPF.Services.Queue.Model
             {
                 if (this.Duration == TimeSpan.Zero)
                 {
-                    return string.Empty;
+                    return Resources.QueueView_NotAvailable;
                 }
 
                 return this.Duration.Days >= 1 ? string.Format(@"{0:d\:hh\:mm\:ss}", this.Duration) : string.Format(@"{0:hh\:mm\:ss}", this.Duration);
@@ -183,13 +178,13 @@ namespace HandBrakeWPF.Services.Queue.Model
             }
         }
 
-        public long? FinalFileSizeInMegaBytes
+        public decimal? FinalFileSizeInMegaBytes
         {
             get
             {
                 if (this.finalFileSize.HasValue)
                 {
-                    return this.finalFileSize / 1024 / 1024;
+                    return (decimal)this.finalFileSize / 1024 / 1024;
                 }
 
                 return 0;
@@ -202,7 +197,7 @@ namespace HandBrakeWPF.Services.Queue.Model
             {
                 if (!FinalFileSizeInMegaBytes.HasValue || FinalFileSizeInMegaBytes == 0)
                 {
-                    return string.Empty;
+                    return Resources.QueueView_NotAvailable;
                 }
 
                 // Work out the size difference
@@ -210,10 +205,10 @@ namespace HandBrakeWPF.Services.Queue.Model
                 if (SourceFileSizeInBytes != null && SourceFileSizeInBytes != 0 && FinalFileSizeBytes.HasValue)
                 {
                     decimal difference = (decimal) 100 / SourceFileSizeInBytes.Value * FinalFileSizeBytes.Value;
-                    percentage = string.Format(" ({0} %{1})", Math.Round(difference, 1), Resources.QueueViewModel_DifferenceText);
+                    percentage = string.Format(" ({0} %{1})", Math.Round(difference, 3), Resources.QueueViewModel_DifferenceText);
                 }
 
-                return string.Format("{0:##.###} MB{1}", FinalFileSizeInMegaBytes, percentage);
+                return string.Format("{0:#####0.###} MB{1}", FinalFileSizeInMegaBytes, percentage);
             }
         }
 
@@ -229,8 +224,10 @@ namespace HandBrakeWPF.Services.Queue.Model
                 {
                     return string.Format("{0} fps", Math.Round(EncodingSpeed, 2));
                 }
-
-                return string.Empty;
+                else
+                {
+                    return Resources.QueueView_NotAvailable;
+                }
             }
         }
 
@@ -238,6 +235,8 @@ namespace HandBrakeWPF.Services.Queue.Model
 
         public string SourceLength { get; set; }
 
+        public string SummaryCompleteStats { get; set; }
+        
         public void SetPaused(bool isPaused)
         {
             this.isPaused = isPaused;
@@ -252,6 +251,28 @@ namespace HandBrakeWPF.Services.Queue.Model
             }
 
             this.NotifyOfPropertyChange(() => this.PausedDisplay);
+        }
+
+        public void UpdateStats(QueueTask job, DateTime? startTime)
+        {
+            if (File.Exists(job.Task.Source))
+            {
+                FileInfo file = new FileInfo(job.Task.Source);
+                this.SourceFileSizeInBytes = file.Length;
+            }
+
+            this.ContentLength = this.DurationCalculation(job);
+            this.SourceLength = GetSourceDuration(job);
+
+            if (startTime != null)
+            {
+                this.StartTime = DateTime.Now;
+            }
+            
+            this.NotifyOfPropertyChange(() => this.SourceFileSizeInBytes);
+            this.NotifyOfPropertyChange(() => this.ContentLength);
+            this.NotifyOfPropertyChange(() => this.StartTime);
+            this.NotifyOfPropertyChange(() => this.SourceLength);
         }
 
         public void UpdateStats(EncodeCompletedEventArgs e, QueueTask job)
@@ -270,6 +291,7 @@ namespace HandBrakeWPF.Services.Queue.Model
             ContentLength = this.DurationCalculation(job);
             SourceLength = GetSourceDuration(job);
 
+            this.SummaryCompleteStats = string.Format(Resources.QueueStats_ShortOutputStats, FileSizeDisplay, Math.Round(EncodingSpeed, 0));
 
             this.NotifyOfPropertyChange(() => this.EndTime);
             this.NotifyOfPropertyChange(() => this.CompletedActivityLogPath);
@@ -277,6 +299,7 @@ namespace HandBrakeWPF.Services.Queue.Model
             this.NotifyOfPropertyChange(() => this.EncodingSpeedDisplay);
             this.NotifyOfPropertyChange(() => this.ContentLength);
             this.NotifyOfPropertyChange(() => this.SourceLength);
+            this.NotifyOfPropertyChange(() => this.SummaryCompleteStats);
         }
 
         public void Reset()

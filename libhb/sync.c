@@ -1,6 +1,6 @@
 /* sync.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -11,6 +11,7 @@
 #include "handbrake/hbffmpeg.h"
 #include <stdio.h>
 #include "handbrake/audio_resample.h"
+#include "handbrake/hwaccel.h"
 
 #if HB_PROJECT_FEATURE_QSV
 #include "handbrake/qsv_common.h"
@@ -357,23 +358,23 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
     // dts problems lead to problems with frame duration.
     double             frame_dur, next_pts, duration;
     hb_buffer_list_t   list;
-    hb_buffer_t      * buf = NULL;
+    hb_buffer_t       *buf = NULL;
+    hb_job_t          *job = stream->common->job;
 
     hb_buffer_list_clear(&list);
     duration = dur;
     next_pts = pts;
 
-    frame_dur = 90000. * stream->common->job->title->vrate.den /
-                         stream->common->job->title->vrate.num;
+    frame_dur = 90000. * job->title->vrate.den / job->title->vrate.num;
 
     // Only create black buffers of frame_dur or longer
     while (duration >= frame_dur)
     {
         if (buf == NULL)
         {
-            buf = hb_frame_buffer_init(stream->common->job->input_pix_fmt,
-                                   stream->common->job->title->geometry.width,
-                                   stream->common->job->title->geometry.height);
+            buf = hb_frame_buffer_init(job->input_pix_fmt,
+                                       job->title->geometry.width,
+                                       job->title->geometry.height);
             uint8_t *planes[4];
             ptrdiff_t linesizes[4];
             for (int i = 0; i <= buf->f.max_plane; ++i)
@@ -381,34 +382,44 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
                 planes[i] = buf->plane[i].data;
                 linesizes[i] = buf->plane[i].stride;
             }
-            av_image_fill_black(planes, linesizes, stream->common->job->input_pix_fmt,
-                                stream->common->job->color_range, buf->f.width, buf->f.height);
-            buf->f.color_prim = stream->common->job->title->color_prim;
-            buf->f.color_transfer = stream->common->job->title->color_transfer;
-            buf->f.color_matrix = stream->common->job->title->color_matrix;
-            buf->f.color_range = stream->common->job->color_range;
-            buf->f.chroma_location = stream->common->job->chroma_location;
-#if HB_PROJECT_FEATURE_QSV
-            if (hb_qsv_full_path_is_enabled(stream->common->job) && !hb_qsv_hw_filters_are_enabled(stream->common->job))
+            av_image_fill_black(planes, linesizes,
+                                job->input_pix_fmt, job->color_range,
+                                buf->f.width, buf->f.height);
+            buf->f.color_prim      = job->title->color_prim;
+            buf->f.color_transfer  = job->title->color_transfer;
+            buf->f.color_matrix    = job->title->color_matrix;
+            buf->f.color_range     = job->color_range;
+            buf->f.chroma_location = job->chroma_location;
+
+            // Dolby Vision requires a RPU on every buffer, attach the first
+            // found during scan in the absence of something better
+            if (job->title->initial_rpu)
             {
-                hb_qsv_attach_surface_to_video_buffer(stream->common->job, buf, 0);
+                hb_data_t *rpu = job->title->initial_rpu;
+                AVBufferRef *ref = av_buffer_alloc(rpu->size);
+                memcpy(ref->data, rpu->bytes, rpu->size);
+
+                AVFrameSideData *sd_dst = NULL;
+                sd_dst = hb_buffer_new_side_data_from_buf(buf, job->title->initial_rpu_type, ref);
+
+                if (!sd_dst)
+                {
+                    av_buffer_unref(&ref);
+                }
             }
-#endif
+
+            if (job->hw_pix_fmt != AV_PIX_FMT_NONE)
+            {
+                AVBufferRef *hw_frames_ctx = hb_hwaccel_init_hw_frames_ctx(job->hw_device_ctx,
+                                                                           job->input_pix_fmt, job->hw_pix_fmt,
+                                                                           job->width, job->height, 0);
+                buf = job->hw_accel->upload(hw_frames_ctx, &buf);
+                av_buffer_unref(&hw_frames_ctx);
+            }
         }
         else
         {
-#if HB_PROJECT_FEATURE_QSV
-            if (hb_qsv_full_path_is_enabled(stream->common->job) && !hb_qsv_hw_filters_are_enabled(stream->common->job))
-            {
-                hb_buffer_t *temp = hb_buffer_dup(buf);
-                hb_qsv_copy_video_buffer_to_video_buffer(stream->common->job, buf, temp, 0);
-                buf = temp;
-            }
-            else
-#endif
-            {
-                buf = hb_buffer_dup(buf);
-            }
+            buf = hb_buffer_shallow_dup(buf);
         }
         buf->s.start     = next_pts;
         next_pts        += frame_dur;
@@ -417,6 +428,7 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
         duration        -= frame_dur;
         hb_buffer_list_append(&list, buf);
     }
+
     if (buf != NULL)
     {
         if (buf->s.stop < pts + dur)
@@ -1158,9 +1170,12 @@ static void fixSubtitleOverlap( sync_stream_t * stream )
         // marker to indicate the end of a subtitle
         return;
     }
-    // Only SSA subs can overlap
+    // Theoretically only SSA subs can overlap,
+    // but there are some SRT subs out there with
+    // overlapping samples, so let's try to preserve them too
     if (stream->subtitle.subtitle->source      != SSASUB &&
         stream->subtitle.subtitle->source      != IMPORTSSA &&
+        stream->subtitle.subtitle->source      != IMPORTSRT &&
         stream->subtitle.subtitle->config.dest == PASSTHRUSUB &&
         buf->s.start <= stream->last_pts)
     {
@@ -2135,14 +2150,7 @@ static int InitAudio( sync_common_t * common, int index )
     w->private_data = pv;
     w->audio        = audio;
     w->fifo_in      = audio->priv.fifo_raw;
-    if (audio->config.out.codec & HB_ACODEC_PASS_FLAG)
-    {
-        w->fifo_out = audio->priv.fifo_out;
-    }
-    else
-    {
-        w->fifo_out = audio->priv.fifo_sync;
-    }
+    w->fifo_out     = audio->priv.fifo_sync;
 
     pv->common                  = common;
     pv->stream                  = &common->streams[1 + index];
@@ -2246,21 +2254,21 @@ static int InitSubtitle( sync_common_t * common, int index )
     pv->stream->last_scr_sequence = -1;
     pv->stream->last_duration     = (int64_t)AV_NOPTS_VALUE;
     pv->stream->subtitle.subtitle = subtitle;
-    pv->stream->fifo_out          = subtitle->fifo_out;
+    pv->stream->fifo_out          = subtitle->fifo_sync;
     pv->stream->fifo_in           = subtitle->fifo_in;
 
     w = hb_get_work(common->job->h, WORK_SYNC_SUBTITLE);
     w->private_data = pv;
     w->subtitle     = subtitle;
     w->fifo_in      = subtitle->fifo_raw;
-    w->fifo_out     = subtitle->fifo_out;
+    w->fifo_out     = subtitle->fifo_sync;
 
     memset(&pv->stream->subtitle.sanitizer, 0,
            sizeof(pv->stream->subtitle.sanitizer));
     if (subtitle->format == TEXTSUB && subtitle->config.dest == PASSTHRUSUB &&
-        (common->job->mux & HB_MUX_MASK_MP4))
+        (common->job->mux & HB_MUX_MASK_ISOBFF_FAMILY))
     {
-        // Merge overlapping subtitles since mpv tx3g does not support them
+        // Merge overlapping subtitles since tx3g does not support them
         pv->stream->subtitle.sanitizer.merge = 1;
     }
     // PGS & DVB subtitles don't need to be linked because there are explicit
@@ -2350,7 +2358,7 @@ static int syncVideoInit( hb_work_object_t * w, hb_job_t * job)
     w->fifo_in                  = job->fifo_raw;
     w->fifo_out                 = job->fifo_sync;
 
-    if (job->pass_id == HB_PASS_ENCODE_2ND)
+    if (job->pass_id == HB_PASS_ENCODE_FINAL)
     {
         /* We already have an accurate frame count from pass 1 */
         hb_interjob_t * interjob = hb_interjob_get(job->h);
@@ -2511,7 +2519,7 @@ static void syncVideoClose( hb_work_object_t * w )
     }
 
     /* save data for second pass */
-    if( job->pass_id == HB_PASS_ENCODE_1ST )
+    if( job->pass_id == HB_PASS_ENCODE_ANALYSIS )
     {
         /* Preserve frame count for better accuracy in pass 2 */
         hb_interjob_t * interjob = hb_interjob_get( job->h );
@@ -2548,6 +2556,69 @@ static void syncVideoClose( hb_work_object_t * w )
     w->private_data = NULL;
 }
 
+static char * strchr_n(char *s, int c, int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        s = strchr(s, c);
+        if (s == NULL)
+        {
+            break;
+        }
+        s++;
+    }
+
+    return s;
+}
+
+static int strcmp_len(char *a, size_t len_a, char *b, size_t len_b)
+{
+    if (len_a != len_b)
+    {
+        return 1;
+    }
+
+    size_t len = MIN(len_a, len_b);
+    for (int i = 0; i < len; i++)
+    {
+        if (a[i] != b[i])
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static char * next_style_if_different(char *a, char *b)
+{
+    char *start_a = NULL, *end_a = NULL;
+    char *start_b = NULL, *end_b = NULL;
+
+    start_a = strchr_n(a, ',', 2);
+    end_a   = strchr_n(a, ',', 3);
+
+    start_b = strchr_n(b, ',', 2);
+    end_b   = strchr_n(b, ',', 3);
+
+    if (start_a == NULL || end_a == NULL ||
+        start_b == NULL || end_b == NULL)
+    {
+        return NULL;
+    }
+
+    size_t style_a_len = end_a - start_a - 1;
+    size_t style_b_len = end_b - start_b - 1;
+
+    if (strcmp_len(start_a, style_a_len,
+                   start_b, style_b_len))
+    {
+        return hb_strndup(start_b, style_b_len);
+    }
+
+    return NULL;
+}
+
 static hb_buffer_t * merge_ssa(hb_buffer_t *a, hb_buffer_t *b)
 {
     int len, ii;
@@ -2567,7 +2638,10 @@ static hb_buffer_t * merge_ssa(hb_buffer_t *a, hb_buffer_t *b)
         return hb_buffer_dup(a);
     }
 
-    buf = hb_buffer_init(a->size + b->size);
+    char *style = next_style_if_different((char *)a->data, (char *)b->data);
+    size_t style_len = style ? strlen(style) : 0;
+
+    buf = hb_buffer_init(a->size + b->size + style_len);
     buf->s = a->s;
 
     // Find the text in the second SSA sub
@@ -2594,7 +2668,15 @@ static hb_buffer_t * merge_ssa(hb_buffer_t *a, hb_buffer_t *b)
         }
         // Text subtitles are SSA internally.  Use SSA newline code
         // and force style reset at beginning of new line.
-        len = sprintf((char*)buf->data, "%s\\N{\\r}%s", a->data, text);
+        if (style_len)
+        {
+            len = snprintf((char*)buf->data, buf->size, "%s\\N{\\r%s}%s", a->data, style, text);
+        }
+        else
+        {
+            len = snprintf((char*)buf->data, buf->size, "%s\\N{\\r}%s", a->data, text);
+        }
+
         if (len >= 0)
             buf->size = len + 1;
     }
@@ -2603,6 +2685,8 @@ static hb_buffer_t * merge_ssa(hb_buffer_t *a, hb_buffer_t *b)
         memcpy(buf->data, a->data, a->size);
         buf->size = a->size;
     }
+
+    free(style);
 
     return buf;
 }
@@ -2932,11 +3016,12 @@ static int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     // Fix of LA case allowing use of LA up to 40 in full encode path,
     // as currently for such support we cannot allocate >64 slices per texture
     // due to MSFT limitation, not impacting other cases
-    if (pv->common->job->qsv.ctx && (pv->common->job->qsv.ctx->la_is_enabled == 1)
-        && pv->common->job->qsv.ctx->full_path_is_enabled)
+    hb_job_t *job = pv->common->job;
+    if (job->hw_pix_fmt == AV_PIX_FMT_QSV &&
+        job->qsv_ctx->la_is_enabled == 1)
     {
         pv->stream->max_len = SYNC_MIN_VIDEO_QUEUE_LEN;
-        pv->common->job->qsv.ctx->la_is_enabled++;
+        pv->common->job->qsv_ctx->la_is_enabled++;
     }
 #endif
 
@@ -3189,14 +3274,23 @@ static void UpdateState( sync_common_t * common, int frame_count )
                             (common->st_dates[3]  - common->st_dates[0]);
     if (hb_get_date() > common->st_first + 4000)
     {
-        int eta;
         p.rate_avg = 1000.0 * common->st_counts[3] /
                      (common->st_dates[3] - common->st_first - job->st_paused);
-        eta = (common->est_frame_count - common->st_counts[3]) / p.rate_avg;
-        p.eta_seconds = eta;
-        p.hours       = eta / 3600;
-        p.minutes     = (eta % 3600) / 60;
-        p.seconds     = eta % 60;
+        if (common->est_frame_count >= common->st_counts[3])
+        {
+            int eta = (common->est_frame_count - common->st_counts[3]) / p.rate_avg;
+            p.eta_seconds = eta;
+            p.hours       = eta / 3600;
+            p.minutes     = (eta % 3600) / 60;
+            p.seconds     = eta % 60;
+        }
+        else
+        {
+            p.eta_seconds = 0;
+            p.hours    = -1;
+            p.minutes  = -1;
+            p.seconds  = -1;
+        }
     }
     else
     {
@@ -3332,7 +3426,17 @@ static int syncSubtitleWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         return HB_WORK_DONE;
     }
 
-    *buf_in = NULL;
+    if (pv->common->job->indepth_scan)
+    {
+        // When doing subtitle indepth scan, the pipeline ends at sync,
+        // do not add the subtitles to the queue
+        return HB_WORK_OK;
+    }
+    else
+    {
+        *buf_in = NULL;
+    }
+
     QueueBuffer(pv->stream, in);
     Synchronize(pv->stream);
 

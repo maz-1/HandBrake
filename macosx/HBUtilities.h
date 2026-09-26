@@ -31,9 +31,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 /**
- * Returns the url of the current version documentation.
+ * Returns the url of the documentation.
  */
 @property (nonatomic, readonly, class) NSURL *documentationURL;
+
+
+/**
+ * Returns the url of the current English version documentation.
+ */
+@property (nonatomic, readonly, class) NSURL *documentationBaseURL;
 
 /**
  *  Writes a message to standard error.
@@ -57,7 +63,34 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable NSData *)bookmarkFromURL:(NSURL *)url;
 + (nullable NSData *)bookmarkFromURL:(NSURL *)url options:(NSURLBookmarkCreationOptions)options;
 
-+ (NSURL *)mediaURLFromURL:(NSURL *)URL;
+/// Find the common base paths of an array of NSURL
+/// - Parameter fileURLs: an array of NSURL
++ (NSArray<NSURL *> *)baseURLs:(NSArray<NSURL *> *)fileURLs;
+
+/// Expand an array of NSURL into an array that contains all the top level
+/// files and content of the top level folders
+/// If the recursive option is set, recursively expand every subfolder.
+/// If the input is a single folder, check if it's a DVD-Video and Bluray
+/// and ignore the sub folders.
+/// - Parameters:
+///   - fileURLs: an array of NSURL
+///   - recursive: whether to recursively expand sub folders
++ (NSArray<NSURL *> *)expandURLs:(NSArray<NSURL *> *)fileURLs recursive:(BOOL)recursive;
+
+@property (nonatomic, class, readonly) NSArray<NSString *> *supportedExtensions;
+
+/// Extract the urls that contains one of the extension
+/// - Parameters:
+///   - fileURLs: an array of NSURL
+///   - extensions: an array of valid file extensions
++ (NSArray<NSURL *> *)extractURLs:(NSArray<NSURL *> *)fileURLs withExtension:(NSArray<NSString *> *)extensions;
+
+/// Trim an array of NSURL into an array by removing the urls
+/// that contains one of the excluded extension
+/// - Parameters:
+///   - fileURLs: an array of NSURL
+///   - extensions: an array of file extensions
++ (NSArray<NSURL *> *)trimURLs:(NSArray<NSURL *> *)fileURLs withExtension:(NSArray<NSString *> *)extensions;
 
 + (NSString *)isoCodeForNativeLang:(NSString *)language;
 + (NSString *)iso6392CodeFor:(NSString *)language;

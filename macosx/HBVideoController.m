@@ -22,11 +22,9 @@ static void *HBVideoControllerContext = &HBVideoControllerContext;
 // Text Field to show the expanded opts from unparse()
 @property (nonatomic, weak) IBOutlet NSTextField *unparseTextField;
 
-// Simple encoder options
-@property (nonatomic, weak) IBOutlet NSView *encoderOptionsSimpleView;
-
-@property (nonatomic) BOOL presetViewEnabled;
 @property (nonatomic) NSColor *labelColor;
+@property (nonatomic) BOOL presetViewEnabled;
+@property (nonatomic) BOOL showTickMarks;
 
 @end
 
@@ -56,12 +54,6 @@ static void *HBVideoControllerContext = &HBVideoControllerContext;
     return self;
 }
 
-- (void)viewDidLoad
-{
-    self.encoderOptionsView.hidden = YES;
-    self.encoderOptionsSimpleView.hidden = YES;
-}
-
 - (void)setVideo:(HBVideo *)video
 {
     _video = video;
@@ -75,7 +67,7 @@ static void *HBVideoControllerContext = &HBVideoControllerContext;
         self.labelColor = [NSColor disabledControlTextColor];
     }
 
-    [self enableEncoderOptionsWidgets:(video != nil)];
+    self.presetViewEnabled = video != nil;
 }
 
 #pragma mark - KVO
@@ -86,7 +78,7 @@ static void *HBVideoControllerContext = &HBVideoControllerContext;
     {
         if ([keyPath isEqualToString:@"video.encoder"])
         {
-            [self switchPresetView];
+            [self setupPresetsSlider];
             [self setupQualitySlider];
         }
         else if ([keyPath isEqualToString:@"video.frameRate"])
@@ -149,46 +141,30 @@ static void *HBVideoControllerContext = &HBVideoControllerContext;
     {
          // Encoders that allow fractional CQ values often have a low granularity
          // which makes the slider hard to use, so use a value from preferences.
-        granularity = 1.0f / [NSUserDefaults.standardUserDefaults
-                       integerForKey:HBCqSliderFractional];
+        granularity = 1.0f / [NSUserDefaults.standardUserDefaults integerForKey:HBCqSliderFractional];
     }
     self.vidQualitySlider.minValue = minValue;
     self.vidQualitySlider.maxValue = maxValue;
 
-    NSInteger numberOfTickMarks = (NSInteger)((maxValue - minValue) * (1.0f / granularity)) + 1;
-    self.vidQualitySlider.numberOfTickMarks = numberOfTickMarks;
+    if (self.showTickMarks)
+    {
+        NSInteger numberOfTickMarks = (NSInteger)((maxValue - minValue) * (1.0f / granularity)) + 1;
+        self.vidQualitySlider.numberOfTickMarks = numberOfTickMarks;
+    }
 
     // Replace the slider transformer with a new one,
     // configured with the new max/min/direction values.
     [self.vidQualitySlider unbind:@"value"];
-    HBQualityTransformer *transformer = [[HBQualityTransformer alloc] initWithReversedDirection:(direction != 0) min:minValue max:maxValue];
-    [self.vidQualitySlider bind:@"value" toObject:self withKeyPath:@"self.video.quality" options:@{NSValueTransformerBindingOption: transformer}];
+    HBQualityTransformer *transformer = [[HBQualityTransformer alloc] initWithReversedDirection:(direction != 0)
+                                                                                            min:minValue
+                                                                                            max:maxValue
+                                                                                    granularity:granularity];
+    [self.vidQualitySlider bind:@"value" toObject:self
+                    withKeyPath:@"self.video.quality"
+                        options:@{NSValueTransformerBindingOption: transformer}];
 }
 
-#pragma mark - Video x264/x265 Presets
-
-/**
- *  Shows/hides the right preset view for the current video encoder.
- */
-- (void)switchPresetView
-{
-    BOOL supportPresets = [self.video isPresetSystemSupported:self.video.encoder];
-    self.encoderOptionsView.hidden = !supportPresets;
-    self.encoderOptionsSimpleView.hidden = !([self.video isSimpleOptionsPanelSupported:self.video.encoder] && !supportPresets);
-
-    if ([self.video isPresetSystemSupported:self.video.encoder])
-    {
-        [self setupPresetsSlider];
-    }
-}
-
-/**
- *  Enables/disables the preset panel.
- */
-- (void)enableEncoderOptionsWidgets:(BOOL)enable
-{
-    self.presetViewEnabled = enable;
-}
+#pragma mark - Presets
 
 /**
  *  Setup the presets slider with the right

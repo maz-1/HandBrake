@@ -1,6 +1,6 @@
 /* lapsharp.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -18,6 +18,9 @@
 
 typedef struct
 {
+    int        bps;
+    int        max_value;
+
     double strength;  // strength
     int    kernel;    // which kernel to use; kernels[kernel]
 } lapsharp_plane_context_t;
@@ -84,6 +87,8 @@ static kernel_t kernels[] =
 
 struct hb_filter_private_s
 {
+    int depth;
+
     lapsharp_plane_context_t plane_ctx[3];
 
     hb_filter_init_t         input;
@@ -109,6 +114,7 @@ hb_filter_object_t hb_filter_lapsharp =
     .id                = HB_FILTER_LAPSHARP,
     .enforce_order     = 1,
     .name              = "Sharpen (lapsharp)",
+    .short_name        = "lapsharp",
     .settings          = NULL,
     .init              = hb_lapsharp_init,
     .work              = hb_lapsharp_work,
@@ -116,57 +122,90 @@ hb_filter_object_t hb_filter_lapsharp =
     .settings_template = hb_lapsharp_template,
 };
 
-static void hb_lapsharp(const uint8_t *src,
-                              uint8_t *dst,
-                        const int width,
-                        const int height,
-                        const int stride,
-                        lapsharp_plane_context_t * ctx)
-{
-    const kernel_t *kernel = &kernels[ctx->kernel];
+#define DEF_LAPSHARP_FUNC(name, nbits, pixelbits)                                                \
+static void name##_##nbits(const uint8_t *frame_src,                                             \
+                                 uint8_t *frame_dst,                                             \
+                           const int width,                                                      \
+                           const int height,                                                     \
+                           int stride_src,                                                       \
+                           int stride_dst,                                                       \
+                           lapsharp_plane_context_t *ctx)                                        \
+{                                                                                                \
+    const kernel_t *kernel = &kernels[ctx->kernel];                                              \
+                                                                                                 \
+    const uint##nbits##_t *src = (const uint##nbits##_t *)frame_src;                             \
+    uint##nbits##_t       *dst = (uint##nbits##_t *)frame_dst;                                   \
+                                                                                                 \
+    stride_src /= ctx->bps;                                                                      \
+    stride_dst /= ctx->bps;                                                                      \
+                                                                                                 \
+    /* Sharpen using selected kernel */                                                          \
+    const int offset_min    = -((kernel->size - 1) / 2);                                         \
+    const int offset_max    =   (kernel->size + 1) / 2;                                          \
+    const int stride_border =   (stride_src - width) / 2;                                        \
+    const int max_value     = ctx->max_value;                                                    \
+                                                                                                 \
+    int##pixelbits##_t pixel;                                                                    \
+                                                                                                 \
+    for (int y = 0; y < height; y++)                                                             \
+    {                                                                                            \
+        for (int x = 0; x < width; x++)                                                          \
+        {                                                                                        \
+            if ((y < offset_max) ||                                                              \
+                (y > height - offset_max) ||                                                     \
+                (x < stride_border + offset_max) ||                                              \
+                (x > width + stride_border - offset_max))                                        \
+            {                                                                                    \
+                *(dst + stride_dst*y + x) = *(src + stride_src*y + x);                           \
+                continue;                                                                        \
+            }                                                                                    \
+                                                                                                 \
+            pixel = 0;                                                                           \
+            for (int k = offset_min; k < offset_max; k++)                                        \
+            {                                                                                    \
+                for (int j = offset_min; j < offset_max; j++)                                    \
+                {                                                                                \
+                    pixel += kernel->mem[((j - offset_min) * kernel->size) +                     \
+                             k - offset_min] * *(src + stride_src*(y + j) + (x + k));            \
+                }                                                                                \
+            }                                                                                    \
+            pixel = (int##pixelbits##_t)(((pixel * kernel->coef) - *(src + stride_src*y + x)) *  \
+                        ctx->strength) + *(src + stride_src*y + x);                              \
+            pixel = pixel < 0 ? 0 : pixel;                                                       \
+            pixel = pixel > max_value ? max_value : pixel;                                       \
+            *(dst + stride_dst*y + x) = (uint##nbits##_t)(pixel);                                \
+        }                                                                                        \
+    }                                                                                            \
+}                                                                                                \
 
-    // Sharpen using selected kernel
-    const int offset_min    = -((kernel->size - 1) / 2);
-    const int offset_max    =   (kernel->size + 1) / 2;
-    const int stride_border =   (stride - width) / 2;
-    int16_t   pixel;
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width; x++)
-        {
-            if ((y < offset_max) ||
-                (y > height - offset_max) ||
-                (x < stride_border + offset_max) ||
-                (x > width + stride_border - offset_max))
-            {
-                *(dst + stride*y + x) = *(src + stride*y + x);
-                continue;
-            }
-            pixel = 0;
-            for (int k = offset_min; k < offset_max; k++)
-            {
-                for (int j = offset_min; j < offset_max; j++)
-                {
-                    pixel += kernel->mem[((j - offset_min) * kernel->size) + k - offset_min] * *(src + stride*(y + j) + (x + k));
-                }
-            }
-            pixel = (int16_t)(((pixel * kernel->coef) - *(src + stride*y + x)) * ctx->strength) + *(src + stride*y + x);
-            pixel = pixel < 0 ? 0 : pixel;
-            pixel = pixel > 255 ? 255 : pixel;
-            *(dst + stride*y + x) = (uint8_t)(pixel);
-        }
-    }
-}
+DEF_LAPSHARP_FUNC(lapsharp, 16, 32)
+DEF_LAPSHARP_FUNC(lapsharp, 8, 16)
+
+#define hb_lapsharp(...)                               \
+    switch (pv->depth)                                 \
+    {                                                  \
+        case  8: lapsharp_8(__VA_ARGS__); break;       \
+        default: lapsharp_16(__VA_ARGS__); break;      \
+    }                                                  \
+
 
 static int hb_lapsharp_init(hb_filter_object_t *filter,
                             hb_filter_init_t   *init)
 {
     filter->private_data = calloc(sizeof(struct hb_filter_private_s), 1);
+    if (filter->private_data == NULL)
+    {
+        hb_error("lapsharp: calloc failed");
+        return -1;
+    }
     hb_filter_private_t * pv = filter->private_data;
 
     char *kernel_string[3];
 
     pv->input = *init;
+
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(init->pix_fmt);
+    pv->depth = desc->comp[0].depth;
 
     // Mark parameters unset
     for (int c = 0; c < 3; c++)
@@ -195,6 +234,8 @@ static int hb_lapsharp_init(hb_filter_object_t *filter,
     {
         lapsharp_plane_context_t * ctx = &pv->plane_ctx[c];
 
+        ctx->bps = pv->depth > 8 ? 2 : 1;
+        ctx->max_value = (1 << pv->depth) - 1;
         ctx->kernel = -1;
 
         if (kernel_string[c] == NULL)
@@ -306,10 +347,11 @@ static int hb_lapsharp_work(hb_filter_object_t *filter,
                     in->plane[c].width,
                     in->plane[c].height,
                     in->plane[c].stride,
+                    out->plane[c].stride,
                     ctx);
     }
 
-    out->s = in->s;
+    hb_buffer_copy_props(out, in);
     *buf_out = out;
 
     return HB_FILTER_OK;

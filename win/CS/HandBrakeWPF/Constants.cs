@@ -33,7 +33,17 @@ namespace HandBrakeWPF
         public const string Time = "{time}";
         public const string CreationDate = "{creation-date}";
         public const string CreationTime = "{creation-time}";
-        public const string Preset = "{preset}";
+        public const string ModificationDate = "{modification-date}";
+        public const string ModificationTime = "{modification-time}";
+        public const string Preset = "{preset}"; 
+        public const string QualityType = "{quality_type}";
+        public const string EncoderBitDepth = "{encoder_bit_depth}";
+        public const string StorageWidth = "{width}";
+        public const string StorageHeight = "{height}";
+        public const string Codec = "{codec}";
+        public const string EncoderDisplay = "{encoder-display}";
+        public const string Encoder = "{encoder}";
+        public const string Angle = "{angle}";
 
         /* Auto-name Path Constants */
         public const string Source = "{source}";
@@ -42,5 +52,16 @@ namespace HandBrakeWPF
 
         public const string FileScanMru = "FileScanMru";
         public const string FileSaveMru = "FileSaveMru";
+
+        /* When Done Options*/
+        public const string SourceArg = "{source}";
+        public const string DestinationArg = "{destination}";
+        public const string DestinationFolder = "{destination_folder}";
+        public const string ExitCodeArg = "{exit_code}";
+
+        /* When Done Options*/
+        public const string AutonameOutputFolder = "{autoname_output_folder}";
+
+      
     }
 }

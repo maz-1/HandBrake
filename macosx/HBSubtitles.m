@@ -22,7 +22,7 @@
 #define NONE_TRACK_INDEX        0
 #define FOREIGN_TRACK_INDEX     1
 
-@interface HBSubtitles () <HBTrackDataSource, HBTrackDelegate>
+@interface HBSubtitles () <HBSubtitlesTrackDataSource, HBSubtitlesTrackDelegate>
 
 @property (nonatomic, readwrite) NSArray<HBTitleSubtitlesTrack *> *sourceTracks;
 
@@ -80,10 +80,30 @@
 
     for (HBTitleSubtitlesTrack *track in self.sourceTracks)
     {
-        [sourceNames addObject:track.displayName];
+        if (track.title.length)
+        {
+            [sourceNames addObject:[NSString stringWithFormat:@"%@ - %@", track.displayName, track.title]];
+        }
+        else
+        {
+            [sourceNames addObject:track.displayName];
+        }
     }
 
     return sourceNames;
+}
+
+- (nullable NSString *)defaultTitleForTrackAtIndex:(NSUInteger)idx
+{
+    NSString *title = nil;
+    HBTitleSubtitlesTrack *track = [self sourceTrackAtIndex:idx];
+
+    if (self.defaults.passthruName)
+    {
+        title = track.title;
+    }
+
+    return title;
 }
 
 #pragma mark - Delegate
@@ -168,7 +188,8 @@
     [self removeTracksAtIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.tracks.count)]];
 
     // Add the remaining tracks
-    for (NSUInteger idx = 1; idx < self.sourceTracksArray.count; idx++) {
+    for (NSUInteger idx = 1; idx < self.sourceTracksArray.count; idx++)
+    {
         [self addTrack:[self trackFromSourceTrackIndex:idx]];
     }
 
@@ -187,7 +208,7 @@
     [self addDefaultTracksFromJobSettings:self.job.jobDict];
 }
 
-- (void)addExternalTrackFromURL:(NSURL *)fileURL
+- (void)addExternalSourceTrackFromURL:(NSURL *)fileURL addImmediately:(BOOL)addImmediately
 {
     int type = [fileURL.pathExtension.lowercaseString isEqualToString:@"srt"] ? IMPORTSRT : IMPORTSSA;
 
@@ -197,7 +218,10 @@
 
     self.sourceTracks = [sourceTracks copy];
     HBSubtitlesTrack *track = [self trackFromSourceTrackIndex:self.sourceTracksArray.count - 1];
-    [self insertObject:track inTracksAtIndex:[self countOfTracks] - 1];
+    if (addImmediately)
+    {
+        [self insertObject:track inTracksAtIndex:[self countOfTracks] - 1];
+    }
 }
 
 - (void)setContainer:(int)container
@@ -248,13 +272,31 @@
  *
  *  @param index the index of the source track in the subtitlesSourceArray
  */
-- (HBSubtitlesTrack *)trackFromSourceTrackIndex:(NSInteger)index
+- (HBSubtitlesTrack *)trackFromSourceTrackIndex:(NSInteger)trackIndex
 {
-    HBSubtitlesTrack *track = [[HBSubtitlesTrack alloc] initWithTrackIdx:index container:self.container
+    HBSubtitlesTrack *track = [[HBSubtitlesTrack alloc] initWithTrackIdx:trackIndex container:self.container
                                                               dataSource:self delegate:self];
     track.undo = self.undo;
     return track;
 }
+
+- (HBSubtitlesTrack *)trackFromSourceTitleTrackIndex:(NSInteger)trackIndex
+{
+    NSInteger index = 0;
+    for (HBTitleSubtitlesTrack *sourceTrack in self.sourceTracks)
+    {
+        if (sourceTrack.index == trackIndex)
+        {
+            HBSubtitlesTrack *track = [[HBSubtitlesTrack alloc] initWithTrackIdx:index container:self.container
+                                                                      dataSource:self delegate:self];
+            track.undo = self.undo;
+            return track;
+        }
+        index += 1;
+    }
+    return nil;
+}
+
 
 #pragma mark - Defaults
 
@@ -282,12 +324,15 @@
     // Add the tracks
     for (NSDictionary *trackDict in settingsTracks)
     {
-        HBSubtitlesTrack *track = [self trackFromSourceTrackIndex:[trackDict[@"Track"] unsignedIntegerValue] + 2];
+        HBSubtitlesTrack *track = [self trackFromSourceTitleTrackIndex:[trackDict[@"Track"] unsignedIntegerValue]];
+        if (track)
+        {
+            track.burnedIn = [trackDict[@"Burn"] boolValue];
+            track.forcedOnly = [trackDict[@"Forced"] boolValue];
+            track.title = trackDict[@"Name"];
 
-        track.burnedIn = [trackDict[@"Burn"] boolValue];
-        track.forcedOnly = [trackDict[@"Forced"] boolValue];
-
-        [tracks addObject:track];
+            [tracks addObject:track];
+        }
     }
 
     [self insertTracks:tracks atIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, tracks.count)]];
@@ -451,7 +496,7 @@
 {
     self = [super init];
 
-    decodeInt(_container); if (_container != HB_MUX_MP4 && _container != HB_MUX_MKV && _container != HB_MUX_WEBM) { goto fail; }
+    decodeContainerOrFail(_container);
     decodeCollectionOfObjectsOrFail(_sourceTracks, NSArray, HBTitleSubtitlesTrack);
     if (_sourceTracks.count < 1) { goto fail; }
     decodeCollectionOfObjectsOrFail(_tracks, NSMutableArray, HBSubtitlesTrack);

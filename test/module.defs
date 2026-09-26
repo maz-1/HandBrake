@@ -1,6 +1,9 @@
 $(eval $(call import.MODULE.defs,TEST,test,LIBHB))
 $(eval $(call import.GCC,TEST))
 
+TEST.PKGCONFIG.env = PKG_CONFIG_PATH="$(call fn.ABSOLUTE,$(CONTRIB.build/))lib/pkgconfig:$(PKG_CONFIG_PATH)"
+TEST.PKGCONFIG.exe = $(TEST.PKGCONFIG.env) $(PKGCONFIG.exe)
+
 TEST.src/   = $(SRC/)test/
 TEST.build/ = $(BUILD/)test/
 
@@ -13,32 +16,30 @@ TEST.GCC.L = $(CONTRIB.build/)lib
 
 TEST.libs = $(LIBHB.a)
 
-TEST.GCC.l = \
-        ass avformat avfilter avcodec avutil swresample postproc mp3lame dvdnav \
-        dvdread fribidi swscale vpx theoraenc theoradec vorbis vorbisenc ogg \
-        x264 bluray freetype xml2 bz2 z jansson harfbuzz opus speex lzma dav1d \
-        turbojpeg zimg
+TEST.pkgconfig_libs = libass libavformat libavfilter libavcodec libavutil libswresample dvdnav \
+	dvdread libswscale theoraenc theoradec vorbis vorbisenc ogg x264 libbluray libudfread \
+	jansson libturbojpeg SvtAv1Enc
 
-ifeq (,$(filter $(HOST.system),darwin cygwin mingw))
-    TEST.GCC.l += fontconfig
+TEST.pkgconfig_libs += $(foreach m,$(MODULES.NAMES),$($m.OSL.libs))
+
+ifeq (1,$(FEATURE.audiotoolboxwrapper))
+    # AudioToolboxWrapper does not provide a pkg-config file.
+    TEST.GCC.l += AudioToolboxWrapper shlwapi shell32
 endif
 
-ifeq (1,$(FEATURE.qsv))
-    TEST.GCC.l += vpl
-ifneq (,$(filter $(HOST.system),linux freebsd))
-    TEST.GCC.l += va va-drm
-endif
+ifeq (1,$(FEATURE.vaapi))
+    TEST.GCC.l += X11 va va-drm va-x11
 endif
 
 ifeq (1,$(FEATURE.flatpak))
-    TEST.GCC.l += glib-2.0
+    TEST.pkgconfig_libs += glib-2.0
 endif
 
-TEST.GCC.l += $(foreach m,$(MODULES.NAMES),$($m.OSL.libs))
+TEST.GCC.pkgconfig = $(shell $(TEST.PKGCONFIG.exe) --libs $(TEST.pkgconfig_libs))
 
 TEST.install.exe = $(DESTDIR)$(PREFIX/)bin/$(notdir $(TEST.exe))
 ifeq (1,$(FEATURE.flatpak))
-    TEST.metainfo.template = $(TEST.src/)fr.handbrake.HandBrakeCLI.metainfo.xml.template
+    TEST.metainfo.template = $(TEST.src/)fr.handbrake.HandBrakeCLI.metainfo.xml.in.in
     TEST.metainfo = $(TEST.build/)fr.handbrake.HandBrakeCLI.metainfo.xml
     TEST.install.metainfo = $(DESTDIR)$(PREFIX/)share/metainfo/$(notdir $(TEST.metainfo))
 endif
@@ -62,7 +63,7 @@ endif
 TEST.GCC.I += $(LIBHB.GCC.I)
 
 ifeq ($(HOST.system),darwin)
-    TEST.GCC.f += IOKit CoreServices CoreText CoreGraphics AudioToolbox VideoToolbox CoreMedia CoreVideo Foundation DiskArbitration
+    TEST.GCC.f += IOKit CoreServices CoreText CoreGraphics AudioToolbox VideoToolbox CoreMedia CoreVideo IOSurface Foundation DiskArbitration Metal
     TEST.GCC.l += iconv
 else ifeq ($(HOST.system),linux)
     TEST.GCC.l += pthread dl m
@@ -71,8 +72,12 @@ ifeq (1, $(FEATURE.numa))
 endif
 else ifeq ($(HOST.system),kfreebsd)
     TEST.GCC.l += pthread dl m
-else ifneq (,$(filter $(HOST.system),freebsd netbsd))
+else ifneq (,$(filter $(HOST.system),freebsd netbsd openbsd))
     TEST.GCC.L += $(LOCALBASE)/lib
+ifneq (,$(filter $(HOST.system),openbsd))
+    TEST.GCC.L += $(X11BASE)/lib
+    TEST.GCC.l += iconv
+endif
     TEST.GCC.l += pthread m
 else ifeq ($(HOST.system),solaris)
     TEST.GCC.l += pthread nsl socket
@@ -89,7 +94,7 @@ ifeq (1,$(HAS.pthread))
 else
     TEST.GCC.l += pthreadGC2
 endif
-    TEST.GCC.l += bcrypt iconv ws2_32 regex uuid ole32 gdi32
+    TEST.GCC.l += bcrypt iconv ws2_32 regex uuid ole32 gdi32 userenv ntdll
     ifeq (1,$(FEATURE.mf))
         TEST.GCC.l += mfplat strmiids
     endif

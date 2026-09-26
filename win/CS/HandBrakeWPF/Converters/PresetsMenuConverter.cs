@@ -17,9 +17,9 @@ namespace HandBrakeWPF.Converters
     using System.Windows.Controls;
     using System.Windows.Data;
 
-    using Caliburn.Micro;
-
     using HandBrakeWPF.Commands;
+    using HandBrakeWPF.Commands.Presets;
+    using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model.Options;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
@@ -36,7 +36,7 @@ namespace HandBrakeWPF.Converters
         
         public PresetsMenuConverter()
         {
-            this.userSettingService = IoC.Get<IUserSettingService>();
+            this.userSettingService = IoCHelper.Get<IUserSettingService>();
         }
 
         /// <summary>Converts a value. </summary>
@@ -66,15 +66,6 @@ namespace HandBrakeWPF.Converters
                                                      Command = new AddPresetCommand()
                                                  };
                 groupedMenu.Add(savePresetMenuItem);
-
-                MenuItem presetManagerMenuItem = new MenuItem
-                                        {
-                                            Header = Resources.PresetManger_Title,
-                                            Tag = null,
-                                            Command = new OpenPresetManagerCommand()
-                                        };
-                groupedMenu.Add(presetManagerMenuItem);
-
 
                 groupedMenu.Add(new Separator());
             }
@@ -113,7 +104,7 @@ namespace HandBrakeWPF.Converters
                     groupedMenu.Add(new Separator());
                 }
 
-                foreach (var preset in category.Presets.Reverse())
+                foreach (var preset in category.Presets)
                 {
                     groupedMenu.Add(GeneratePresetMenuItem(preset));
                 }

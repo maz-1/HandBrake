@@ -16,22 +16,20 @@ namespace HandBrakeWPF.ViewModels
     using System.Linq;
     using System.Windows;
 
-    using Caliburn.Micro;
+    using HandBrake.App.Core.Utilities;
 
     using HandBrakeWPF.EventArgs;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Model;
+    using HandBrakeWPF.Utilities.FileDialogs;
     using HandBrakeWPF.Utilities.Input;
-    using HandBrakeWPF.Utilities.Output;
     using HandBrakeWPF.ViewModels.Interfaces;
-
-    using Microsoft.Win32;
 
     using ChapterMarker = Services.Encode.Model.Models.ChapterMarker;
     using EncodeTask = Services.Encode.Model.EncodeTask;
-    using GeneralApplicationException = Exceptions.GeneralApplicationException;
+    using GeneralApplicationException = HandBrake.App.Core.Exceptions.GeneralApplicationException;
 
     public class ChaptersViewModel : ViewModelBase, IChaptersViewModel
     {
@@ -382,16 +380,18 @@ namespace HandBrakeWPF.ViewModels
                 List<TimeSpan> diffs = new List<TimeSpan>();
                 foreach (KeyValuePair<int, Tuple<string, TimeSpan>> import in importedChapters)
                 {
-                    ChapterMarker sourceMarker = this.Chapters[import.Key - 1];
-                    TimeSpan source = sourceMarker.Duration;
+                    int key = import.Key - 1;
 
-                    TimeSpan diff = source - import.Value.Item2;
-                    diffs.Add(diff);
+                    if (key <= (this.Chapters.Count -1))
+                    {
+                        ChapterMarker sourceMarker = this.Chapters[key];
+                        TimeSpan source = sourceMarker.Duration;
 
+                        TimeSpan diff = source - import.Value.Item2;
+                        diffs.Add(diff);
+                    }
                 }
 
-
-               // var diffs = importedChapters.Zip(this.Chapters, (import, source) => source.Duration - import.Value.Item2);
                 if (diffs.Count(diff => Math.Abs(diff.TotalSeconds) > 15) > 2)
                 {
                     if (this.errorService.ShowMessageBox(

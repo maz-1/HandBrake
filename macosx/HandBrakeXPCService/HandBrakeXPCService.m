@@ -53,15 +53,24 @@ static void *HandBrakeXPCServiceContext = &HandBrakeXPCServiceContext;
 
 - (void)setUpWithLogLevel:(NSInteger)level name:(NSString *)name
 {
-    [HBCore initGlobal];
-
     _core = [[HBCore alloc] initWithLogLevel:level queue:_queue];
     _core.name = name;
 
-    // Completion handler
+    void (^progressHandler)(HBState state, HBProgress progress, NSString *info) = ^(HBState state, HBProgress progress, NSString *info)
+    {
+        [self.connection.remoteObjectProxy updateProgress:progress.percent
+                                                    hours:progress.hours
+                                                  minutes:progress.minutes
+                                                  seconds:progress.seconds
+                                                    state:state
+                                                     info:info];
+    };
+    _progressHandler = progressHandler;
+
     void (^completionHandler)(HBCoreResult result) = ^(HBCoreResult result)
     {
-        self->_progressHandler = nil;
+        [HBCore cleanTemporaryFiles];
+        [self stopAccessingSecurityScopedResources];
         self.reply(result);
         self.reply = nil;
     };
@@ -73,9 +82,13 @@ static void *HandBrakeXPCServiceContext = &HandBrakeXPCServiceContext;
                    context:HandBrakeXPCServiceContext];
 }
 
-- (void)tearDown
+- (void)initGlobal
 {
-    _core = nil;
+    [HBCore initGlobal];
+}
+
+- (void)closeGlobal
+{
     [HBCore closeGlobal];
 }
 
@@ -100,6 +113,14 @@ static void *HandBrakeXPCServiceContext = &HandBrakeXPCServiceContext;
         }
         self.urls = urls;
     });
+}
+
+- (void)stopAccessingSecurityScopedResources
+{
+    for (NSURL *url in self.urls)
+    {
+        [url stopAccessingSecurityScopedResource];
+    }
 }
 
 - (void)setAutomaticallyPreventSleep:(BOOL)automaticallyPreventSleep
@@ -135,19 +156,20 @@ static void *HandBrakeXPCServiceContext = &HandBrakeXPCServiceContext;
     });
 }
 
-- (void)scanURL:(NSURL *)url titleIndex:(NSUInteger)index previews:(NSUInteger)previewsNum minDuration:(NSUInteger)seconds keepPreviews:(BOOL)keepPreviews withReply:(void (^)(HBCoreResult))reply
+- (void)scanURL:(NSURL *)url titleIndex:(NSUInteger)index previews:(NSUInteger)previewsNum minDuration:(NSUInteger)minSeconds maxDuration:(NSUInteger)maxSeconds keepPreviews:(BOOL)keepPreviews hardwareDecoder:(BOOL)hardwareDecoder keepDuplicateTitles:(BOOL)keepDuplicateTitles withReply:(void (^)(HBCoreResult))reply
 {
     dispatch_sync(_queue, ^{
-        void (^progressHandler)(HBState state, HBProgress progress, NSString *info) = ^(HBState state, HBProgress progress, NSString *info)
-        {
-            [self.connection.remoteObjectProxy updateProgress:progress.percent hours:progress.hours minutes:progress.minutes seconds:progress.seconds state:state info:info];
-        };
-        self->_progressHandler = progressHandler;
         self.reply = reply;
 
-        [self.core scanURL:url titleIndex:index previews:previewsNum minDuration:seconds keepPreviews:keepPreviews
-           progressHandler:self.progressHandler
-         completionHandler:self.completionHandler];
+        [self.core scanURLs:@[url] titleIndex:index
+                   previews:previewsNum
+                minDuration:minSeconds
+                maxDuration:maxSeconds
+               keepPreviews:keepPreviews
+            hardwareDecoder:hardwareDecoder
+            keepDuplicateTitles:keepDuplicateTitles
+            progressHandler:self.progressHandler
+          completionHandler:self.completionHandler];
     });
 }
 
@@ -161,15 +183,11 @@ static void *HandBrakeXPCServiceContext = &HandBrakeXPCServiceContext;
  - (void)encodeJob:(HBJob *)job withReply:(void (^)(HBCoreResult))reply
 {
     dispatch_sync(_queue, ^{
-        void (^progressHandler)(HBState state, HBProgress progress, NSString *info) = ^(HBState state, HBProgress progress, NSString *info)
-        {
-            [self.connection.remoteObjectProxy updateProgress:progress.percent hours:progress.hours minutes:progress.minutes seconds:progress.seconds state:state info:info];
-        };
-        self->_progressHandler = progressHandler;
         self.reply = reply;
 
         // Reset the title in the job.
         job.title = self.core.titles.firstObject;
+
         [self.core encodeJob:job
              progressHandler:self.progressHandler
            completionHandler:self.completionHandler];

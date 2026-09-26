@@ -31,12 +31,6 @@
 /* Class = "NSSlider"; ibShadowedToolTip = "Drag to change volume."; ObjectID = "gzA-no-jdv"; */
 "gzA-no-jdv.ibShadowedToolTip" = "Verschieben um die Lautstärke zu ändern.";
 
-/* Class = "NSButton"; ibExternalAccessibilityDescription = "Full Volume"; ObjectID = "Kiv-cL-wYI"; */
-"Kiv-cL-wYI.ibExternalAccessibilityDescription" = "Maximale Lautstärke";
-
-/* Class = "NSButton"; ibShadowedToolTip = "Full Volume"; ObjectID = "Kiv-cL-wYI"; */
-"Kiv-cL-wYI.ibShadowedToolTip" = "Maximale Lautstärke";
-
 /* Class = "NSSlider"; ibExternalAccessibilityDescription = "Timeline"; ObjectID = "lBp-JT-ehn"; */
 "lBp-JT-ehn.ibExternalAccessibilityDescription" = "Zeitleiste";
 
@@ -59,7 +53,7 @@
 "uYx-2C-8et.ibExternalAccessibilityDescription" = "Momentane Position auf der Zeitleiste";
 
 /* Class = "NSTextField"; ibShadowedToolTip = "Current timeline position."; ObjectID = "uYx-2C-8et"; */
-"uYx-2C-8et.ibShadowedToolTip" = "Momentane Position auf der Zeitleiste.";
+"uYx-2C-8et.ibShadowedToolTip" = "Aktuelle Position auf der Zeitleiste.";
 
 /* Class = "NSPopUpButton"; ibExternalAccessibilityDescription = "Tracks Selection"; ObjectID = "Vj1-Za-AUV"; */
 "Vj1-Za-AUV.ibExternalAccessibilityDescription" = "Spurenauswahl";

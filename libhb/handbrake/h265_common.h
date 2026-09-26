@@ -1,6 +1,6 @@
 /* h265_common.h
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -11,23 +11,28 @@
 #define HANDBRAKE_H265_COMMON_H
 
 #include "handbrake/project.h"
+#include <stdint.h>
 
 // inspired by libavcodec/hevc.h
 // in HEVC, all "random access point" NAL units are keyframes
 #define HB_HEVC_NALU_KEYFRAME(nal_unit_type) (((nal_unit_type) >= 16) && ((nal_unit_type) <= 23))
 
+static const char * const hb_x265_tune_names[]              = {
+    "none", "psnr", "ssim", "grain", "zerolatency", "fastdecode", "animation", NULL };
 static const char * const hb_h265_tier_names[]              = {
     "auto", "main", "high", NULL, };
 static const char * const hb_h265_profile_names_8bit[]      = {
     "auto", "main", "mainstillpicture", NULL, };
+static const char * const hb_x265_profile_names_8bit[]      = {
+    "auto", "main", "mainstillpicture", "main444-8", "main444-intra", NULL, };
 static const char * const hb_h265_profile_names_10bit[]     = {
     "auto", "main10", "main10-intra", NULL, };
-#if HB_PROJECT_FEATURE_QSV
-static const char * const hb_h265_qsv_profile_names_10bit[] = {
-    "auto", "main10", NULL, };
-#endif
+static const char * const hb_x265_profile_names_10bit[]     = {
+    "auto", "main10", "main10-intra", "main422-10", "main422-10-intra", "main444-10", "main444-10-intra", NULL, };
 static const char * const hb_h265_profile_names_12bit[]     = {
     "auto", "main12", "main12-intra", NULL, };
+static const char * const hb_x265_profile_names_12bit[]     = {
+    "auto", "main12", "main12-intra", "main422-12", "main422-12-intra", "main444-12", "main444-12-intra", NULL, };
 static const char * const hb_h265_profile_names_16bit[]     = {
     "auto", "main16", "main16-intra", NULL, };
 static const char * const hb_h265_level_names[]             = {

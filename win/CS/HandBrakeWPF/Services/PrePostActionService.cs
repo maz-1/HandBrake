@@ -12,11 +12,10 @@ namespace HandBrakeWPF.Services
     using System;
     using System.Diagnostics;
     using System.IO;
-    using System.Windows.Media;
-
-    using Caliburn.Micro;
+    using System.Media;
 
     using HandBrakeWPF.EventArgs;
+    using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model.Options;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
@@ -24,6 +23,7 @@ namespace HandBrakeWPF.Services
     using HandBrakeWPF.Services.Scan.Interfaces;
     using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModels.Interfaces;
+    using HandBrakeWPF.Views;
 
     using EncodeCompletedEventArgs = Encode.EventArgs.EncodeCompletedEventArgs;
     using ILog = Logging.Interfaces.ILog;
@@ -56,7 +56,7 @@ namespace HandBrakeWPF.Services
         private void QueueProcessor_QueuePaused(object sender, EventArgs e)
         {
             // Allow the system to sleep again.
-            Execute.OnUIThread(() =>
+            ThreadHelper.OnUIThread(() =>
             {
                 if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.PreventSleep))
                 {
@@ -107,7 +107,11 @@ namespace HandBrakeWPF.Services
             if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.NotifyOnEncodeDone))
             {
                 string filename = Path.GetFileName(e.FileName);
-                this.notificationService.SendNotification(Resources.Notifications_EncodeDone, filename);
+
+                if (!this.notificationService.SendNotification(Resources.Notifications_EncodeDone, filename))
+                {
+                    this.ServiceLogMessage("Error: System didn't allow us to send a notification.");
+                }
             }
         }
 
@@ -134,11 +138,14 @@ namespace HandBrakeWPF.Services
 
             if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.NotifyOnQueueDone))
             {
-                this.notificationService.SendNotification(Resources.Notifications_QueueDone, null);
+                if (!this.notificationService.SendNotification(Resources.Notifications_QueueDone, null))
+                {
+                    this.ServiceLogMessage("Error: System didn't allow us to send a notification.");
+                }
             }
 
             // Allow the system to sleep again.
-            Execute.OnUIThread(() =>
+            ThreadHelper.OnUIThread(() =>
             {
                 if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.PreventSleep))
                 {
@@ -157,17 +164,25 @@ namespace HandBrakeWPF.Services
             bool isCancelled = false;
             if (!this.userSettingService.GetUserSetting<bool>(UserSettingConstants.WhenDonePerformActionImmediately))
             {
-                ICountdownAlertViewModel titleSpecificView = IoC.Get<ICountdownAlertViewModel>();
-                Execute.OnUIThread(
+                ICountdownAlertViewModel titleSpecificView = IoCHelper.Get<ICountdownAlertViewModel>();
+                ThreadHelper.OnUIThread(
                     () =>
                     {
                         titleSpecificView.SetAction((WhenDone)this.userSettingService.GetUserSetting<int>(UserSettingConstants.WhenCompleteAction));
-                        this.windowManager.ShowDialogAsync(titleSpecificView);
+                        this.windowManager.ShowDialog<CountdownAlertView>(titleSpecificView);
                         isCancelled = titleSpecificView.IsCancelled;
                     });
             }
 
             if (!isCancelled)
+            {
+                PerformPostAction();
+            }
+        }
+
+        private void PerformPostAction()
+        {
+            try
             {
                 this.ServiceLogMessage(string.Format("Performing 'When Done' Action: {0}", this.userSettingService.GetUserSetting<int>(UserSettingConstants.WhenCompleteAction)));
 
@@ -178,7 +193,7 @@ namespace HandBrakeWPF.Services
                         ProcessStartInfo shutdown = new ProcessStartInfo("Shutdown", "-s -t 60");
                         shutdown.UseShellExecute = false;
                         Process.Start(shutdown);
-                        Execute.OnUIThread(() => System.Windows.Application.Current.Shutdown());
+                        ThreadHelper.OnUIThread(() => System.Windows.Application.Current.Shutdown());
                         break;
                     case WhenDone.LogOff:
                         this.scanService.Dispose();
@@ -194,8 +209,41 @@ namespace HandBrakeWPF.Services
                         Win32.LockWorkStation();
                         break;
                     case WhenDone.QuickHandBrake:
-                        Execute.OnUIThread(() => System.Windows.Application.Current.Shutdown());
+                        ThreadHelper.OnUIThread(() => System.Windows.Application.Current.Shutdown());
                         break;
+                    case WhenDone.CustomAction:
+                        ProcessQueueWhenDoneAction();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.ServiceLogMessage(string.Format("Post Action Failed: {0}", ex));
+            }
+        }
+
+        private void ProcessQueueWhenDoneAction()
+        {
+            if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.QueueDoneCustomActionEnabled) && !string.IsNullOrEmpty(
+                    this.userSettingService.GetUserSetting<string>(UserSettingConstants.QueueDoneAction)))
+            {
+                string arguments = this.userSettingService.GetUserSetting<string>(UserSettingConstants.QueueDoneArguments);
+                string autoNamePath = this.userSettingService.GetUserSetting<string>(UserSettingConstants.AutoNamePath);
+                arguments = arguments.Replace(Constants.AutonameOutputFolder, string.Format("\"{0}\"", autoNamePath));
+
+                var process = new ProcessStartInfo(this.userSettingService.GetUserSetting<string>(UserSettingConstants.QueueDoneAction), arguments);
+                process.EnvironmentVariables.Add("HB_AUTONAME_PATH", autoNamePath);
+
+
+                this.ServiceLogMessage(string.Format("Starting Queue Complete Custom Actoin: {0}, with arguments: {1} ", process.FileName, arguments));
+
+                try
+                {
+                    Process.Start(process);
+                }
+                catch (Exception ex)
+                {
+                    this.ServiceLogMessage(string.Format("Queue Done Action failed to execute: {0}", ex));
                 }
             }
         }
@@ -207,13 +255,17 @@ namespace HandBrakeWPF.Services
             {
                 string arguments = this.userSettingService.GetUserSetting<string>(UserSettingConstants.SendFileToArgs);
 
-                arguments = arguments.Replace("{source}", string.Format("\"{0}\"", source));
-                arguments = arguments.Replace("{destination}", string.Format("\"{0}\"", destination));
-                arguments = arguments.Replace("{exit_code}", string.Format("{0}", exitCode));
+                string destinationFolder = Path.GetDirectoryName(destination);
+
+                arguments = arguments.Replace(Constants.SourceArg, string.Format("\"{0}\"", source));
+                arguments = arguments.Replace(Constants.DestinationArg, string.Format("\"{0}\"", destination));
+                arguments = arguments.Replace(Constants.DestinationFolder, string.Format("\"{0}\"", destinationFolder));
+                arguments = arguments.Replace(Constants.ExitCodeArg, string.Format("{0}", exitCode));
 
                 var process = new ProcessStartInfo(this.userSettingService.GetUserSetting<string>(UserSettingConstants.SendFileTo), arguments);
                 process.EnvironmentVariables.Add("HB_SOURCE", source);
                 process.EnvironmentVariables.Add("HB_DESTINATION", destination);
+                process.EnvironmentVariables.Add("HB_DESTINATION_FOLDER", destinationFolder);
                 process.EnvironmentVariables.Add("HB_EXIT_CODE", exitCode.ToString());
 
                 this.ServiceLogMessage(string.Format("Sending output file to: {0}, with arguments: {1} ", process.FileName, arguments));
@@ -231,19 +283,30 @@ namespace HandBrakeWPF.Services
 
         private void PlayWhenDoneSound()
         {
-            string filePath = this.userSettingService.GetUserSetting<string>(UserSettingConstants.WhenDoneAudioFile);
-            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            try
             {
-                this.ServiceLogMessage("Playing Sound: " + filePath);
-                var uri = new Uri(filePath, UriKind.RelativeOrAbsolute);
-                var player = new MediaPlayer();
-                player.MediaFailed += (object sender, ExceptionEventArgs e) => { this.ServiceLogMessage(e?.ToString()); };
-                player.Open(uri);
-                player.Play();
+                string filePath = this.userSettingService.GetUserSetting<string>(UserSettingConstants.WhenDoneAudioFile);
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    try
+                    {
+                        this.ServiceLogMessage("Playing Sound: " + filePath);
+                        var player = new SoundPlayer(filePath);
+                        player.Play();
+                    }
+                    catch (Exception ex)
+                    {
+                        this.ServiceLogMessage(ex.ToString());
+                    }
+                }
+                else
+                {
+                    this.ServiceLogMessage("Unable to play sound. Reason: File not found!");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                this.ServiceLogMessage("Unable to play sound. Reason: File not found!");
+                this.ServiceLogMessage("Unable to play sound. Unknown Reason." + Environment.NewLine + ex);
             }
         }
 

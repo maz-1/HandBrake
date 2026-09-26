@@ -46,8 +46,8 @@ static NSArray *_languagesArray = nil;
 
 - (instancetype)initWithTrackIdx:(NSUInteger)index
                        container:(int)container
-                      dataSource:(id<HBTrackDataSource>)dataSource
-                        delegate:(id<HBTrackDelegate>)delegate
+                      dataSource:(id<HBSubtitlesTrackDataSource>)dataSource
+                        delegate:(id<HBSubtitlesTrackDelegate>)delegate
 {
     self = [super init];
     if (self)
@@ -127,9 +127,9 @@ static NSArray *_languagesArray = nil;
 
     if (!(self.undo.isUndoing || self.undo.isRedoing))
     {
-        self.title = [self.dataSource sourceTrackAtIndex:_sourceTrackIdx].title;
-
         [self validateSettings];
+
+        self.title = [self.dataSource defaultTitleForTrackAtIndex:_sourceTrackIdx];
 
         if (oldIdx != sourceTrackIdx)
         {
@@ -378,7 +378,7 @@ static NSArray *_languagesArray = nil;
 
     decodeInteger(_sourceTrackIdx); if (_sourceTrackIdx < 0) { goto fail; }
     decodeInt(_type); if (_type < VOBSUB || _type > DVBSUB) { goto fail; }
-    decodeInt(_container); if (_container != HB_MUX_MP4 && _container != HB_MUX_MKV && _container != HB_MUX_WEBM) { goto fail; }
+    decodeContainerOrFail(_container);
 
     decodeBool(_forcedOnly);
     decodeBool(_burnedIn);

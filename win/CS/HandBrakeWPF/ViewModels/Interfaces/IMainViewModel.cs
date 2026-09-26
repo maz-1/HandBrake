@@ -9,6 +9,7 @@
 
 namespace HandBrakeWPF.ViewModels.Interfaces
 {
+    using System.Collections.Generic;
     using System.Windows;
 
     using HandBrakeWPF.Model;
@@ -58,8 +59,6 @@ namespace HandBrakeWPF.ViewModels.Interfaces
         void AddAllToQueue();
         void AddSelectionToQueue();
 
-        void OpenPresetWindow();
-
         /// <summary>
         /// The launch help.
         /// </summary>
@@ -99,12 +98,12 @@ namespace HandBrakeWPF.ViewModels.Interfaces
         /// The start scan.
         /// </summary>
         /// <param name="filename">
-        /// The filename.
+        /// A list of files to scan
         /// </param>
         /// <param name="title">
         /// The title.
         /// </param>
-        void StartScan(string filename, int title);
+        void StartScan(List<string> filename, int title);
 
         /// <summary>
         /// Edit a Queue Task
@@ -137,5 +136,15 @@ namespace HandBrakeWPF.ViewModels.Interfaces
         /// Browse for and set a destination file.
         /// </summary>
         void BrowseDestination();
+
+        /// <summary>
+        /// Select next title if available.
+        /// </summary>
+        void NextTitle();
+
+        /// <summary>
+        /// Select previous title if available.
+        /// </summary>
+        void PreviousTitle();
     }
 }

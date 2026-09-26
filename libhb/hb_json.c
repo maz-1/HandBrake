@@ -1,6 +1,6 @@
 /* json.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -11,7 +11,6 @@
 #include "handbrake/handbrake.h"
 #include "handbrake/hb_json.h"
 #include "libavutil/base64.h"
-#include "handbrake/qsv_common.h"
 
 /**
  * Convert an hb_state_t to a jansson dict
@@ -225,18 +224,31 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
     if (title == NULL)
         return NULL;
 
+    int h_shift, v_shift;
+    int chroma_available = hb_get_chroma_sub_sample(title->pix_fmt, &h_shift, &v_shift);
+    char *chroma_subsampling = NULL;
+
+    if (chroma_available == 0)
+    {
+        int h_value = 4 >> h_shift;
+        int v_value = v_shift ? 0 : h_value;
+        chroma_subsampling = hb_strdup_printf("4:%d:%d", h_value, v_value);
+    }
+
     dict = json_pack_ex(&error, 0,
     "{"
-        // Type, Path, Name, Index, Playlist, AngleCount
-        "s:o, s:o, s:o, s:o, s:o, s:o,"
+        // Type, Path, Name, Index, KeepDuplicateTitles, Playlist, AngleCount
+        "s:o, s:o, s:o, s:o, s:o, s:o, s:o,"
         // Duration {Ticks, Hours, Minutes, Seconds}
         "s:{s:o, s:o, s:o, s:o},"
         // Geometry {Width, Height, PAR {Num, Den},
         "s:{s:o, s:o, s:{s:o, s:o}},"
         // Crop[Top, Bottom, Left, Right]}
         "s:[oooo],"
-        // Color {Format, Range, Primary, Transfer, Matrix, ChromaLocation}
-        "s:{s:o, s:o, s:o, s:o, s:o, s:o},"
+        // LooseCrop[Top, Bottom, Left, Right]}
+        "s:[oooo],"
+        // Color {Format, Range, Primary, Transfer, Matrix, ChromaLocation, ChromaSubsampling, BitDepth}
+        "s:{s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o},"
         // FrameRate {Num, Den}
         "s:{s:o, s:o},"
         // InterlaceDetected, VideoCodec
@@ -248,6 +260,7 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
     "Path",                 hb_value_string(title->path),
     "Name",                 hb_value_string(title->name),
     "Index",                hb_value_int(title->index),
+    "KeepDuplicateTitles",  hb_value_bool(title->keep_duplicate_titles),
     "Playlist",             hb_value_int(title->playlist),
     "AngleCount",           hb_value_int(title->angle_count),
     "Duration",
@@ -265,6 +278,10 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
                             hb_value_int(title->crop[1]),
                             hb_value_int(title->crop[2]),
                             hb_value_int(title->crop[3]),
+    "LooseCrop",            hb_value_int(title->loose_crop[0]),
+                            hb_value_int(title->loose_crop[1]),
+                            hb_value_int(title->loose_crop[2]),
+                            hb_value_int(title->loose_crop[3]),
     "Color",
         "Format",           hb_value_int(title->pix_fmt),
         "Range",            hb_value_int(title->color_range),
@@ -272,6 +289,8 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
         "Transfer",         hb_value_int(title->color_transfer),
         "Matrix",           hb_value_int(title->color_matrix),
         "ChromaLocation",   hb_value_int(title->chroma_location),
+        "ChromaSubsampling", hb_value_string(chroma_subsampling ? chroma_subsampling : "unknown"),
+        "BitDepth",          hb_value_int(hb_get_bit_depth(title->pix_fmt)),
     "FrameRate",
         "Num",              hb_value_int(title->vrate.num),
         "Den",              hb_value_int(title->vrate.den),
@@ -282,7 +301,115 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
     if (dict == NULL)
     {
         hb_error("hb_title_to_dict_internal, json pack failure: %s", error.text);
+        free(chroma_subsampling);
         return NULL;
+    }
+
+    free(chroma_subsampling);
+
+    // Mastering Display Color Volume metadata
+    hb_dict_t *mastering_dict;
+    if (title->mastering.has_primaries || title->mastering.has_luminance)
+    {
+        mastering_dict = json_pack_ex(&error, 0,
+        "{"
+        // DisplayPrimaries[3][2]
+        "s:[[[ii],[ii]],[[ii],[ii]],[[ii],[ii]]],"
+        // WhitePoint[2],
+        "s:[[i,i],[i,i]],"
+        // MinLuminance, MaxLuminance, HasPrimaries, HasLuminance
+        "s:[i,i],s:[i,i],s:b,s:b"
+        "}",
+            "DisplayPrimaries", title->mastering.display_primaries[0][0].num,
+                                title->mastering.display_primaries[0][0].den,
+                                title->mastering.display_primaries[0][1].num,
+                                title->mastering.display_primaries[0][1].den,
+                                title->mastering.display_primaries[1][0].num,
+                                title->mastering.display_primaries[1][0].den,
+                                title->mastering.display_primaries[1][1].num,
+                                title->mastering.display_primaries[1][1].den,
+                                title->mastering.display_primaries[2][0].num,
+                                title->mastering.display_primaries[2][0].den,
+                                title->mastering.display_primaries[2][1].num,
+                                title->mastering.display_primaries[2][1].den,
+            "WhitePoint", title->mastering.white_point[0].num,
+                          title->mastering.white_point[0].den,
+                          title->mastering.white_point[1].num,
+                          title->mastering.white_point[1].den,
+            "MinLuminance", title->mastering.min_luminance.num,
+                            title->mastering.min_luminance.den,
+            "MaxLuminance", title->mastering.max_luminance.num,
+                            title->mastering.max_luminance.den,
+            "HasPrimaries", title->mastering.has_primaries,
+            "HasLuminance", title->mastering.has_luminance
+        );
+        hb_dict_set(dict, "MasteringDisplayColorVolume", mastering_dict);
+    }
+
+    // Content Light Level metadata
+    hb_dict_t *coll_dict;
+    if (title->coll.max_cll && title->coll.max_fall)
+    {
+        coll_dict = json_pack_ex(&error, 0, "{s:i, s:i}",
+            "MaxCLL",  title->coll.max_cll,
+            "MaxFALL", title->coll.max_fall);
+        hb_dict_set(dict, "ContentLightLevel", coll_dict);
+    }
+
+    // Dolby Vision Configuration Record
+    hb_dict_t *dovi_dict;
+    if (title->dovi.dv_profile)
+    {
+        dovi_dict = json_pack_ex(&error, 0, "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "DVVersionMajor",          title->dovi.dv_version_major,
+            "DVVersionMinor",          title->dovi.dv_version_minor,
+            "DVProfile",               title->dovi.dv_profile,
+            "DVLevel",                 title->dovi.dv_level,
+            "RPUPresentFlag",          title->dovi.rpu_present_flag,
+            "ELPresentFlag",           title->dovi.el_present_flag,
+            "BLPresentFlag",           title->dovi.bl_present_flag,
+            "BLSignalCompatibilityId", title->dovi.dv_bl_signal_compatibility_id);
+        hb_dict_set(dict, "DolbyVisionConfigurationRecord", dovi_dict);
+    }
+
+    // HDR10+ Flag
+    if (title->hdr_10_plus)
+    {
+        hb_dict_set(dict, "HDR10+", hb_value_int(title->hdr_10_plus));
+    }
+
+    // Spherical mapping
+    hb_dict_t *spherical_mapping_dict;
+    if (title->spherical_mapping.projection > HB_SPHERICAL_UNSET)
+    {
+        spherical_mapping_dict = json_pack_ex(&error, 0, "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "Projection",  title->spherical_mapping.projection,
+            "Yaw",         title->spherical_mapping.yaw,
+            "Pitch",       title->spherical_mapping.pitch,
+            "Roll",        title->spherical_mapping.roll,
+            "BoundLeft",   title->spherical_mapping.bound_left,
+            "BoundTop",    title->spherical_mapping.bound_top,
+            "BoundRight",  title->spherical_mapping.bound_right,
+            "BoundBottom", title->spherical_mapping.bound_bottom,
+            "Padding",     title->spherical_mapping.padding);
+        hb_dict_set(dict, "SphericalMapping", spherical_mapping_dict);
+    }
+
+    // Stereo 3D
+    hb_dict_t *stereo_dict;
+    if (title->stereo_3d.type > HB_STEREO3D_UNSET)
+    {
+        stereo_dict = json_pack_ex(&error, 0, "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "Type",       title->stereo_3d.type,
+            "Flags",      title->stereo_3d.flags,
+            "View",       title->stereo_3d.view,
+            "PrimaryEye", title->stereo_3d.primary_eye,
+            "Baseline",   title->stereo_3d.baseline,
+            "HorizontalDisparityAdjustmentNum", title->stereo_3d.horizontal_disparity_adjustment.num,
+            "HorizontalDisparityAdjustmentDen", title->stereo_3d.horizontal_disparity_adjustment.den,
+            "HorizontalFieldOfViewNum", title->stereo_3d.horizontal_field_of_view.num,
+            "HorizontalFieldOfViewDen", title->stereo_3d.horizontal_field_of_view.den);
+        hb_dict_set(dict, "Stereo3D", stereo_dict);
     }
 
     if (title->container_name != NULL)
@@ -323,24 +450,23 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
     for (ii = 0; ii < hb_list_count(title->list_audio); ii++)
     {
         const char * codec_name;
-        char         channel_layout_name[64];
+        char         channel_layout_name[256];
         int          channel_count, lfe_count;
         hb_dict_t  * audio_dict, * attributes;
         hb_audio_t * audio = hb_list_item(title->list_audio, ii);
 
         codec_name = hb_audio_decoder_get_name(audio->config.in.codec,
                                                audio->config.in.codec_param);
-        hb_layout_get_name(channel_layout_name, sizeof(channel_layout_name),
-                           audio->config.in.channel_layout);
+        hb_layout_get_name(audio->config.in.ch_layout,
+                           channel_layout_name, sizeof(channel_layout_name));
         channel_count = hb_layout_get_discrete_channel_count(
-                                     audio->config.in.channel_layout);
+                                     audio->config.in.ch_layout);
         lfe_count     = hb_layout_get_low_freq_channel_count(
-                                     audio->config.in.channel_layout);
-
+                                     audio->config.in.ch_layout);
 
         attributes = hb_audio_attributes_to_dict(audio->config.lang.attributes);
         audio_dict = json_pack_ex(&error, 0,
-        "{s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o}",
+        "{s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o}",
             "TrackNumber",       hb_value_int(ii + 1),
             "Description",       hb_value_string(audio->config.lang.description),
             "Language",          hb_value_string(audio->config.lang.simple),
@@ -351,8 +477,7 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
             "CodecName",         hb_value_string(codec_name),
             "SampleRate",        hb_value_int(audio->config.in.samplerate),
             "BitRate",           hb_value_int(audio->config.in.bitrate),
-            "ChannelLayout",     hb_value_int(audio->config.in.channel_layout),
-            "ChannelLayoutName", hb_value_string(channel_layout_name),
+            "ChannelLayout",     hb_value_string(channel_layout_name),
             "ChannelCount",      hb_value_int(channel_count),
             "LFECount",          hb_value_int(lfe_count));
         if (audio_dict == NULL)
@@ -399,6 +524,26 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
         hb_value_array_append(subtitle_list, subtitle_dict);
     }
     hb_dict_set(dict, "SubtitleList", subtitle_list);
+
+    // process cover arts
+    if (title->metadata && title->metadata->list_coverart)
+    {
+        hb_value_array_t *art_array = hb_value_array_init();
+        for (ii = 0; ii < hb_list_count(title->metadata->list_coverart); ii++)
+        {
+            hb_coverart_t *art = hb_list_item(title->metadata->list_coverart, ii);
+            hb_dict_t *coverart_dict = json_pack_ex(&error, 0,
+                                                    "{s:o, s:o, s:o}",
+                                                    "ID", hb_value_int(ii),
+                                                    "Name",  hb_value_string(art->name),
+                                                    "Type",  hb_value_int(art->type));
+            if (coverart_dict)
+            {
+                hb_value_array_append(art_array, coverart_dict);
+            }
+        }
+        hb_dict_set(dict, "CoverArts", art_array);
+    }
 
     return dict;
 }
@@ -479,13 +624,6 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     json_error_t error;
     int subtitle_search_burn;
     int ii;
-    int adapter_index = 0;
-
-#if HB_PROJECT_FEATURE_QSV
-    if (job->qsv.ctx){
-        adapter_index = job->qsv.ctx->dx_index;
-    }
-#endif
 
     if (job == NULL || job->title == NULL)
         return NULL;
@@ -501,12 +639,12 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     // Destination {Mux, InlineParameterSets, AlignAVStart,
     //              ChapterMarkers, ChapterList}
     "s:{s:o, s:o, s:o, s:o, s:[]},"
-    // Source {Path, Title, Angle}
-    "s:{s:o, s:o, s:o,},"
+    // Source {Path, Title, Angle, HWDecode, KeepDuplicateTitles}
+    "s:{s:o, s:o, s:o, s:o, s:o},"
     // PAR {Num, Den}
     "s:{s:o, s:o},"
-    // Video {Encoder, QSV {Decode, AsyncDepth, AdapterIndex}}
-    "s:{s:o, s:{s:o, s:o, s:o}},"
+    // Video {Encoder, HardwareDecode, AdapterIndex, AsyncDepth}
+    "s:{s:o, s:o, s:o, s:o},"
     // Audio {CopyMask, FallbackEncoder, AudioList []}
     "s:{s:[], s:o, s:[]},"
     // Subtitles {Search {Enable, Forced, Default, Burn}, SubtitleList []}
@@ -527,15 +665,16 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
             "Path",             hb_value_string(job->title->path),
             "Title",            hb_value_int(job->title->index),
             "Angle",            hb_value_int(job->angle),
+            "HWDecode",         hb_value_int(job->hw_decode),
+            "KeepDuplicateTitles", hb_value_bool(job->keep_duplicate_titles),
         "PAR",
             "Num",              hb_value_int(job->par.num),
             "Den",              hb_value_int(job->par.den),
         "Video",
             "Encoder",          hb_value_int(job->vcodec),
-            "QSV",
-                "Decode",       hb_value_bool(job->qsv.decode),
-                "AsyncDepth",   hb_value_int(job->qsv.async_depth),
-                "AdapterIndex", hb_value_int(adapter_index),
+            "HardwareDecode",   hb_value_int(job->hw_decode),
+            "AdapterIndex",     hb_value_int(job->hw_device_index),
+            "AsyncDepth",       hb_value_int(job->hw_device_async_depth),
         "Audio",
             "CopyMask",
             "FallbackEncoder",  hb_value_int(job->acodec_fallback),
@@ -561,13 +700,13 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     {
         hb_dict_set(dest_dict, "File", hb_value_string(job->file));
     }
-    if (job->mux & HB_MUX_MASK_MP4)
+    if (job->mux)
     {
-        hb_dict_t *mp4_dict;
-        mp4_dict = json_pack_ex(&error, 0, "{s:o, s:o}",
-            "Mp4Optimize",      hb_value_bool(job->mp4_optimize),
+        hb_dict_t *options_dict;
+        options_dict = json_pack_ex(&error, 0, "{s:o, s:o}",
+            "Optimize",         hb_value_bool(job->optimize),
             "IpodAtom",         hb_value_bool(job->ipod_atom));
-        hb_dict_set(dest_dict, "Mp4Options", mp4_dict);
+        hb_dict_set(dest_dict, "Options", options_dict);
     }
     hb_dict_t *source_dict = hb_dict_get(dict, "Source");
     hb_dict_t *range_dict;
@@ -600,12 +739,12 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         if (job->frame_to_start > 0)
         {
             hb_dict_set(range_dict, "Start",
-                        hb_value_int(job->frame_to_start + 1));
+                        hb_value_int(job->frame_to_start));
         }
         if (job->frame_to_stop > 0)
         {
             hb_dict_set(range_dict, "End",
-                        hb_value_int(job->frame_to_start + job->frame_to_stop));
+                        hb_value_int(job->frame_to_start + job->frame_to_stop - 1));
         }
     }
     else
@@ -632,23 +771,23 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
                 hb_value_int(job->color_matrix));
     hb_dict_set(video_dict, "ChromaLocation",
                 hb_value_int(job->chroma_location));
-    if (job->color_prim_override != HB_COLR_PRI_UNDEF)
+    if (job->color_prim_override != HB_COLR_PRI_UNSET)
     {
         hb_dict_set(video_dict, "ColorPrimariesOverride",
                     hb_value_int(job->color_prim_override));
     }
-    if (job->color_transfer_override != HB_COLR_TRA_UNDEF)
+    if (job->color_transfer_override != HB_COLR_TRA_UNSET)
     {
         hb_dict_set(video_dict, "ColorTransferOverride",
                     hb_value_int(job->color_transfer_override));
     }
-    if (job->color_matrix_override != HB_COLR_MAT_UNDEF)
+    if (job->color_matrix_override != HB_COLR_MAT_UNSET)
     {
         hb_dict_set(video_dict, "ColorMatrixOverride",
                     hb_value_int(job->color_matrix_override));
     }
 
-    // Mastering metadata
+    // Mastering Display Color Volume metadata
     hb_dict_t *mastering_dict;
     if (job->mastering.has_primaries || job->mastering.has_luminance)
     {
@@ -684,7 +823,7 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
             "HasPrimaries", job->mastering.has_primaries,
             "HasLuminance", job->mastering.has_luminance
         );
-        hb_dict_set(video_dict, "Mastering", mastering_dict);
+        hb_dict_set(video_dict, "MasteringDisplayColorVolume", mastering_dict);
     }
 
     // Content Light Level metadata
@@ -697,6 +836,56 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         hb_dict_set(video_dict, "ContentLightLevel", coll_dict);
     }
 
+    // Dolby Vision Configuration Record
+    hb_dict_t *dovi_dict;
+    if (job->dovi.dv_profile)
+    {
+        dovi_dict = json_pack_ex(&error, 0, "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "DVVersionMajor",          job->dovi.dv_version_major,
+            "DVVersionMinor",          job->dovi.dv_version_minor,
+            "DVProfile",               job->dovi.dv_profile,
+            "DVLevel",                 job->dovi.dv_level,
+            "RPUPresentFlag",          job->dovi.rpu_present_flag,
+            "ELPresentFlag",           job->dovi.el_present_flag,
+            "BLPresentFlag",           job->dovi.bl_present_flag,
+            "BLSignalCompatibilityId", job->dovi.dv_bl_signal_compatibility_id);
+        hb_dict_set(video_dict, "DolbyVisionConfigurationRecord", dovi_dict);
+    }
+
+    // Spherical mapping
+    hb_dict_t *spherical_mapping_dict;
+    if (job->spherical_mapping.projection > HB_SPHERICAL_UNSET)
+    {
+        spherical_mapping_dict = json_pack_ex(&error, 0, "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "Projection",  job->spherical_mapping.projection,
+            "Yaw",         job->spherical_mapping.yaw,
+            "Pitch",       job->spherical_mapping.pitch,
+            "Roll",        job->spherical_mapping.roll,
+            "BoundLeft",   job->spherical_mapping.bound_left,
+            "BoundTop",    job->spherical_mapping.bound_top,
+            "BoundRight",  job->spherical_mapping.bound_right,
+            "BoundBottom", job->spherical_mapping.bound_bottom,
+            "Padding",     job->spherical_mapping.padding);
+        hb_dict_set(video_dict, "SphericalMapping", spherical_mapping_dict);
+    }
+
+    // Stereo 3D
+    hb_dict_t *stereo_dict;
+    if (job->stereo_3d.type > HB_STEREO3D_UNSET)
+    {
+        stereo_dict = json_pack_ex(&error, 0, "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "Type",       job->stereo_3d.type,
+            "Flags",      job->stereo_3d.flags,
+            "View",       job->stereo_3d.view,
+            "PrimaryEye", job->stereo_3d.primary_eye,
+            "Baseline",   job->stereo_3d.baseline,
+            "HorizontalDisparityAdjustmentNum", job->stereo_3d.horizontal_disparity_adjustment.num,
+            "HorizontalDisparityAdjustmentDen", job->stereo_3d.horizontal_disparity_adjustment.den,
+            "HorizontalFieldOfViewNum", job->stereo_3d.horizontal_field_of_view.num,
+            "HorizontalFieldOfViewDen", job->stereo_3d.horizontal_field_of_view.den);
+        hb_dict_set(video_dict, "Stereo3D", stereo_dict);
+    }
+
     if (job->vquality > HB_INVALID_VIDEO_QUALITY)
     {
         hb_dict_set(video_dict, "Quality", hb_value_double(job->vquality));
@@ -704,10 +893,13 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     else
     {
         hb_dict_set(video_dict, "Bitrate", hb_value_int(job->vbitrate));
-        hb_dict_set(video_dict, "TwoPass", hb_value_bool(job->twopass));
+        hb_dict_set(video_dict, "MultiPass", hb_value_bool(job->multipass));
         hb_dict_set(video_dict, "Turbo",
-                            hb_value_bool(job->fastfirstpass));
+                            hb_value_bool(job->fastanalysispass));
     }
+    hb_dict_set(video_dict, "PasshtruHDRDynamicMetadata",
+                        hb_value_int(job->passthru_dynamic_hdr_metadata));
+
     if (job->encoder_preset != NULL)
     {
         hb_dict_set(video_dict, "Preset",
@@ -799,7 +991,7 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
 
         audio_dict = json_pack_ex(&error, 0,
             "{s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o, s:o}",
-            "Track",                hb_value_int(audio->config.in.track),
+            "Track",                hb_value_int(audio->config.index),
             "Encoder",              hb_value_int(audio->config.out.codec),
             "Gain",                 hb_value_double(audio->config.out.gain),
             "DRC",                  hb_value_double(audio->config.out.dynamic_range_compression),
@@ -815,11 +1007,37 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
             hb_dict_set_string(audio_dict, "Name", audio->config.out.name);
         }
 
+        if (hb_list_count(audio->config.out.list_filter))
+        {
+            hb_value_array_t *filter_list = hb_value_array_init();
+            for (int jj = 0; jj < hb_list_count(audio->config.out.list_filter); jj++)
+            {
+                hb_filter_object_t *filter = hb_list_item(audio->config.out.list_filter, jj);
+
+                hb_dict_t *filter_dict = json_pack_ex(&error, 0, "{s:o}",
+                                                      "ID", hb_value_int(filter->id));
+                if (filter->settings != NULL)
+                {
+                    hb_dict_set(filter_dict, "Settings",
+                                hb_value_dup(filter->settings));
+                }
+
+                hb_value_array_append(filter_list, filter_dict);
+            }
+            hb_dict_set(audio_dict, "FilterList", filter_list);
+        }
+
         hb_value_array_append(audio_list, audio_dict);
     }
 
     // process subtitle list
     hb_dict_t *subtitles_dict = hb_dict_get(dict, "Subtitle");
+    if (job->select_subtitle_config.external_filename != NULL)
+    {
+        hb_dict_t *search = hb_dict_get(subtitles_dict, "Search");
+        hb_dict_set_string(search, "ExternalFilename",
+                           job->select_subtitle_config.external_filename);
+    }
     hb_dict_t *subtitle_list = hb_dict_get(subtitles_dict, "SubtitleList");
     for (ii = 0; ii < hb_list_count(job->list_subtitle); ii++)
     {
@@ -860,7 +1078,32 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         {
             hb_dict_set_string(subtitle_dict, "Name", subtitle->config.name);
         }
+        if (subtitle->config.external_filename != NULL)
+        {
+            hb_dict_set_string(subtitle_dict, "ExternalFilename",
+                               subtitle->config.external_filename);
+        }
         hb_value_array_append(subtitle_list, subtitle_dict);
+    }
+
+    // process cover arts
+    if (job->metadata && job->metadata->list_coverart)
+    {
+        hb_value_array_t *art_array = hb_value_array_init();
+        for (ii = 0; ii < hb_list_count(job->metadata->list_coverart); ii++)
+        {
+            hb_coverart_t *art = hb_list_item(job->metadata->list_coverart, ii);
+            hb_dict_t *art_dict = json_pack_ex(&error, 0,
+                                               "{s:o, s:o, s:o}",
+                                               "ID", hb_value_int(ii),
+                                               "Name",  hb_value_string(art->name),
+                                               "Type",  hb_value_int(art->type));
+            if (art_dict)
+            {
+                hb_value_array_append(art_array, art_dict);
+            }
+        }
+        hb_dict_set(dict, "CoverArts", art_array);
     }
 
     return dict;
@@ -903,13 +1146,15 @@ void hb_json_job_scan( hb_handle_t * h, const char * json_job )
 
     dict = hb_value_json(json_job);
 
-    int title_index;
+    int title_index, hw_decode, keep_duplicate_titles;
     const char *path = NULL;
 
-    result = json_unpack_ex(dict, &error, 0, "{s:{s:s, s:i}}",
+    result = json_unpack_ex(dict, &error, 0, "{s:{s:s, s:i, s?i, s?b}}",
                             "Source",
                                 "Path",     unpack_s(&path),
-                                "Title",    unpack_i(&title_index)
+                                "Title",    unpack_i(&title_index),
+                                "HWDecode", unpack_i(&hw_decode),
+                                "KeepDuplicateTitles", unpack_b(&keep_duplicate_titles)
                            );
     if (result < 0)
     {
@@ -920,7 +1165,10 @@ void hb_json_job_scan( hb_handle_t * h, const char * json_job )
 
     // If the job wants to use Hardware decode, it must also be
     // enabled during scan.  So enable it here.
-    hb_scan(h, path, title_index, -1, 0, 0);
+    hb_list_t *file_paths = hb_list_init();
+    hb_list_add(file_paths, (char *)path);
+    hb_scan(h, file_paths, title_index, -1, 0, 0, 0, 0, 0, NULL, hw_decode, keep_duplicate_titles);
+    hb_list_close(&file_paths);
 
     // Wait for scan to complete
     hb_state_t state;
@@ -990,18 +1238,23 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     hb_value_t       * mux = NULL, * vcodec = NULL;
     hb_dict_t        * mastering_dict = NULL;
     hb_dict_t        * coll_dict = NULL;
+    hb_dict_t        * dovi_dict = NULL;
+    hb_dict_t        * spherical_mapping_dict = NULL;
+    hb_dict_t        * stereo_dict = NULL;
     hb_value_t       * acodec_copy_mask = NULL, * acodec_fallback = NULL;
     const char       * destfile = NULL;
     const char       * range_type = NULL;
     const char       * video_preset = NULL, * video_tune = NULL;
     const char       * video_profile = NULL, * video_level = NULL;
     const char       * video_options = NULL;
+    int                passthru_dynamic_hdr_metadata = -1;
     int                subtitle_search_burn = 0;
+    const char       * subtitle_search_external_filename = NULL;
     json_int_t         range_start = -1, range_end = -1, range_seek_points = -1;
     int                vbitrate = -1;
     double             vquality = HB_INVALID_VIDEO_QUALITY;
-    int                adapter_index = -1;
     hb_dict_t        * meta_dict = NULL;
+    hb_value_array_t * art_array = NULL;
 
     result = json_unpack_ex(dict, &error, 0,
     "{"
@@ -1009,33 +1262,41 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     "s:i,"
     // Destination {File, Mux, InlineParameterSets, AlignAVStart,
     //              ChapterMarkers, ChapterList,
-    //              Mp4Options {Mp4Optimize, IpodAtom}}
+    //              Options {Optimize, IpodAtom}}
     "s:{s?s, s:o, s?b, s?b, s:b, s?o s?{s?b, s?b}},"
-    // Source {Angle, Range {Type, Start, End, SeekPoints}}
-    "s:{s?i, s?{s:s, s?I, s?I, s?I}},"
+    // Source {Angle, KeepDuplicateTitles, Range {Type, Start, End, SeekPoints}}
+    "s:{s?i, s?b, s?{s:s, s?I, s?I, s?I}},"
     // PAR {Num, Den}
     "s?{s:i, s:i},"
     // Video {Codec, Quality, Bitrate, Preset, Tune, Profile, Level, Options
-    //       TwoPass, Turbo,
+    //       MultiPass, Turbo, PasshtruHDRDynamicMetadata
     //       ColorInputFormat, ColorOutputFormat, ColorRange,
     //       ColorPrimaries, ColorTransfer, ColorMatrix, ChromaLocation,
-    //       Mastering,
+    //       MasteringDisplayColorVolume,
     //       ContentLightLevel,
+    //       DolbyVisionConfigurationRecord
+    //       SphericalMapping
+    //       Stereo3D
     //       ColorPrimariesOverride, ColorTransferOverride, ColorMatrixOverride,
-    //       QSV {Decode, AsyncDepth, AdapterIndex}}
+    //       HardwareDecode, AdapterIndex, AsyncDepth
     "s:{s:o, s?F, s?i, s?s, s?s, s?s, s?s, s?s,"
-    "   s?b, s?b,"
+    "   s?b, s?b, s?i,"
     "   s?i, s?i, s?i,"
     "   s?i, s?i, s?i, s?i,"
     "   s?o,"
     "   s?o,"
+    "   s?o,"
+    "   s?o,"
+    "   s?o,"
     "   s?i, s?i, s?i,"
-    "   s?{s?b, s?i, s?i}},"
+    "   s?i, s?i, s?i},"
     // Audio {CopyMask, FallbackEncoder, AudioList}
     "s?{s?o, s?o, s?o},"
-    // Subtitle {Search {Enable, Forced, Default, Burn}, SubtitleList}
-    "s?{s?{s:b, s?b, s?b, s?b}, s?o},"
+    // Subtitle {Search {Enable, Forced, Default, Burn, ExternalFilename}, SubtitleList}
+    "s?{s?{s:b, s?b, s?b, s?b, s?s}, s?o},"
     // Metadata
+    "s?o,"
+    // Cover arts
     "s?o,"
     // Filters {FilterList}
     "s?{s?o}"
@@ -1048,11 +1309,12 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "AlignAVStart",         unpack_b(&job->align_av_start),
             "ChapterMarkers",       unpack_b(&job->chapter_markers),
             "ChapterList",          unpack_o(&chapter_list),
-            "Mp4Options",
-                "Mp4Optimize",      unpack_b(&job->mp4_optimize),
+            "Options",
+                "Optimize",         unpack_b(&job->optimize),
                 "IpodAtom",         unpack_b(&job->ipod_atom),
         "Source",
             "Angle",                unpack_i(&job->angle),
+            "KeepDuplicateTitles",  unpack_b(&job->keep_duplicate_titles),
             "Range",
                 "Type",             unpack_s(&range_type),
                 "Start",            unpack_I(&range_start),
@@ -1070,8 +1332,9 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "Profile",              unpack_s(&video_profile),
             "Level",                unpack_s(&video_level),
             "Options",              unpack_s(&video_options),
-            "TwoPass",              unpack_b(&job->twopass),
-            "Turbo",                unpack_b(&job->fastfirstpass),
+            "MultiPass",            unpack_b(&job->multipass),
+            "Turbo",                unpack_b(&job->fastanalysispass),
+            "PasshtruHDRDynamicMetadata", unpack_i(&passthru_dynamic_hdr_metadata),
             "ColorInputFormat",     unpack_i(&job->input_pix_fmt),
             "ColorOutputFormat",    unpack_i(&job->output_pix_fmt),
             "ColorRange",           unpack_i(&job->color_range),
@@ -1079,15 +1342,17 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "ColorTransfer",        unpack_i(&job->color_transfer),
             "ColorMatrix",          unpack_i(&job->color_matrix),
             "ChromaLocation",       unpack_i(&job->chroma_location),
-            "Mastering",            unpack_o(&mastering_dict),
+            "MasteringDisplayColorVolume", unpack_o(&mastering_dict),
             "ContentLightLevel",    unpack_o(&coll_dict),
+            "DolbyVisionConfigurationRecord", unpack_o(&dovi_dict),
+            "SphericalMapping",     unpack_o(&spherical_mapping_dict),
+            "Stereo3D",             unpack_o(&stereo_dict),
             "ColorPrimariesOverride", unpack_i(&job->color_prim_override),
             "ColorTransferOverride",  unpack_i(&job->color_transfer_override),
             "ColorMatrixOverride",    unpack_i(&job->color_matrix_override),
-            "QSV",
-                "Decode",           unpack_b(&job->qsv.decode),
-                "AsyncDepth",       unpack_i(&job->qsv.async_depth),
-                "AdapterIndex",     unpack_i(&adapter_index),
+            "HardwareDecode",         unpack_i(&job->hw_decode),
+            "AdapterIndex",           unpack_i(&job->hw_device_index),
+            "AsyncDepth",             unpack_i(&job->hw_device_async_depth),
         "Audio",
             "CopyMask",             unpack_o(&acodec_copy_mask),
             "FallbackEncoder",      unpack_o(&acodec_fallback),
@@ -1098,8 +1363,10 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 "Forced",           unpack_b(&job->select_subtitle_config.force),
                 "Default",          unpack_b(&job->select_subtitle_config.default_track),
                 "Burn",             unpack_b(&subtitle_search_burn),
+                "ExternalFilename", unpack_s(&subtitle_search_external_filename),
             "SubtitleList",         unpack_o(&subtitle_list),
         "Metadata",                 unpack_o(&meta_dict),
+        "CoverArts",                unpack_o(&art_array),
         "Filters",
             "FilterList",           unpack_o(&filter_list)
     );
@@ -1112,6 +1379,35 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     {
         hb_value_free(&job->metadata->dict);
         job->metadata->dict = hb_value_dup(meta_dict);
+    }
+    if (art_array != NULL)
+    {
+        if (hb_value_type(art_array) == HB_VALUE_TYPE_ARRAY)
+        {
+            int count = hb_value_array_len(art_array);
+            for (int ii = hb_list_count(job->metadata->list_coverart) - 1; ii >= 0; ii--)
+            {
+                int found = 0;
+                for (int jj = count; jj >= 0; jj--)
+                {
+                    hb_dict_t *art_dict = hb_value_array_get(art_array, jj);
+                    if (art_dict)
+                    {
+                        int index = hb_dict_get_int(art_dict, "ID");
+                        if (index == ii)
+                        {
+                            found = 1;
+                            break;
+                        }
+                    }
+                }
+
+                if (found == 0)
+                {
+                    hb_metadata_rem_coverart(job->metadata, ii);
+                }
+            }
+        }
     }
     // Lookup mux id
     if (hb_value_type(mux) == HB_VALUE_TYPE_STRING)
@@ -1165,10 +1461,15 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         else if (!strcasecmp(range_type, "frame"))
         {
             if (range_start > 0)
-                job->frame_to_start = range_start - 1;
+                job->frame_to_start = range_start;
             if (range_end > 0)
-                job->frame_to_stop = range_end - job->frame_to_start;
+                job->frame_to_stop = range_end - job->frame_to_start + 1;
         }
+    }
+
+    if (passthru_dynamic_hdr_metadata > -1)
+    {
+        job->passthru_dynamic_hdr_metadata = passthru_dynamic_hdr_metadata;
     }
 
     if (destfile != NULL && destfile[0] != 0)
@@ -1182,11 +1483,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     hb_job_set_encoder_level(job, video_level);
     hb_job_set_encoder_options(job, video_options);
 
-#if HB_PROJECT_FEATURE_QSV
-    if (job->qsv.ctx) {
-        job->qsv.ctx->dx_index = adapter_index;
-    }
-#endif
     // If both vbitrate and vquality were specified, vbitrate is used;
     // we need to ensure the unused rate control mode is always set to an
     // invalid value, as if both values are valid, behavior is undefined
@@ -1203,9 +1499,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         job->vquality = vquality;
     }
     // If neither were specified, defaults are used (set in job_setup())
-
-    job->select_subtitle_config.dest = subtitle_search_burn ?
-                                            RENDERSUB : PASSTHRUSUB;
 
     if (mastering_dict != NULL)
     {
@@ -1259,6 +1552,68 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         if (result < 0)
         {
             hb_error("hb_dict_to_job: failed to parse coll_dict: %s", error.text);
+            goto fail;
+        }
+    }
+
+    if (dovi_dict != NULL)
+    {
+        result = json_unpack_ex(dovi_dict, &error, 0,
+        "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "DVVersionMajor",          unpack_u(&job->dovi.dv_version_major),
+            "DVVersionMinor",          unpack_u(&job->dovi.dv_version_minor),
+            "DVProfile",               unpack_u(&job->dovi.dv_profile),
+            "DVLevel",                 unpack_u(&job->dovi.dv_level),
+            "RPUPresentFlag",          unpack_u(&job->dovi.rpu_present_flag),
+            "ELPresentFlag",           unpack_u(&job->dovi.el_present_flag),
+            "BLPresentFlag",           unpack_u(&job->dovi.bl_present_flag),
+            "BLSignalCompatibilityId", unpack_u(&job->dovi.dv_bl_signal_compatibility_id)
+        );
+        if (result < 0)
+        {
+            hb_error("hb_dict_to_job: failed to parse dovi_dict: %s", error.text);
+            goto fail;
+        }
+    }
+
+    if (spherical_mapping_dict != NULL)
+    {
+        result = json_unpack_ex(spherical_mapping_dict, &error, 0,
+        "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "Projection",  unpack_i(&job->spherical_mapping.projection),
+            "Yaw",         unpack_i(&job->spherical_mapping.yaw),
+            "Pitch",       unpack_i(&job->spherical_mapping.pitch),
+            "Roll",        unpack_i(&job->spherical_mapping.roll),
+            "BoundLeft",   unpack_u(&job->spherical_mapping.bound_left),
+            "BoundTop",    unpack_u(&job->spherical_mapping.bound_top),
+            "BoundRight",  unpack_u(&job->spherical_mapping.bound_right),
+            "BoundBottom", unpack_u(&job->spherical_mapping.bound_bottom),
+            "Padding",     unpack_u(&job->spherical_mapping.padding)
+        );
+        if (result < 0)
+        {
+            hb_error("hb_dict_to_job: failed to parse spherical_mapping_dict: %s", error.text);
+            goto fail;
+        }
+    }
+
+    if (stereo_dict != NULL)
+    {
+        result = json_unpack_ex(stereo_dict, &error, 0,
+        "{s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i, s:i}",
+            "Type",       unpack_i(&job->stereo_3d.type),
+            "Flags",      unpack_i(&job->stereo_3d.flags),
+            "View",       unpack_i(&job->stereo_3d.view),
+            "PrimaryEye", unpack_i(&job->stereo_3d.primary_eye),
+            "Baseline",   unpack_u(&job->stereo_3d.baseline),
+            "HorizontalDisparityAdjustmentNum", unpack_i(&job->stereo_3d.horizontal_disparity_adjustment.num),
+            "HorizontalDisparityAdjustmentDen", unpack_i(&job->stereo_3d.horizontal_disparity_adjustment.den),
+            "HorizontalFieldOfViewNum", unpack_i(&job->stereo_3d.horizontal_field_of_view.num),
+            "HorizontalFieldOfViewDen", unpack_i(&job->stereo_3d.horizontal_field_of_view.den)
+        );
+        if (result < 0)
+        {
+            hb_error("hb_dict_to_job: failed to parse stereo_dict: %s", error.text);
             goto fail;
         }
     }
@@ -1319,7 +1674,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             {
                 hb_filter_object_t *filter;
                 filter = hb_filter_init(filter_id);
-                hb_add_filter_dict(job, filter, filter_settings);
+                hb_add_filter_dict(job->list_filter, filter, filter_settings);
             }
         }
     }
@@ -1392,11 +1747,12 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             hb_value_t *acodec = NULL, *samplerate = NULL, *mixdown = NULL;
             hb_value_t *dither = NULL;
             const char *name = NULL;
+            hb_value_t *filter_list = NULL;
 
             hb_audio_config_init(&audio);
             result = json_unpack_ex(audio_dict, &error, 0,
-                "{s:i, s?s, s?o, s?F, s?F, s?o, s?b, s?o, s?o, s?i, s?F, s?F}",
-                "Track",                unpack_i(&audio.in.track),
+                "{s:i, s?s, s?o, s?F, s?F, s?o, s?b, s?o, s?o, s?i, s?F, s?F, s?o}",
+                "Track",                unpack_i(&audio.index),
                 "Name",                 unpack_s(&name),
                 "Encoder",              unpack_o(&acodec),
                 "Gain",                 unpack_f(&audio.out.gain),
@@ -1407,7 +1763,8 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 "Samplerate",           unpack_o(&samplerate),
                 "Bitrate",              unpack_i(&audio.out.bitrate),
                 "Quality",              unpack_f(&audio.out.quality),
-                "CompressionLevel",     unpack_f(&audio.out.compression_level));
+                "CompressionLevel",     unpack_f(&audio.out.compression_level),
+                "FilterList",           unpack_o(&filter_list));
             if (result < 0)
             {
                 hb_error("hb_dict_to_job: failed to find audio settings: %s",
@@ -1468,11 +1825,42 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             {
                 audio.out.name = name;
             }
-            if (audio.in.track >= 0)
+            if (filter_list != NULL &&
+                hb_value_type(filter_list) == HB_VALUE_TYPE_ARRAY)
+            {
+                hb_dict_t *filter_dict;
+                int filter_count = hb_value_array_len(filter_list);
+
+                for (int jj = 0; jj < filter_count; jj++)
+                {
+                    filter_dict = hb_value_array_get(filter_list, jj);
+                    int filter_id = -1;
+                    hb_value_t *filter_settings = NULL;
+                    result = json_unpack_ex(filter_dict, &error, 0, "{s:i, s?o}",
+                                            "ID",       unpack_i(&filter_id),
+                                            "Settings", unpack_o(&filter_settings));
+                    if (result < 0)
+                    {
+                        hb_error("hb_dict_to_job: failed to find filter settings: %s",
+                                 error.text);
+                        goto fail;
+                    }
+                    if (filter_id >= HB_AUDIO_FILTER_FIRST &&
+                        filter_id <= HB_AUDIO_FILTER_LAST)
+                    {
+                        hb_filter_object_t *filter;
+                        filter = hb_filter_init(filter_id);
+                        hb_add_filter_dict(audio.out.list_filter, filter,
+                                           filter_settings);
+                    }
+                }
+            }
+            if (audio.index >= 0)
             {
                 audio.out.track = ii;
                 hb_audio_add(job, &audio);
             }
+            hb_audio_config_close(&audio);
         }
     }
 
@@ -1493,6 +1881,11 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         ii++;
     }
 
+    job->select_subtitle_config.dest = subtitle_search_burn ?
+                                            RENDERSUB : PASSTHRUSUB;
+    hb_update_str(&job->select_subtitle_config.external_filename,
+                  subtitle_search_external_filename);
+
     // process subtitle list
     if (subtitle_list != NULL &&
         hb_value_type(subtitle_list) == HB_VALUE_TYPE_ARRAY)
@@ -1509,11 +1902,13 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             const char *importfile = NULL;
             json_int_t offset = 0;
             const char *name = NULL;
+            const char *external_filename = NULL;
 
             result = json_unpack_ex(subtitle_dict, &error, 0,
-                                    "{s?i, s?s, s?{s:s}, s?{s:s}}",
+                                    "{s?i, s?s, s?s, s?{s:s}, s?{s:s}}",
                                     "Track", unpack_i(&track),
                                     "Name",  unpack_s(&name),
+                                    "ExternalFilename", unpack_s(&external_filename),
                                     // Support legacy "SRT" import
                                     "SRT",
                                         "Filename", unpack_s(&importfile),
@@ -1534,10 +1929,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 if (subtitle != NULL)
                 {
                     sub_config = subtitle->config;
-                    if (name != NULL)
-                    {
-                        sub_config.name = name;
-                    }
                     result = json_unpack_ex(subtitle_dict, &error, 0,
                         "{s?b, s?b, s?b, s?I}",
                         "Default",  unpack_b(&sub_config.default_track),
@@ -1550,8 +1941,10 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                         hb_job_close(&job);
                         return NULL;
                     }
+                    sub_config.name = name;
                     sub_config.offset = offset;
                     sub_config.dest = burn ? RENDERSUB : PASSTHRUSUB;
+                    sub_config.external_filename = (char*)external_filename;
                     hb_subtitle_add(job, &sub_config, track);
                 }
             }
@@ -1585,10 +1978,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                     hb_job_close(&job);
                     return NULL;
                 }
-                if (name != NULL)
-                {
-                    sub_config.name = name;
-                }
+                sub_config.name = name;
                 sub_config.offset = offset;
                 sub_config.dest = burn ? RENDERSUB : PASSTHRUSUB;
                 strncpy(sub_config.src_codeset, srtcodeset, 39);
@@ -1597,6 +1987,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 {
                     source = IMPORTSSA;
                 }
+                sub_config.external_filename = (char*)external_filename;
                 hb_import_subtitle_add(job, &sub_config, lang, source);
             }
         }
@@ -1752,118 +2143,6 @@ char* hb_set_anamorphic_size_json(const char * json_param)
         hb_error("hb_set_anamorphic_size_json: pack failure: %s", error.text);
         return NULL;
     }
-    char *result = hb_value_get_json(dict);
-    hb_value_free(&dict);
-
-    return result;
-}
-
-char* hb_get_preview_json(hb_handle_t * h, const char *json_param)
-{
-    hb_image_t *image;
-    int ii, title_idx, preview_idx, deinterlace = 0;
-
-    int json_result;
-    json_error_t error;
-    hb_dict_t * dict;
-    hb_geometry_settings_t settings;
-
-    // Clear dest geometry since some fields are optional.
-    memset(&settings, 0, sizeof(settings));
-
-    dict = hb_value_json(json_param);
-    json_result = json_unpack_ex(dict, &error, 0,
-    "{"
-    // Title, Preview, Deinterlace
-    "s:i, s:i, s?b,"
-    // DestSettings
-    "s:{"
-    //   Geometry {Width, Height, PAR {Num, Den}},
-    "s:{s:i, s:i, s:{s:i, s:i}},"
-    //   AnamorphicMode, Keep, ItuPAR, Modulus, MaxWidth, MaxHeight,
-    "s:i, s?i, s?b, s:i, s:i, s:i,"
-    //   Crop [Top, Bottom, Left, Right]
-    "s?[iiii]"
-    "  }"
-    "}",
-    "Title",                    unpack_i(&title_idx),
-    "Preview",                  unpack_i(&preview_idx),
-    "Deinterlace",              unpack_b(&deinterlace),
-    "DestSettings",
-        "Geometry",
-            "Width",            unpack_i(&settings.geometry.width),
-            "Height",           unpack_i(&settings.geometry.height),
-            "PAR",
-                "Num",          unpack_i(&settings.geometry.par.num),
-                "Den",          unpack_i(&settings.geometry.par.den),
-        "AnamorphicMode",       unpack_i(&settings.mode),
-        "Keep",                 unpack_i(&settings.keep),
-        "ItuPAR",               unpack_b(&settings.itu_par),
-        "Modulus",              unpack_i(&settings.modulus),
-        "MaxWidth",             unpack_i(&settings.maxWidth),
-        "MaxHeight",            unpack_i(&settings.maxHeight),
-        "Crop",                 unpack_i(&settings.crop[0]),
-                                unpack_i(&settings.crop[1]),
-                                unpack_i(&settings.crop[2]),
-                                unpack_i(&settings.crop[3])
-    );
-    hb_value_free(&dict);
-
-    if (json_result < 0)
-    {
-        hb_error("preview params: json unpack failure: %s", error.text);
-        return NULL;
-    }
-
-    image = hb_get_preview2(h, title_idx, preview_idx, &settings, deinterlace);
-    if (image == NULL)
-    {
-        return NULL;
-    }
-
-    dict = json_pack_ex(&error, 0,
-        "{s:o, s:o, s:o}",
-            "Format",       hb_value_int(image->format),
-            "Width",        hb_value_int(image->width),
-            "Height",       hb_value_int(image->height));
-    if (dict == NULL)
-    {
-        hb_error("hb_get_preview_json: pack failure: %s", error.text);
-        return NULL;
-    }
-
-    hb_value_array_t * planes = hb_value_array_init();
-    for (ii = 0; ii < 4; ii++)
-    {
-        int base64size = AV_BASE64_SIZE(image->plane[ii].size);
-        if (image->plane[ii].size <= 0 || base64size <= 0)
-            continue;
-
-        char *plane_base64 = calloc(base64size, 1);
-        av_base64_encode(plane_base64, base64size,
-                         image->plane[ii].data, image->plane[ii].size);
-
-        base64size = strlen(plane_base64);
-        hb_dict_t *plane_dict;
-        plane_dict = json_pack_ex(&error, 0,
-            "{s:o, s:o, s:o, s:o, s:o, s:o}",
-            "Width",        hb_value_int(image->plane[ii].width),
-            "Height",       hb_value_int(image->plane[ii].height),
-            "Stride",       hb_value_int(image->plane[ii].stride),
-            "HeightStride", hb_value_int(image->plane[ii].height_stride),
-            "Size",         hb_value_int(base64size),
-            "Data",         hb_value_string(plane_base64)
-        );
-        if (plane_dict == NULL)
-        {
-            hb_error("plane_dict: json pack failure: %s", error.text);
-            return NULL;
-        }
-        hb_value_array_append(planes, plane_dict);
-    }
-    hb_dict_set(dict, "Planes", planes);
-    hb_image_close(&image);
-
     char *result = hb_value_get_json(dict);
     hb_value_free(&dict);
 

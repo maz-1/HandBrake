@@ -1,6 +1,6 @@
 /* dvdnav.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -23,7 +23,7 @@
 static char        * hb_dvdnav_name( char * path );
 static hb_dvd_t    * hb_dvdnav_init( hb_handle_t * h, const char * path );
 static int           hb_dvdnav_title_count( hb_dvd_t * d );
-static hb_title_t  * hb_dvdnav_title_scan( hb_dvd_t * d, int t, uint64_t min_duration );
+static hb_title_t  * hb_dvdnav_title_scan( hb_dvd_t * d, int t, uint64_t min_duration, uint64_t max_duration );
 static int           hb_dvdnav_start( hb_dvd_t * d, hb_title_t *title, int chapter );
 static void          hb_dvdnav_stop( hb_dvd_t * d );
 static int           hb_dvdnav_seek( hb_dvd_t * d, float f );
@@ -103,12 +103,11 @@ static char * hb_dvdnav_name( char * path )
  **********************************************************************/
 static int hb_dvdnav_reset( hb_dvdnav_t * d )
 {
-    char * path_ccp = hb_utf8_to_cp( d->path );
     if ( d->dvdnav )
         dvdnav_close( d->dvdnav );
 
     /* Open device */
-    if( dvdnav_open(&d->dvdnav, path_ccp) != DVDNAV_STATUS_OK )
+    if( dvdnav_open(&d->dvdnav, d->path) != DVDNAV_STATUS_OK )
     {
         /*
          * Not an error, may be a stream - which we'll try in a moment.
@@ -137,13 +136,10 @@ static int hb_dvdnav_reset( hb_dvdnav_t * d )
         goto fail;
     }
 
-    free( path_ccp );
-
     return 1;
 
 fail:
     if( d->dvdnav ) dvdnav_close( d->dvdnav );
-    free( path_ccp );
     return 0;
 }
 
@@ -157,21 +153,13 @@ static hb_dvd_t * hb_dvdnav_init( hb_handle_t * h, const char * path )
     hb_dvd_t * e;
     hb_dvdnav_t * d;
     int region_mask;
-    char * path_ccp;
 
     e = calloc( sizeof( hb_dvd_t ), 1 );
     d = &(e->dvdnav);
     d->h = h;
 
-    /*
-     * Convert UTF-8 path to current code page on Windows
-     * hb_utf8_to_cp() is the same as strdup on non-Windows,
-     * so no #ifdef required here
-     */
-    path_ccp = hb_utf8_to_cp( path );
-
 	/* Log DVD drive region code */
-    if ( hb_dvd_region( path_ccp, &region_mask ) == 0 )
+    if ( hb_dvd_region( path, &region_mask ) == 0 )
     {
         hb_log( "dvd: Region mask 0x%02x", region_mask );
         if ( region_mask == 0xFF )
@@ -181,7 +169,7 @@ static hb_dvd_t * hb_dvdnav_init( hb_handle_t * h, const char * path )
     }
 
     /* Open device */
-    if( dvdnav_open(&d->dvdnav, path_ccp) != DVDNAV_STATUS_OK )
+    if( dvdnav_open(&d->dvdnav, path) != DVDNAV_STATUS_OK )
     {
         /*
          * Not an error, may be a stream - which we'll try in a moment.
@@ -211,7 +199,7 @@ static hb_dvd_t * hb_dvdnav_init( hb_handle_t * h, const char * path )
     }
 
     /* Open device */
-    if( !( d->reader = DVDOpen( path_ccp ) ) )
+    if( !( d->reader = DVDOpen( path ) ) )
     {
         /*
          * Not an error, may be a stream - which we'll try in a moment.
@@ -227,8 +215,7 @@ static hb_dvd_t * hb_dvdnav_init( hb_handle_t * h, const char * path )
         goto fail;
     }
 
-    d->path = strdup( path ); /* hb_dvdnav_title_scan assumes UTF-8 path, so not path_ccp here */
-    free( path_ccp );
+    d->path = strdup( path );
 
     return e;
 
@@ -237,7 +224,6 @@ fail:
     if( d->vmg )    ifoClose( d->vmg );
     if( d->reader ) DVDClose( d->reader );
     free( e );
-    free( path_ccp );
     return NULL;
 }
 
@@ -411,6 +397,7 @@ static void add_subtitle( hb_list_t * list_subtitle, int position,
                                    HB_SUBTITLE_ATTR_CHILDREN;
             strcat(subtitle->lang, " Director's Commentary, Children");
             name = "Commentary, Children";
+            break;
         default:
             subtitle->attributes = HB_SUBTITLE_ATTR_UNKNOWN;
             break;
@@ -451,7 +438,7 @@ static void add_subtitle( hb_list_t * list_subtitle, int position,
 /***********************************************************************
  * hb_dvdnav_title_scan
  **********************************************************************/
-static hb_title_t * hb_dvdnav_title_scan( hb_dvd_t * e, int t, uint64_t min_duration )
+static hb_title_t * hb_dvdnav_title_scan( hb_dvd_t * e, int t, uint64_t min_duration, uint64_t max_duration )
 {
 
     hb_dvdnav_t      * d = &(e->dvdnav);
@@ -548,6 +535,12 @@ static hb_title_t * hb_dvdnav_title_scan( hb_dvd_t * e, int t, uint64_t min_dura
     if (title->duration < min_duration)
     {
         hb_log( "scan: ignoring title (too short)" );
+        goto fail;
+    }
+    
+    if (max_duration > 0 && title->duration > max_duration )
+    {
+        hb_log( "scan: ignoring title (too long)" );
         goto fail;
     }
 
@@ -656,6 +649,7 @@ static hb_title_t * hb_dvdnav_title_scan( hb_dvd_t * e, int t, uint64_t min_dura
         }
         if( !audio->id )
         {
+            free(audio);
             continue;
         }
         const char * name = NULL;
@@ -716,6 +710,7 @@ static hb_title_t * hb_dvdnav_title_scan( hb_dvd_t * e, int t, uint64_t min_dura
                audio->config.lang.simple, codec_name,
                audio->config.lang.iso639_2, lang_extension);
 
+        audio->config.index           = hb_list_count(title->list_audio);
         audio->config.in.track        = i;
         audio->config.in.timebase.num = 1;
         audio->config.in.timebase.den = 90000;
@@ -803,7 +798,7 @@ static hb_title_t * hb_dvdnav_title_scan( hb_dvd_t * e, int t, uint64_t min_dura
         chapter->index    = i + 1;
         chapter->duration = dvd_chapter->duration;
 
-        sprintf(chapter_title, "Chapter %d", chapter->index);
+        snprintf(chapter_title, sizeof(chapter_title), "Chapter %d", chapter->index);
         hb_chapter_set_title(chapter, chapter_title);
 
         hb_list_add( title->list_chapter, chapter );
@@ -963,7 +958,7 @@ static int skip_to_menu( dvdnav_t * dvdnav, int blocks )
             // and some don't seem to.  So if we see it is uninitialized,
             // set it.
             if ( event->new_vtsN <= 0 )
-                result = dvdnav_title_play( dvdnav, 1 );
+                dvdnav_title_play( dvdnav, 1 );
         } break;
 
         case DVDNAV_HIGHLIGHT:
@@ -1165,7 +1160,7 @@ static int try_menu(
         {
             // Sometimes the "first play" item doesn't initialize the
             // initial VTS. So do it here.
-            result = dvdnav_title_play( d->dvdnav, 1 );
+            dvdnav_title_play( d->dvdnav, 1 );
             result = dvdnav_menu_call( d->dvdnav, menu );
             if ( result != DVDNAV_STATUS_OK )
             {
@@ -1314,7 +1309,7 @@ static int try_menu(
         }
         else
         {
-            result = dvdnav_menu_call( d->dvdnav, menu );
+            dvdnav_menu_call( d->dvdnav, menu );
         }
     }
 
@@ -1670,8 +1665,6 @@ static hb_buffer_t * hb_dvdnav_read( hb_dvd_t * e )
             // We have received a regular block of the currently playing
             // MPEG stream.
             b->s.new_chap = chapter;
-            chapter = 0;
-            error_count = 0;
             return b;
 
         case DVDNAV_NOP:

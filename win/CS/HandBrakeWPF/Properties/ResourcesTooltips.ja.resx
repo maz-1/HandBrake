@@ -60,45 +60,45 @@
             : and then encoded with base64 encoding.
     -->
   <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="type" type="xsd:string"/>
+              <xsd:attribute name="mimetype" type="xsd:string"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="alias" type="xsd:string"/>
+              <xsd:attribute name="name" type="xsd:string"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required"/>
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="FilterView_Deblock" xml:space="preserve">
     <value>デブロックは低品質で圧縮されたときに生じるブロック状のノイズを低減します。</value>
@@ -163,15 +163,13 @@ HQDN3Dは適応性ローパスフィルターで、NLMeansよりは高速です�
 Blu-rayやDVDソースはしばしば複数のタイトルを含み、典型的には一番長いものが本編です。</value>
   </data>
   <data name="PictureSettingsView_Anamorphic" xml:space="preserve">
-    <value>アナモルフィックは再生時に元の縦横比を維持しながら任意の解像度で保存できます。
+    <value>Anamorphic allows arbitrary storage dimensions while preserving the original aspect during playback.
 
-オフはアナモルフィックを無効にします。表示されるものと保存される映像の解像度は同一になります。古いデバイスとの互換性によっては便利です。
+None disables anamorphic. Video storage dimensions and display dimensions will be identical. Only useful for compatibility with certain legacy devices.
 
-自動は元の表示アスペクト比を維持したまま最大の解像度で保存します。推奨です。
+Automatic maximizes storage resolution while preserving the original display aspect ratio. Recommended.
 
-ルーズは自動と似ていますが、保存されるアスペクト比を維持しようとします。これにより自動と比べてわずかに解像度が落ちる場合があります。
-
-カスタムは全てのパラメーターを手動で設定します。ソースの間違った表示解像度の修正や、高度な操作を必要とするプロのポストプロダクション向けです。</value>
+Custom allows manually setting all parameters. Useful for correcting an incorrect source display aspect and for professionals needing advanced control in post-production.</value>
   </data>
   <data name="PictureSettingsView_AutoCrop" xml:space="preserve">
     <value>映像の周りにある黒い線を自動でクロップします。</value>
@@ -262,11 +260,15 @@ Blu-rayやDVDソースはしばしば複数のタイトルを含み、典型的�
     <value>フレームレート設定を最大値とした可変フレームレートの出力を有効にします。</value>
   </data>
   <data name="Video_Presets" xml:space="preserve">
-    <value>エンコーダー設定を調節して圧縮効率とエンコード速度のバランスを取ります。
+    <value>Adjusts encoder settings to trade off compression efficiency against encoding speed.
 
-これは基本のエンコーダー設定です。
-チューニング、プロファイル、レベルと追加のオプションはこれに適用されます。
-品質がより高く、小さいファイルになるよう、通常は可能な限り遅いものを選ぶことをお勧めします。</value>
+This establishes your default encoder settings.
+Tunes, profiles, levels and advanced option string will be applied to this.
+You should generally set this option to the slowest you can bear since slower
+settings will result in better quality or smaller files.
+
+Adjust the slider to the right to increase compression efficiency at the expense of encoding speed,
+or to the left to increase encoding speed at the expense of compression efficiency.</value>
   </data>
   <data name="Video_Profile" xml:space="preserve">
     <value>特定のプロファイルを設定します。
@@ -288,15 +290,15 @@ x264は対数スケールで低い値が高いクオリティに対応します�
 FFMpegとTheoraのスケールはより直線的です。
 この二つにはロスレスモードはありません。</value>
   </data>
-  <data name="Video_TurboFirstPass" xml:space="preserve">
-    <value>2パスエンコードのうちの最初のパスの、速度に関わる設定です。</value>
+  <data name="Video_TurboAnalysisPass" xml:space="preserve">
+    <value>複数パスエンコードの内、解析パスで、高速化の設定が行われます。</value>
   </data>
-  <data name="Video_TwoPass" xml:space="preserve">
-    <value>2パスエンコードを行います。
+  <data name="Video_MultiPass" xml:space="preserve">
+    <value>複数パスエンコードを行います。
 
-'ビットレート'オプションがまず必要です。1パス目で映像の統計を取得します。
-それから2パス目で、目的のビットレートを実現するために
-その統計が使用されます。</value>
+これは 'ビットレート' オプションを使用することが前提です。解析パスで
+映像の統計情報を採取します。最後のパスで統計情報を利用し
+ビットレートの割り当てが行われます。</value>
   </data>
   <data name="Video_VariableFramerate" xml:space="preserve">
     <value>可変フレームレートの出力を有効にします。
@@ -327,7 +329,9 @@ FFMpegとTheoraのスケールはより直線的です。
     <value>選択したプリセットを削除します。</value>
   </data>
   <data name="SourceSelection_TitleSpecific" xml:space="preserve">
-    <value>全タイトルの代わりに特定のタイトルのみスキャンする。</value>
+    <value>いくつかのソースに2つ以上のビデオクリップか、タイトルがあります。Blu-rayとDVDソースには複数タイトルがあることがあります。
+
+もしエンコードしたいタイトルがあれば、ここに入力すればHandbrakeはソースファイルの全てではなくこのタイトルのみをスキャンします。でなければここは空欄にしてください。</value>
   </data>
   <data name="FilterView_CustomDenoiseParams" xml:space="preserve">
     <value>デノイズのカスタムパラメーターです。
@@ -363,16 +367,16 @@ HQDN3D default: y-spatial=3:cb-spatial=2:cr-spatial=2:y-temporal=2:cb-temporal=3
   <data name="FilterView_Deinterlace" xml:space="preserve">
     <value>インターレース解除は画像からくし状のノイズを除去します。
 
-Yadifは人気で速い解除フィルターです。
+BwdifとYadifは人気で速い解除フィルターです。
 
 Decombは品質と速度に応じて複数の補完法を切り替えることができます。</value>
   </data>
   <data name="FilterView_DeinterlaceCustom" xml:space="preserve">
     <value>インターレース解除のカスタムパラメーターです。
  
- Yadif syntax: mode=m:parity=p
+ Bwdif and Yadif syntax: mode=m:parity=p
  
- Yadif default: mode=3
+ Bwdif and Yadif default: mode=3
  
  Decomb syntax: mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
  
@@ -483,5 +487,89 @@ LapsharpのSpriteは1-/4-/8-/16-bitの2次元ゲームに向いています。Sp
     <value>フラット - プリセットは一列で表示されます。
 一部フラット - 8つのユーザープリセットが一列で表示され、続いて全てのプリセットがカテゴリで表示されます。
 カテゴリ - すべてのプリセットがカテゴリごとにサブメニューに表示されます。</value>
+  </data>
+  <data name="AudioView_AudioDefaults" xml:space="preserve">
+    <value>新しいソースやタイトルを選択した時に、このタブがどのように音声トラックを自動追加するかを設定します。</value>
+  </data>
+  <data name="BehavioursReload" xml:space="preserve">
+    <value>設定した通りのリストにするには更新してください。</value>
+  </data>
+  <data name="SubtitleView_SubtitleDefaults" xml:space="preserve">
+    <value>新しいソースやタイトルを選択した時に、このタブがどのように字幕トラックを自動追加するかを設定します。</value>
+  </data>
+  <data name="OptionsView_SendFileToArguments" xml:space="preserve">
+    <value>以下の環境変数は常に設定されます:
+HB_SOURCE
+HB_DESTINATION
+HB_EXIT_CODE
+
+終了ステータスは次の通りです。
+0 : 成功
+2 : 入力引数エラー
+3 : 初期化失敗 
+4 : 不明なエラー
+5 : ソースファイル読み込みエラー。
+
+エラーコードはベストエフォートであり正確であるとは限らないことに留意してください。
+出力ファイルに何かする前にそれが正しいものであるか確認することが推奨されます。</value>
+  </data>
+  <data name="Options_AdditionalFormatOptions" xml:space="preserve">
+    <value>出力ファイルの形式です。ファイルシステムでサポートされるすべての文字の他に、タイトル変更やソースのスキャンや設定を更新した際に自動的に置き換わるようにプレースホルダを使うことができます。
+
+{source} - ソースファイル名です。
+{title} - 整数の値を取ります。ディスクタイトルの数字の代わりになるものです。
+{chapters} - 選択されたチャプターの範囲です。
+{creation-date} - (利用可能である場合は)ソースファイルが作成された日付です。
+{creation-time} - (利用可能である場合は)ソースファイルが作成された時刻です。
+{modification-date} - (利用可能である場合は)ソースファイルが最後に変更された日付です。
+{modification-time} - (利用可能である場合は)ソースファイルが最後に変更された時刻です。
+{date} - 今日の日付です。キューに追加された時間が基準です。
+{time} - 今日の時刻です。キューに追加された時間が基準です。
+{quality_bitrate} - 品質やビットレートの数字です。
+{quality_type} - ビデオタブでの設定に応じ"kbps"や"Q"が出力されます。
+{preset} - 選択されたプリセットの名前です。
+{encode_bit_depth} -  8, 10, 12などで表されるビット深度です。
+{width} - 出力される格納幅です。
+{height} - 出力される格納高さです。
+{codec} - 映像の形式です。
+{encoder} - 使用されるエンコーダの形式を短くしたものです。
+
+パスに使えない無効な文字は自動で除去されます。</value>
+  </data>
+  <data name="OptionsView_RightToleftMode" xml:space="preserve">
+    <value>右から左に読む言語用に2つのモードがあります。"テキストのみ"はテキストのみ右から始まるようになります。"全ユーザーインターフェイス"は全ての操作を右からにします。
+
+これらを使うとUIレイアウトがおかしくなる可能性には留意してください。言語により、両方を試して合うものを探すのが好ましいです。</value>
+  </data>
+  <data name="AudioView_Quality" xml:space="preserve">
+    <value>Target a specific quality level for audio.
+Higher values mean higher quality.
+
+Bitrate will vary source to source.</value>
+  </data>
+  <data name="OptionsView_DestinationReplacementOptions" xml:space="preserve">
+    <value>次のものは出力先パスを決める際に一つまたは複数使用できます。
+
+{source_path} - (可能であれば)ソースパスと同じフォルダです。
+{source_folder_name} – フルパスでない、ソースファイルが入っているディレクトリの名前です。
+{source} - ソースファイルの名前です。</value>
+  </data>
+  <data name="OptionsView_LaunchsHelp" xml:space="preserve">
+    <value>https://handbrake.fr/docs にあるドキュメントのウェブサイトを開く</value>
+  </data>
+  <data name="Options_RemovePunctuation" xml:space="preserve">
+    <value>ダッシュ(-)、ピリオド(.)、カンマ(,)</value>
+  </data>
+  <data name="PictureSettingsView_OptimalSize" xml:space="preserve">
+    <value>Use highest resolution permitted by above settings</value>
+  </data>
+  <data name="PictureSettingsView_AllowUpscaling" xml:space="preserve">
+    <value>If not enabled, scaled dimensions will be limited to source dimensions.</value>
+  </data>
+  <data name="PictureSettingsView_AutomaticKeepAR" xml:space="preserve">
+    <value>表示サイズを変更すると映像が引き延ばされます</value>
+  </data>
+  <data name="Video_ColourRange" xml:space="preserve">
+    <value>Color Range. Determines the values of the reference black and white. Set to limited to maximize compatibility.</value>
   </data>
 </root>

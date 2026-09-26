@@ -1,21 +1,25 @@
 $(eval $(call import.MODULE.defs,LIBVPX,libvpx))
 $(eval $(call import.CONTRIB.defs,LIBVPX))
 
-LIBVPX.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/libvpx-1.11.0.tar.gz
-LIBVPX.FETCH.url    += https://github.com/webmproject/libvpx/archive/refs/tags/v1.11.0.tar.gz
-LIBVPX.FETCH.sha256  = 965e51c91ad9851e2337aebcc0f517440c637c506f3a03948062e3d5ea129a83
+LIBVPX.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/libvpx-1.17.0.tar.gz
+LIBVPX.FETCH.url    += https://github.com/webmproject/libvpx/archive/refs/tags/v1.17.0.tar.gz
+LIBVPX.FETCH.sha256  = 1020f184046187baa2985dbde38e0691f49c44088bca7a1842b0236c6081dc0a
+
+LIBVPX.GCC.args.c_std =
 
 LIBVPX.CONFIGURE.args.host =
 LIBVPX.CONFIGURE.deps  =
-LIBVPX.CONFIGURE.extra =  \
+LIBVPX.CONFIGURE.extra =     \
     --as=nasm \
-    --enable-vp8-encoder  \
-    --disable-vp8-decoder \
-    --enable-vp9-encoder  \
-    --disable-vp9-decoder \
-    --disable-examples    \
-    --disable-docs        \
+    --enable-vp8-encoder        \
+    --disable-vp8-decoder       \
+    --enable-vp9-encoder        \
+    --disable-vp9-decoder       \
+    --disable-examples          \
+    --disable-tools             \
+    --disable-docs              \
     --disable-unit-tests
+
 
 ifeq (1,$(HOST.cross))
     LIBVPX.CONFIGURE.args.build =
@@ -44,8 +48,4 @@ ifeq (darwin,$(HOST.system))
     else ifeq (x86_64,$(HOST.machine))
         LIBVPX.CONFIGURE.extra += --target=x86_64-darwin14-gcc
     endif
-endif
-
-ifeq (1-mingw,$(HOST.cross)-$(HOST.system))
-    LIBVPX.CONFIGURE.extra += --disable-avx512
 endif

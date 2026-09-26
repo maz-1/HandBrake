@@ -19,7 +19,6 @@ namespace HandBrake.Interop.Interop.Json.Encode
         /// </summary>
         public Video()
         {
-            this.QSV = new QSV();
         }
 
         /// <summary>
@@ -38,14 +37,19 @@ namespace HandBrake.Interop.Interop.Json.Encode
         public int? Bitrate { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether two pass.
+        /// Gets or sets a value indicating whether multi pass.
         /// </summary>
-        public bool TwoPass { get; set; }
+        public bool MultiPass { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether Turbo First Pass. For x264/5
+        /// Gets or sets a value indicating whether Turbo Analysis Pass. For x264/5
         /// </summary>
         public bool Turbo { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Colour Range
+        /// </summary>
+        public int? ColorRange { get; set; }
 
         /// <summary>
         /// Gets or sets the Colour Matrix Code
@@ -78,8 +82,8 @@ namespace HandBrake.Interop.Interop.Json.Encode
         public string Tune { get; set; }
 
         /// <summary>
-        /// Gets or sets the qsv.
+        /// HB_DECODE_SUPPORT constants in common.h
         /// </summary>
-        public QSV QSV { get; set; }
+        public uint HardwareDecode { get; set; }
     }
 }

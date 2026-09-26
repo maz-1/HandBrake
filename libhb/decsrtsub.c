@@ -1,6 +1,6 @@
 /* decsrtsub.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -12,9 +12,11 @@
 #include <string.h>
 #include <iconv.h>
 #include <errno.h>
+#include "libavutil/avutil.h"
 #include "handbrake/handbrake.h"
 #include "handbrake/colormap.h"
 #include "handbrake/decavsub.h"
+#include "handbrake/extradata.h"
 
 struct start_and_end {
     unsigned long start, end;
@@ -40,7 +42,7 @@ typedef struct srt_entry_s {
  */
 struct hb_work_private_s
 {
-    hb_avsub_context_t * ctx;
+    hb_decavsub_context_t * ctx;
     hb_job_t * job;
     FILE     * file;
     char       buf[1024];
@@ -55,7 +57,7 @@ struct hb_work_private_s
     unsigned long last_entry_number;
     unsigned long current_state;
     srt_entry_t current_entry;
-    iconv_t *iconv_context;
+    iconv_t iconv_context;
     hb_subtitle_t *subtitle;
     uint64_t start_time;              // In HB time
     uint64_t stop_time;               // In HB time
@@ -494,6 +496,11 @@ static int decsrtInit( hb_work_object_t * w, hb_job_t * job )
     {
         goto fail;
     }
+
+    // For SRT files, libav will generate an SSA subtitle header for us.
+    // We will copy it into subtitle extradata after the decoder is
+    // initialized
+
     pv->ctx = decavsubInit(w, job);
     if (pv->ctx == NULL)
     {
@@ -562,12 +569,6 @@ static int decsrtInit( hb_work_object_t * w, hb_job_t * job )
         }
     }
 
-    // Generate generic SSA Script Info.
-    int height = job->title->geometry.height - job->crop[0] - job->crop[1];
-    int width = job->title->geometry.width - job->crop[2] - job->crop[3];
-    hb_subtitle_add_ssa_header(w->subtitle, HB_FONT_SANS,
-                               .066 * job->title->geometry.height,
-                               width, height);
     return 0;
 
 fail:

@@ -1,6 +1,6 @@
 /* hb.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -11,6 +11,7 @@
 #include "handbrake/hbffmpeg.h"
 #include "handbrake/hbavfilter.h"
 #include "handbrake/encx264.h"
+#include "handbrake/vaapi_common.h"
 #include "libavfilter/avfilter.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -76,11 +77,7 @@ int disable_hardware = 0;
 
 static void thread_func( void * );
 
-void hb_avcodec_init()
-{
-}
-
-int hb_avcodec_open(AVCodecContext *avctx, AVCodec *codec,
+int hb_avcodec_open(AVCodecContext *avctx, const AVCodec *codec,
                     AVDictionary **av_opts, int thread_count)
 {
     int ret;
@@ -88,8 +85,13 @@ int hb_avcodec_open(AVCodecContext *avctx, AVCodec *codec,
     if ((thread_count == HB_FFMPEG_THREADS_AUTO || thread_count > 0) &&
         (codec->type == AVMEDIA_TYPE_VIDEO))
     {
+#if defined (__aarch64__) && defined(_WIN32)
+        avctx->thread_count = (thread_count == HB_FFMPEG_THREADS_AUTO) ?
+                               hb_get_cpu_count() + 1 : thread_count;
+#else
         avctx->thread_count = (thread_count == HB_FFMPEG_THREADS_AUTO) ?
                                hb_get_cpu_count() / 2 + 1 : thread_count;
+#endif
         avctx->thread_type = FF_THREAD_FRAME|FF_THREAD_SLICE;
     }
     else
@@ -117,13 +119,18 @@ int hb_picture_fill(uint8_t *data[], int stride[], hb_buffer_t *buf)
 {
     int ret, ii;
 
+    if (buf->f.max_plane < 0)
+    {
+        return -1;
+    }
+
     for (ii = 0; ii <= buf->f.max_plane; ii++)
         stride[ii] = buf->plane[ii].stride;
     for (; ii < 4; ii++)
         stride[ii] = stride[ii - 1];
 
     ret = av_image_fill_pointers(data, buf->f.fmt,
-                                 buf->plane[0].height_stride,
+                                 buf->plane[0].height,
                                  buf->data, stride);
     if (ret != buf->size)
     {
@@ -310,7 +317,7 @@ int hb_get_build( hb_handle_t * h )
 void hb_remove_previews( hb_handle_t * h )
 {
     char          * filename;
-    char          * dirname;
+    const char    * dirname;
     hb_title_t    * title;
     int             i, count, len;
     DIR           * dir;
@@ -320,7 +327,6 @@ void hb_remove_previews( hb_handle_t * h )
     dir = opendir( dirname );
     if (dir == NULL)
     {
-        free(dirname);
         return;
     }
 
@@ -350,7 +356,6 @@ void hb_remove_previews( hb_handle_t * h )
             free(filename);
         }
     }
-    free(dirname);
     closedir( dir );
 }
 
@@ -361,16 +366,33 @@ void hb_remove_previews( hb_handle_t * h )
  * @param title_index Desired title to scan.  0 for all titles.
  * @param preview_count Number of preview images to generate.
  * @param store_previews Whether or not to write previews to disk.
+ * @param min_duration Ignore titles below a given threshold
+ * @param max_duration Ignore titles longer than a given threshold
+ * @param crop_threshold_frames The number of frames to trigger smart crop
+ * @param crop_threshold_pixels The variance in pixels detected that are allowed for.
+ * @param exclude_extensions A list of extensions to exclude for this scan.
+ * @param hw_decode  The preferred hardware decoder to use..
+ * @param keep_duplicate_titles
  */
-void hb_scan( hb_handle_t * h, const char * path, int title_index,
-              int preview_count, int store_previews, uint64_t min_duration )
+void hb_scan( hb_handle_t * h, hb_list_t * paths, int title_index,
+              int preview_count, int store_previews, uint64_t min_duration, uint64_t max_duration,
+              int crop_threshold_frames, int crop_threshold_pixels,
+              hb_list_t * exclude_extensions, int hw_decode, int keep_duplicate_titles)
 {
     hb_title_t * title;
 
-    // Check if scanning is necessary.
-    if (h->title_set.path != NULL && !strcmp(h->title_set.path, path))
+    char *single_path = NULL;
+    int path_count = hb_list_count(paths);
+
+    if (path_count == 1)
     {
-        // Current title_set path matches requested path.
+        single_path = hb_list_item(paths, 0);
+    }
+
+    // Check if scanning is necessary. Only works on Single Path.
+    if (single_path != NULL && h->title_set.path != NULL && !strcmp(h->title_set.path, single_path))
+    {
+        // Current title_set path matches requested single_path.
         // Check if the requested title has already been scanned.
         int ii;
         for (ii = 0; ii < hb_list_count(h->title_set.list_title); ii++)
@@ -414,6 +436,15 @@ void hb_scan( hb_handle_t * h, const char * path, int title_index,
     free((char*)h->title_set.path);
     h->title_set.path = NULL;
 
+    /* Print operating system info here so that it's in all scan and encode logs */
+    const char *os_name    = hb_get_system_name();
+    const char *os_version = hb_get_system_version();
+    const char *os_build   = hb_get_system_build();
+    if (os_name != NULL && os_version != NULL && os_build != NULL)
+    {
+        hb_log("OS: %s %s (%s)", os_name, os_version, os_build);
+    }
+
     /* Print CPU info here so that it's in all scan and encode logs */
     const char *cpu_name = hb_get_cpu_name();
     const char *cpu_type = hb_get_cpu_platform_name();
@@ -425,17 +456,25 @@ void hb_scan( hb_handle_t * h, const char * path, int title_index,
     hb_log(" - logical processor count: %d", hb_get_cpu_count());
 
 #if HB_PROJECT_FEATURE_QSV
-    if (!is_hardware_disabled())
+    if (!hb_is_hardware_disabled())
     {
         /* Print QSV info here so that it's in all scan and encode logs */
         hb_qsv_info_print();
     }
 #endif
 
-    hb_log( "hb_scan: path=%s, title_index=%d", path, title_index );
-    h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index,
+    char *path_info = single_path;
+    if (path_count > 1)
+    {
+        path_info = "(multiple)";
+    }
+
+    hb_log( "hb_scan: path=%s, title_index=%d", path_info, title_index );
+    h->scan_thread = hb_scan_init( h, &h->scan_die, paths, title_index,
                                    &h->title_set, preview_count,
-                                   store_previews, min_duration );
+                                   store_previews, min_duration, max_duration,
+                                   crop_threshold_frames, crop_threshold_pixels,
+                                   exclude_extensions, hw_decode, keep_duplicate_titles);
 }
 
 void hb_force_rescan( hb_handle_t * h )
@@ -459,22 +498,36 @@ hb_title_set_t * hb_get_title_set( hb_handle_t * h )
     return &h->title_set;
 }
 
+hb_list_t * hb_get_title_coverarts( hb_handle_t * h, int title )
+{
+    hb_title_t * sourceTitle = hb_list_item(h->title_set.list_title, title);
+    if (sourceTitle)
+    {
+        hb_list_t * coverart = sourceTitle->metadata->list_coverart;
+        return coverart;
+    }
+
+    hb_list_t * emptyList = hb_list_init();
+    return emptyList;
+}
+
+#define HB_PLANES_MAX   3
+#define HB_FORMAT_CHARS 4
+
 int hb_save_preview( hb_handle_t * h, int title, int preview, hb_buffer_t *buf, int format )
 {
     FILE    * file;
     char    * filename;
     char      reason[80];
-    const int planes_max   = 3;
-    const int format_chars = 4;
-    char      format_string[format_chars];
+    char      format_string[HB_FORMAT_CHARS];
 
     switch (format)
     {
         case HB_PREVIEW_FORMAT_YUV:
-            strncpy(format_string, "yuv", format_chars);
+            strncpy(format_string, "yuv", HB_FORMAT_CHARS);
             break;
         case HB_PREVIEW_FORMAT_JPG:
-            strncpy(format_string, "jpg", format_chars);
+            strncpy(format_string, "jpg", HB_FORMAT_CHARS);
             break;
         default:
             hb_error("hb_save_preview: Unsupported preview format %d", format);
@@ -500,7 +553,7 @@ int hb_save_preview( hb_handle_t * h, int title, int preview, hb_buffer_t *buf, 
     if (format == HB_PREVIEW_FORMAT_YUV)
     {
         int pp, hh;
-        for(pp = 0; pp < planes_max; pp++)
+        for(pp = 0; pp < HB_PLANES_MAX; pp++)
         {
             const uint8_t * data = buf->plane[pp].data;
             const int     stride = buf->plane[pp].stride;
@@ -533,10 +586,10 @@ int hb_save_preview( hb_handle_t * h, int title, int preview, hb_buffer_t *buf, 
         const int       jpeg_quality = 90;
         unsigned long   jpeg_size    = 0;
         unsigned char * jpeg_data    = NULL;
-        int             planes_stride[planes_max];
-        uint8_t       * planes_data[planes_max];
+        int             planes_stride[HB_PLANES_MAX];
+        uint8_t       * planes_data[HB_PLANES_MAX];
         int             pp, compressor_result;
-        for (pp = 0; pp < planes_max; pp++)
+        for (pp = 0; pp < HB_PLANES_MAX; pp++)
         {
             planes_stride[pp] = buf->plane[pp].stride;
             planes_data[pp]   = buf->plane[pp].data;
@@ -587,9 +640,7 @@ hb_buffer_t * hb_read_preview(hb_handle_t * h, hb_title_t *title, int preview, i
     FILE    * file = NULL;
     char    * filename = NULL;
     char      reason[80];
-    const int planes_max   = 3;
-    const int format_chars = 4;
-    char      format_string[format_chars];
+    char      format_string[HB_FORMAT_CHARS];
 
     hb_buffer_t * buf;
     buf = hb_frame_buffer_init(AV_PIX_FMT_YUV420P,
@@ -609,10 +660,10 @@ hb_buffer_t * hb_read_preview(hb_handle_t * h, hb_title_t *title, int preview, i
     switch (format)
     {
         case HB_PREVIEW_FORMAT_YUV:
-            strncpy(format_string, "yuv", format_chars);
+            strncpy(format_string, "yuv", HB_FORMAT_CHARS);
             break;
         case HB_PREVIEW_FORMAT_JPG:
-            strncpy(format_string, "jpg", format_chars);
+            strncpy(format_string, "jpg", HB_FORMAT_CHARS);
             break;
         default:
             hb_error("hb_read_preview: Unsupported preview format %d", format);
@@ -638,7 +689,7 @@ hb_buffer_t * hb_read_preview(hb_handle_t * h, hb_title_t *title, int preview, i
     if (format == HB_PREVIEW_FORMAT_YUV)
     {
         int pp, hh;
-        for (pp = 0; pp < planes_max; pp++)
+        for (pp = 0; pp < HB_PLANES_MAX; pp++)
         {
             uint8_t       * data = buf->plane[pp].data;
             const int     stride = buf->plane[pp].stride;
@@ -689,10 +740,10 @@ hb_buffer_t * hb_read_preview(hb_handle_t * h, hb_title_t *title, int preview, i
         }
 
         tjhandle   jpeg_decompressor = tjInitDecompress();
-        int        planes_stride[planes_max];
-        uint8_t  * planes_data[planes_max];
+        int        planes_stride[HB_PLANES_MAX];
+        uint8_t  * planes_data[HB_PLANES_MAX];
         int        pp, decompressor_result;
-        for (pp = 0; pp < planes_max; pp++)
+        for (pp = 0; pp < HB_PLANES_MAX; pp++)
         {
             planes_stride[pp] = buf->plane[pp].stride;
             planes_data[pp]   = buf->plane[pp].data;
@@ -723,113 +774,6 @@ done:
     return buf;
 }
 
-hb_image_t* hb_get_preview2(hb_handle_t * h, int title_idx, int picture,
-                            hb_geometry_settings_t *geo, int deinterlace)
-{
-    char                 filename[1024];
-    hb_buffer_t        * in_buf = NULL, * deint_buf = NULL;
-    hb_buffer_t        * preview_buf = NULL;
-    uint32_t             swsflags;
-    uint8_t            * preview_data[4], * crop_data[4];
-    int                  preview_stride[4], crop_stride[4];
-    struct SwsContext  * context;
-
-    int width = geo->geometry.width *
-                geo->geometry.par.num / geo->geometry.par.den;
-    int height = geo->geometry.height;
-
-    // Set min/max dimensions to prevent failure to initialize
-    // sws context and absurd sizes.
-    //
-    // This means output image size may not match requested image size!
-    int ww = width, hh = height;
-    width  = MIN(MAX(width,                HB_MIN_WIDTH),  HB_MAX_WIDTH);
-    height = MIN(MAX(height * width  / ww, HB_MIN_HEIGHT), HB_MAX_HEIGHT);
-    width  = MIN(MAX(width  * height / hh, HB_MIN_WIDTH),  HB_MAX_WIDTH);
-
-    swsflags = SWS_LANCZOS | SWS_ACCURATE_RND;
-
-    preview_buf = hb_frame_buffer_init(AV_PIX_FMT_RGB32, width, height);
-    // fill in AVPicture
-    hb_picture_fill( preview_data, preview_stride, preview_buf );
-
-
-    memset( filename, 0, 1024 );
-
-    hb_title_t * title;
-    title = hb_find_title_by_index(h, title_idx);
-    if (title == NULL)
-    {
-        hb_error( "hb_get_preview2: invalid title (%d)", title_idx );
-        goto fail;
-    }
-
-    in_buf = hb_read_preview( h, title, picture, HB_PREVIEW_FORMAT_JPG );
-    if ( in_buf == NULL )
-    {
-        goto fail;
-    }
-
-    if (deinterlace)
-    {
-        // Deinterlace and crop
-        deint_buf = hb_frame_buffer_init( AV_PIX_FMT_YUV420P,
-                              title->geometry.width, title->geometry.height );
-        hb_deinterlace(deint_buf, in_buf);
-        hb_picture_crop(crop_data, crop_stride, deint_buf,
-                        geo->crop[0], geo->crop[2] );
-    }
-    else
-    {
-        // Crop
-        hb_picture_crop(crop_data, crop_stride, in_buf,
-                        geo->crop[0], geo->crop[2] );
-    }
-
-    int colorspace = hb_sws_get_colorspace(title->color_matrix);
-
-    // Get scaling context
-    context = hb_sws_get_context(
-                title->geometry.width  - (geo->crop[2] + geo->crop[3]),
-                title->geometry.height - (geo->crop[0] + geo->crop[1]),
-                AV_PIX_FMT_YUV420P, AVCOL_RANGE_MPEG,
-                width, height, AV_PIX_FMT_RGB32, AVCOL_RANGE_MPEG,
-                swsflags, colorspace);
-
-    if (context == NULL)
-    {
-        // if by chance hb_sws_get_context fails, don't crash in sws_scale
-        goto fail;
-    }
-
-    // Scale
-    sws_scale(context,
-              (const uint8_t * const *)crop_data, crop_stride,
-              0, title->geometry.height - (geo->crop[0] + geo->crop[1]),
-              preview_data, preview_stride);
-
-    // Free context
-    sws_freeContext( context );
-
-    hb_image_t *image = hb_buffer_to_image(preview_buf);
-
-    // Clean up
-    hb_buffer_close( &in_buf );
-    hb_buffer_close( &deint_buf );
-    hb_buffer_close( &preview_buf );
-
-    return image;
-
-fail:
-
-    hb_buffer_close( &in_buf );
-    hb_buffer_close( &deint_buf );
-    hb_buffer_close( &preview_buf );
-
-    image = hb_image_init(AV_PIX_FMT_RGB32, width, height);
-    return image;
-}
-
 static void process_filter(hb_filter_object_t * filter)
 {
     hb_buffer_t * in, * out;
@@ -854,8 +798,8 @@ static void process_filter(hb_filter_object_t * filter)
 }
 
 // Get preview and apply applicable filters
-hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
-                             hb_dict_t * job_dict)
+hb_image_t * hb_get_preview(hb_handle_t * h, hb_dict_t * job_dict,
+                             int picture, int rescale, int pix_fmt)
 {
     hb_job_t    * job;
     hb_title_t  * title = NULL;
@@ -885,6 +829,7 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
     init.time_base.den = 90000;
     init.job = job;
     init.pix_fmt = AV_PIX_FMT_YUV420P;
+    init.hw_pix_fmt = AV_PIX_FMT_NONE;
     init.color_range = AVCOL_RANGE_MPEG;
 
     init.color_prim = title->color_prim;
@@ -911,13 +856,12 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
             case HB_FILTER_COLORSPACE:
             case HB_FILTER_DECOMB:
             case HB_FILTER_DETELECINE:
-            case HB_FILTER_DEINTERLACE:
+            case HB_FILTER_YADIF:
             case HB_FILTER_GRAYSCALE:
                 break;
 
             case HB_FILTER_VFR:
             case HB_FILTER_RENDER_SUB:
-            case HB_FILTER_QSV:
             case HB_FILTER_NLMEANS:
             case HB_FILTER_CHROMA_SMOOTH:
             case HB_FILTER_LAPSHARP:
@@ -925,6 +869,7 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
             case HB_FILTER_DEBLOCK:
             case HB_FILTER_COMB_DETECT:
             case HB_FILTER_HQDN3D:
+            case HB_FILTER_BWDIF:
                 // Not implemented, N/A, or requires multiple frame input
                 hb_list_rem(list_filter, filter);
                 hb_filter_close(&filter);
@@ -962,37 +907,55 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
     job->cfr = init.cfr;
     job->grayscale = init.grayscale;
 
-    // Add "cropscale"
-    // Adjusts for pixel aspect, performs any requested
-    // post-scaling and sets required pix_fmt AV_PIX_FMT_RGB32
-    //
-    // This will scale the result at the end of the pipeline.
-    // I.e. padding will be scaled
-    hb_rational_t par = job->par;
+    if (rescale)
+    {
+        // Add "cropscale"
+        // Adjusts for pixel aspect, performs any requested post-scaling
+        //
+        // This will scale the result at the end of the pipeline.
+        // I.e. padding will be scaled
+        hb_rational_t par = job->par;
 
-    int scaled_width  = init.geometry.width;
-    int scaled_height = init.geometry.height;
+        int scaled_width  = init.geometry.width;
+        int scaled_height = init.geometry.height;
 
-    filter = hb_filter_init(HB_FILTER_CROP_SCALE);
-    filter->settings = hb_dict_init();
-    if (par.num >= par.den)
-    {
-        scaled_width = scaled_width * par.num / par.den;
+        filter = hb_filter_init(HB_FILTER_CROP_SCALE);
+        filter->settings = hb_dict_init();
+        if (par.num >= par.den)
+        {
+            scaled_width = scaled_width * par.num / par.den;
+        }
+        else
+        {
+            scaled_height = scaled_height * par.den / par.num;
+        }
+        hb_dict_set_int(filter->settings, "width", scaled_width);
+        hb_dict_set_int(filter->settings, "height", scaled_height);
+        hb_list_add(job->list_filter, filter);
+
+        if (filter->init != NULL && filter->init(filter, &init))
+        {
+            hb_error("hb_get_preview3: Failure to initialize filter '%s'",
+                     filter->name);
+            hb_list_rem(list_filter, filter);
+            hb_filter_close(&filter);
+        }
     }
-    else
+
+    if (pix_fmt != AV_PIX_FMT_NONE)
     {
-        scaled_height = scaled_height * par.den / par.num;
-    }
-    hb_dict_set_int(filter->settings, "width", scaled_width);
-    hb_dict_set_int(filter->settings, "height", scaled_height);
-    hb_dict_set_string(filter->settings, "out_pix_fmt", av_get_pix_fmt_name(AV_PIX_FMT_RGB32));
-    hb_list_add(job->list_filter, filter);
-    if (filter->init != NULL && filter->init(filter, &init))
-    {
-        hb_error("hb_get_preview3: Failure to initialize filter '%s'",
-                 filter->name);
-        hb_list_rem(list_filter, filter);
-        hb_filter_close(&filter);
+        filter = hb_filter_init(HB_FILTER_FORMAT);
+        filter->settings = hb_dict_init();
+        hb_dict_set_string(filter->settings, "format", av_get_pix_fmt_name(pix_fmt));
+        hb_list_add(job->list_filter, filter);
+
+        if (filter->init != NULL && filter->init(filter, &init))
+        {
+            hb_error("hb_get_preview3: Failure to initialize filter '%s'",
+                     filter->name);
+            hb_list_rem(list_filter, filter);
+            hb_filter_close(&filter);
+        }
     }
 
     hb_avfilter_combine(list_filter);
@@ -1092,11 +1055,17 @@ fail:
             height = geo->height;
         }
 
-        image = hb_image_init(AV_PIX_FMT_RGB32, width, height);
+        image = hb_image_init(pix_fmt, width, height);
     }
     hb_job_close(&job);
 
     return image;
+}
+
+hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
+                             hb_dict_t * job_dict)
+{
+    return hb_get_preview(h, job_dict, picture, 1, AV_PIX_FMT_RGB32);
 }
 
  /**
@@ -1118,7 +1087,7 @@ fail:
  */
 int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int threshold, int prog_equal, int prog_diff, int prog_threshold )
 {
-    int j, k, n, off, cc_1, cc_2, cc[3];
+    int j, k, n, off, cc_1, cc_2, cc[3] = {0};
 	// int flag[3] ; // debugging flag
     uint16_t s1, s2, s3, s4;
     cc_1 = 0; cc_2 = 0;
@@ -1176,7 +1145,7 @@ int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int thre
     }
 
 
-    /* HandBrake is all yuv420, so weight the average percentage of all 3 planes accordingly.*/
+    /* HandBrake previews are all yuv420, so weight the average percentage of all 3 planes accordingly. */
     int average_cc = ( 2 * cc[0] + ( cc[1] / 2 ) + ( cc[2] / 2 ) ) / 3;
 
     /* Now see if that average percentage of combed pixels surpasses the threshold percentage given by the user.*/
@@ -1700,14 +1669,19 @@ void hb_add_filter2( hb_value_array_t * list, hb_dict_t * filter_dict )
 }
 
 /**
- * Add a filter to a jobs filter list
+ * Add a filter to a  filter list
  *
- * @param job Handle to hb_job_t
+ * @param list Handle to a filter hb_list_t
  * @param settings to give the filter
  */
-void hb_add_filter_dict( hb_job_t * job, hb_filter_object_t * filter,
+void hb_add_filter_dict( hb_list_t * list_filter, hb_filter_object_t * filter,
                          const hb_dict_t * settings_in )
 {
+    if (filter == NULL)
+    {
+        hb_log("hb_add_filter_dict: filter is null");
+        return;
+    }
     hb_dict_t * settings;
 
     // Always set filter->settings to a valid hb_dict_t
@@ -1728,12 +1702,12 @@ void hb_add_filter_dict( hb_job_t * job, hb_filter_object_t * filter,
     {
         // Find the position in the filter chain this filter belongs in
         int i;
-        for( i = 0; i < hb_list_count( job->list_filter ); i++ )
+        for( i = 0; i < hb_list_count( list_filter ); i++ )
         {
-            hb_filter_object_t * f = hb_list_item( job->list_filter, i );
+            hb_filter_object_t * f = hb_list_item( list_filter, i );
             if( f->id > filter->id )
             {
-                hb_list_insert( job->list_filter, i, filter );
+                hb_list_insert( list_filter, i, filter );
                 return;
             }
             else if( f->id == filter->id )
@@ -1745,25 +1719,30 @@ void hb_add_filter_dict( hb_job_t * job, hb_filter_object_t * filter,
         }
     }
     // No position found or order not enforced for this filter
-    hb_list_add( job->list_filter, filter );
+    hb_list_add( list_filter, filter );
 }
 
 /**
- * Add a filter to a jobs filter list
+ * Add a filter to a  filter list
  *
- * @param job Handle to hb_job_t
+ * @param list Handle to a filter hb_list_t
  * @param settings to give the filter
  */
-void hb_add_filter( hb_job_t * job, hb_filter_object_t * filter,
+void hb_add_filter( hb_list_t * list, hb_filter_object_t * filter,
                     const char * settings_in )
 {
+    if (filter == NULL)
+    {
+        hb_log("hb_add_filter: filter is null");
+        return;
+    }
     hb_dict_t * settings = hb_parse_filter_settings(settings_in);
     if (settings_in != NULL && settings == NULL)
     {
         hb_log("hb_add_filter: failed to parse filter settings!");
         return;
     }
-    hb_add_filter_dict(job, filter, settings);
+    hb_add_filter_dict(list, filter, settings);
     hb_value_free(&settings);
 }
 
@@ -1822,6 +1801,10 @@ static void hb_add_internal( hb_handle_t * h, hb_job_t * job, hb_list_t *list_pa
     job_copy->list_filter     = NULL;
     job_copy->list_attachment = NULL;
     job_copy->metadata        = NULL;
+
+#if HB_PROJECT_FEATURE_QSV
+    job_copy->qsv_ctx = hb_qsv_context_dup(job->qsv_ctx);
+#endif
 
     /* If we're doing Foreign Audio Search, copy all subtitles matching the
      * first audio track language we find in the audio list.
@@ -1961,9 +1944,9 @@ int hb_add( hb_handle_t * h, hb_job_t * job )
 
 void hb_job_setup_passes(hb_handle_t * h, hb_job_t * job, hb_list_t * list_pass)
 {
-    if (job->vquality > HB_INVALID_VIDEO_QUALITY)
+    if (job->vquality > HB_INVALID_VIDEO_QUALITY && ! hb_video_multipass_is_supported(job->vcodec, 1))
     {
-        job->twopass = 0;
+        job->multipass = 0;
     }
     if (job->indepth_scan)
     {
@@ -1972,12 +1955,16 @@ void hb_job_setup_passes(hb_handle_t * h, hb_job_t * job, hb_list_t * list_pass)
         hb_add_internal(h, job, list_pass);
         job->indepth_scan = 0;
     }
-    if (job->twopass)
+    if (job->multipass)
     {
-        hb_deep_log(2, "Adding two-pass encode");
-        job->pass_id = HB_PASS_ENCODE_1ST;
-        hb_add_internal(h, job, list_pass);
-        job->pass_id = HB_PASS_ENCODE_2ND;
+        hb_deep_log(2, "Adding multi-pass encode");
+        int analysis_pass_count = hb_video_encoder_get_count_of_analysis_passes(job->vcodec);
+        for (int i = 0; i < analysis_pass_count; i++)
+        {
+            job->pass_id = HB_PASS_ENCODE_ANALYSIS;
+            hb_add_internal(h, job, list_pass);
+        }
+        job->pass_id = HB_PASS_ENCODE_FINAL;
         hb_add_internal(h, job, list_pass);
     }
     else
@@ -2177,14 +2164,8 @@ int hb_global_init()
         return -1;
     }
 
-#if HB_PROJECT_FEATURE_QSV
-    hb_param_configure_qsv();
-#endif
-
-    /* libavcodec */
-    hb_avcodec_init();
-
     /* HB work objects */
+    hb_register(&hb_workpass);
     hb_register(&hb_muxer);
     hb_register(&hb_reader);
     hb_register(&hb_sync_video);
@@ -2194,9 +2175,11 @@ int hb_global_init()
     hb_register(&hb_decavcodeca);
     hb_register(&hb_declpcm);
     hb_register(&hb_decavsub);
+    hb_register(&hb_encavsub);
     hb_register(&hb_decsrtsub);
     hb_register(&hb_decssasub);
     hb_register(&hb_dectx3gsub);
+    hb_register(&hb_enctx3gsub);
     hb_register(&hb_encavcodec);
     hb_register(&hb_encavcodeca);
 #if defined (__APPLE__)
@@ -2212,12 +2195,7 @@ int hb_global_init()
 #if HB_PROJECT_FEATURE_X265
     hb_register(&hb_encx265);
 #endif
-#if HB_PROJECT_FEATURE_QSV
-    if (!disable_hardware)
-    {
-        hb_register(&hb_encqsv);
-    }
-#endif
+    hb_register(&hb_encsvtav1);
 
     hb_x264_global_init();
     hb_common_global_init(disable_hardware);
@@ -2238,7 +2216,7 @@ int hb_global_init()
  */
 void hb_global_close()
 {
-    char          * dirname;
+    const char    * dirname;
     DIR           * dir;
     struct dirent * entry;
 
@@ -2264,7 +2242,8 @@ void hb_global_close()
         closedir( dir );
         rmdir( dirname );
     }
-    free(dirname);
+
+    hb_common_global_close(disable_hardware);
 }
 
 /**
@@ -2276,7 +2255,7 @@ void hb_global_close()
 static void thread_func( void * _h )
 {
     hb_handle_t * h = (hb_handle_t *) _h;
-    char * dirname;
+    const char * dirname;
 
     h->pid = getpid();
 
@@ -2284,7 +2263,6 @@ static void thread_func( void * _h )
     dirname = hb_get_temporary_directory();
 
     hb_mkdir( dirname );
-    free(dirname);
 
     while( !h->die )
     {
@@ -2363,17 +2341,25 @@ static void redirect_thread_func(void * _data)
     if (pipe(pfd))
        return;
 #if defined( SYS_MINGW )
-    // dup2 doesn't work on windows for some stupid reason
-    stderr->_file = pfd[1];
+    // Non-console windows apps do not have a stderr->_file
+    // assigned properly
+    (void) freopen("NUL", "w", stderr);
+    _dup2(pfd[1], _fileno(stderr));
 #else
-    dup2(pfd[1], /*stderr*/ 2);
+    dup2(pfd[1], STDERR_FILENO);
 #endif
-    FILE * log_f = fdopen(pfd[0], "rb");
+    setvbuf(stderr, NULL, _IONBF, 0);
 
-    char line_buffer[500];
-    while(fgets(line_buffer, 500, log_f) != NULL)
+    FILE *log_f = fdopen(pfd[0], "rb");
+
+    if (log_f != NULL)
     {
-        hb_log_callback(line_buffer);
+        char line_buffer[500];
+        while(fgets(line_buffer, 500, log_f) != NULL)
+        {
+            hb_log_callback(line_buffer);
+        }
+        fclose(log_f);
     }
 }
 
@@ -2438,6 +2424,7 @@ hb_interjob_t * hb_interjob_get( hb_handle_t * h )
     return h->interjob;
 }
 
-int is_hardware_disabled(void){
+int hb_is_hardware_disabled(void)
+{
     return disable_hardware;
 }

@@ -1,6 +1,6 @@
 /* encvorbis.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -8,7 +8,7 @@
  */
 
 #include "handbrake/hbffmpeg.h"
-
+#include "handbrake/extradata.h"
 #include "handbrake/handbrake.h"
 #include "handbrake/audio_remap.h"
 
@@ -31,8 +31,7 @@ hb_work_object_t hb_encvorbis =
 
 struct hb_work_private_s
 {
-    uint8_t   *buf;
-    hb_job_t  *job;
+    float     *buf;
     hb_list_t *list;
 
     vorbis_dsp_state vd;
@@ -51,26 +50,19 @@ struct hb_work_private_s
 int encvorbisInit(hb_work_object_t *w, hb_job_t *job)
 {
     hb_work_private_t *pv = calloc(1, sizeof(hb_work_private_t));
+    if (pv == NULL)
+    {
+        hb_error("encvorbis: calloc failed");
+        return -1;
+    }
     hb_audio_t *audio = w->audio;
     w->private_data = pv;
-    pv->job = job;
-
-    int i;
-    ogg_packet header[3];
 
     hb_log("encvorbis: opening libvorbis");
 
-    /* init */
-    for (i = 0; i < 3; i++)
-    {
-        // Zero vorbis headers so that we don't crash in mk_laceXiph
-        // when vorbis_encode_setup_managed fails.
-        memset(w->config->vorbis.headers[i], 0, sizeof(ogg_packet));
-    }
     vorbis_info_init(&pv->vi);
 
-    pv->out_discrete_channels =
-        hb_mixdown_get_discrete_channel_count(audio->config.out.mixdown);
+    pv->out_discrete_channels = audio->config.out.ch_layout->nb_channels;
 
     if (audio->config.out.bitrate > 0)
     {
@@ -79,8 +71,6 @@ int encvorbisInit(hb_work_object_t *w, hb_job_t *job)
                                         audio->config.out.bitrate * 1000, -1))
         {
             hb_error("encvorbis: vorbis_encode_setup_managed() failed");
-            *job->done_error = HB_ERROR_INIT;
-            *job->die = 1;
             return -1;
         }
     }
@@ -92,8 +82,6 @@ int encvorbisInit(hb_work_object_t *w, hb_job_t *job)
                                     audio->config.out.quality / 10))
         {
             hb_error("encvorbis: vorbis_encode_setup_vbr() failed");
-            *job->done_error = HB_ERROR_INIT;
-            *job->die = 1;
             return -1;
         }
     }
@@ -102,43 +90,54 @@ int encvorbisInit(hb_work_object_t *w, hb_job_t *job)
         vorbis_encode_setup_init(&pv->vi))
     {
         hb_error("encvorbis: vorbis_encode_ctl(ratemanage2_set) OR vorbis_encode_setup_init() failed");
-        *job->done_error = HB_ERROR_INIT;
-        *job->die = 1;
         return -1;
     }
 
     /* add a comment */
     vorbis_comment_init(&pv->vc);
     vorbis_comment_add_tag(&pv->vc, "Encoder", "HandBrake");
-    vorbis_comment_add_tag(&pv->vc, "LANGUAGE", w->config->vorbis.language);
+    vorbis_comment_add_tag(&pv->vc, "LANGUAGE", audio->config.lang.simple);
 
     /* set up the analysis state and auxiliary encoding storage */
     vorbis_analysis_init(&pv->vd, &pv->vi);
     vorbis_block_init(&pv->vd, &pv->vb);
 
     /* get the 3 headers */
+    ogg_packet header[3];
     vorbis_analysis_headerout(&pv->vd, &pv->vc,
                               &header[0], &header[1], &header[2]);
-    ogg_packet *pheader;
-    for (i = 0; i < 3; i++)
+
+    uint8_t headers[3][HB_CONFIG_MAX_SIZE];
+    for (int i = 0; i < 3; i++)
     {
-        pheader = (ogg_packet*)w->config->vorbis.headers[i];
+        ogg_packet *pheader = (ogg_packet *)headers[i];
         memcpy(pheader, &header[i], sizeof(ogg_packet));
-        pheader->packet = w->config->vorbis.headers[i] + sizeof(ogg_packet);
+        pheader->packet = headers[i] + sizeof(ogg_packet);
         memcpy(pheader->packet, header[i].packet, header[i].bytes );
     }
+
+    hb_set_xiph_extradata(w->extradata, headers);
 
     pv->input_samples = pv->out_discrete_channels * OGGVORBIS_FRAME_SIZE;
     audio->config.out.samples_per_frame = OGGVORBIS_FRAME_SIZE;
     pv->buf = malloc(pv->input_samples * sizeof(float));
+    if (pv->buf == NULL)
+    {
+        hb_error("encvorbis: malloc failed");
+        return -1;
+    }
 
     pv->list = hb_list_init();
 
     // channel remapping
-    uint64_t layout = hb_ff_mixdown_xlat(audio->config.out.mixdown, NULL);
-    hb_audio_remap_build_table(&hb_vorbis_chan_map,
-                               audio->config.in.channel_map, layout,
+    AVChannelLayout out_layout = {0};
+    hb_audio_remap_map_channel_layout(&hb_vorbis_chan_map, &out_layout, audio->config.out.ch_layout);
+
+    hb_audio_remap_build_table(&out_layout,
+                               audio->config.out.ch_layout,
                                pv->remap_table);
+
+    av_channel_layout_uninit(&out_layout);
 
     return 0;
 }
@@ -152,10 +151,10 @@ void encvorbisClose(hb_work_object_t * w)
 {
     hb_work_private_t *pv = w->private_data;
 
-    vorbis_comment_clear(&pv->vc);
     vorbis_block_clear(&pv->vb);
-    vorbis_info_clear(&pv->vi);
     vorbis_dsp_clear(&pv->vd);
+    vorbis_info_clear(&pv->vi);
+    vorbis_comment_clear(&pv->vc);
 
     if (pv->list)
     {
@@ -231,7 +230,7 @@ static hb_buffer_t* Encode(hb_work_object_t *w)
     }
 
     /* Process more samples */
-    hb_list_getbytes(pv->list, pv->buf, pv->input_samples * sizeof(float),
+    hb_list_getbytes(pv->list, (uint8_t *)pv->buf, pv->input_samples * sizeof(float),
                      &pv->pts, NULL);
     buffer = vorbis_analysis_buffer(&pv->vd, OGGVORBIS_FRAME_SIZE);
     for (i = 0; i < OGGVORBIS_FRAME_SIZE; i++)

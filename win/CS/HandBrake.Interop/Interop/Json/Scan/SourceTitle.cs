@@ -10,6 +10,7 @@
 namespace HandBrake.Interop.Interop.Json.Scan
 {
     using System.Collections.Generic;
+    using System.Text.Json.Serialization;
 
     using HandBrake.Interop.Interop.Json.Shared;
 
@@ -49,6 +50,11 @@ namespace HandBrake.Interop.Interop.Json.Scan
         public List<int> Crop { get; set; }
 
         /// <summary>
+        /// Gets or sets the cropping values
+        /// </summary>
+        public List<int> LooseCrop { get; set; }
+
+        /// <summary>
         /// Gets or sets the duration.
         /// </summary>
         public Duration Duration { get; set; }
@@ -68,6 +74,8 @@ namespace HandBrake.Interop.Interop.Json.Scan
         /// </summary>
         public int Index { get; set; }
 
+        public bool KeepDuplicateTitles { get; set; }
+
         /// <summary>
         /// Gets or sets a value indicating whether interlace detected.
         /// </summary>
@@ -76,7 +84,9 @@ namespace HandBrake.Interop.Interop.Json.Scan
         /// <summary>
         /// Gets or sets the meta data.
         /// </summary>
-        public SourceMetadata MetaData { get; set; }
+        public Dictionary<string, string> MetaData { get; set; }
+
+        public List<CoverArt> CoverArts { get; set; }
 
         /// <summary>
         /// Gets or sets the name.
@@ -108,5 +118,12 @@ namespace HandBrake.Interop.Interop.Json.Scan
         /// Gets or sets the video codec.
         /// </summary>
         public string VideoCodec { get; set; }
-    }
+
+        public DVConfigRecord DolbyVisionConfigurationRecord { get; set; }
+
+        [JsonPropertyName("HDR10+")]
+        public int? HDR10plus { get; set; }
+
+        public MasteringDisplayColorVolume MasteringDisplayColorVolume { get; set; }
+    } 
 }

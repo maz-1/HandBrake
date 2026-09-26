@@ -1,6 +1,6 @@
 /* rotate.c
 
-   Copyright (c) 2003-2015 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -21,6 +21,7 @@ hb_filter_object_t hb_filter_rotate =
     .enforce_order     = 1,
     .skip              = 1,
     .name              = "Rotate",
+    .short_name        = "rotate",
     .settings          = NULL,
     .init              = rotate_init,
     .work              = hb_avfilter_null_work,
@@ -48,6 +49,100 @@ hb_filter_object_t hb_filter_rotate =
  * Mode 4: Rotate 90' (aka 90:0)
  * Mode 7: Flip horiz & vert plus Rotate 90' (aka 270:0)
  */
+
+#if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
+static int qsv_rotate_init(hb_filter_private_t * pv, hb_filter_init_t * init, int angle, int flip)
+{
+    hb_rational_t par    = init->geometry.par;
+    int           width  = init->geometry.width;
+    int           height = init->geometry.height;
+    const char *  trans  = NULL;
+    int           hflip = 0, vflip = 0;
+
+    switch (angle)
+    {
+        case 0:
+            hflip = flip;
+            break;
+        case 90:
+            trans   = "clock";
+            width   = init->geometry.height;
+            height  = init->geometry.width;
+            par.num = init->geometry.par.den;
+            par.den = init->geometry.par.num;
+            break;
+        case 180:
+            trans = "reversal";
+            break;
+        case 270:
+            trans  = "cclock";
+            width   = init->geometry.height;
+            height  = init->geometry.width;
+            par.num = init->geometry.par.den;
+            par.den = init->geometry.par.num;
+            break;
+        default:
+            break;
+    }
+
+    if (trans != NULL)
+    {
+        hb_dict_t * avfilter = hb_dict_init();
+        hb_dict_t * avsettings = hb_dict_init();
+
+        if(hflip)
+        {
+            char *s = hb_strdup_printf("%s_hflip", trans);
+            hb_dict_set(avsettings, "transpose", hb_value_string(s));
+            free(s);
+        }
+        else
+        {
+            hb_dict_set(avsettings, "transpose", hb_value_string(trans));
+        }
+        hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
+        hb_dict_set(avfilter, "vpp_qsv", avsettings);
+        pv->avfilters = avfilter;
+    }
+    else if (hflip || vflip)
+    {
+        hb_value_array_t * avfilters = hb_value_array_init();
+        hb_dict_t        * avfilter;
+        hb_dict_t * avsettings = hb_dict_init();
+        if (vflip)
+        {
+            avfilter = hb_dict_init();
+
+            hb_dict_set(avsettings, "transpose", hb_value_string("vflip"));
+            hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
+            hb_dict_set(avfilter, "vpp_qsv", avsettings);
+            pv->avfilters = avfilter;
+        }
+        if (hflip)
+        {
+            avfilter = hb_dict_init();
+
+            hb_dict_set(avsettings, "transpose", hb_value_string("hflip"));
+            hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
+            hb_dict_set(avfilter, "vpp_qsv", avsettings);
+            pv->avfilters = avfilter;
+        }
+        pv->avfilters = avfilters;
+    }
+    else
+    {
+        pv->avfilters = hb_value_null();
+    }
+
+    init->geometry.width  = width;
+    init->geometry.height = height;
+    init->geometry.par    = par;
+    pv->output = *init;
+
+    return 0;
+}
+#endif
+
 static int rotate_init(hb_filter_object_t * filter, hb_filter_init_t * init)
 {
     hb_filter_private_t * pv = NULL;
@@ -83,6 +178,15 @@ static int rotate_init(hb_filter_object_t * filter, hb_filter_init_t * init)
         clock  = "clock";
         cclock = "cclock";
     }
+
+#if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
+    if (init->hw_pix_fmt == AV_PIX_FMT_QSV)
+    {
+        qsv_rotate_init(pv, init, angle, flip);
+        return 0;
+    }
+#endif
+
     switch (angle)
     {
         case 0:
@@ -111,12 +215,28 @@ static int rotate_init(hb_filter_object_t * filter, hb_filter_init_t * init)
     }
     if (trans != NULL)
     {
+        hb_value_array_t * avfilters = hb_value_array_init();
+
         hb_dict_t * avfilter = hb_dict_init();
         hb_dict_t * avsettings = hb_dict_init();
 
         hb_dict_set(avsettings, "dir", hb_value_string(trans));
         hb_dict_set(avfilter, "transpose", avsettings);
-        pv->avfilters = avfilter;
+
+        hb_value_array_append(avfilters, avfilter);
+
+        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(init->pix_fmt);
+        if (desc->log2_chroma_w != desc->log2_chroma_h)
+        {
+            avfilter = hb_dict_init();
+            avsettings = hb_dict_init();
+            hb_dict_set(avsettings, "pix_fmts", hb_value_string(av_get_pix_fmt_name(init->pix_fmt)));
+            hb_dict_set(avfilter, "format", avsettings);
+
+            hb_value_array_append(avfilters, avfilter);
+        }
+
+        pv->avfilters = avfilters;
     }
     else if (hflip || vflip)
     {

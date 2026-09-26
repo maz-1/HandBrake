@@ -1,6 +1,6 @@
 /* h264_common.h
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -10,16 +10,22 @@
 #ifndef HANDBRAKE_H264_COMMON_H
 #define HANDBRAKE_H264_COMMON_H
 
+static const char * const hb_x264_tune_names[]          = {
+    "none", "film", "animation", "grain", "stillimage", "psnr", "ssim", "fastdecode", "zerolatency", NULL };
 static const char * const hb_h264_profile_names_8bit[]  = {
-    "auto", "high", "main", "baseline", NULL, };
+    "auto", "baseline", "main", "high", NULL, };
+static const char * const hb_x264_profile_names_8bit[] = {
+    "auto", "baseline", "main", "high", "high422", "high444", NULL, };
 static const char * const hb_h264_profile_names_10bit[] = {
     "auto", "high10", NULL, };
+static const char * const hb_x264_profile_names_10bit[] = {
+    "auto", "high10", "high422", "high444", NULL, };
 static const char * const hb_h264_level_names[]         = {
     "auto", "1.0", "1b", "1.1", "1.2", "1.3", "2.0", "2.1", "2.2", "3.0",
-    "3.1", "3.2", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2",  NULL, };
+    "3.1", "3.2", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2", "6.0", "6.1", "6.2",  NULL, };
 static const int          hb_h264_level_values[]        = {
-     -1,  10,  9,  11,  12,  13,  20,  21,  22,  30,  31,  32,
-     40,  41,  42,  50,  51,  52,   0, };
+     -1,  10,  9,   11,  12,  13,  20,  21,  22,  30,  31,  32,
+     40,  41,  42,  50,  51,  52,  60,  61,  62,  0, };
 
 // stolen from libx264's x264.h
 static const char * const hb_h264_fullrange_names[] = {

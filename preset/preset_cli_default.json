@@ -2,6 +2,7 @@
         {
             "ChildrenArray": [
                 {
+                    "AudioAutomaticNamingBehavior": "unnamed",
                     "AudioCopyMask": [
                         "copy:aac",
                         "copy:ac3",
@@ -31,6 +32,7 @@
                         }
                     ],
                     "AudioSecondaryEncoderMode": true,
+                    "AudioTrackNamePassthru": true,
                     "AudioTrackSelectionBehavior": "first",
                     "ChapterMarkers": true,
                     "ChildrenArray": [
@@ -39,9 +41,9 @@
                     "FileFormat": "mp4",
                     "Folder": false,
                     "FolderOpen": false,
-                    "Mp4HttpOptimize": false,
+                    "Optimize": false,
                     "Mp4iPodCompatible": false,
-                    "PictureAutoCrop": true,
+                    "PictureCropMode": 0,
                     "PictureBottomCrop": 0,
                     "PictureLeftCrop": 0,
                     "PictureRightCrop": 0,
@@ -72,7 +74,6 @@
                     "PictureDetelecineCustom": "",
                     "PictureItuPAR": false,
                     "PictureKeepRatio": true,
-                    "PictureLooseCrop": false,
                     "PictureModulus": 2,
                     "PicturePAR": "auto",
                     "PicturePARWidth": 853,
@@ -95,9 +96,11 @@
                     "SubtitleBurnDVDSub": false,
                     "SubtitleLanguageList": [
                     ],
+                    "SubtitleTrackNamePassthru": true,
                     "SubtitleTrackSelectionBehavior": "none",
                     "VideoAvgBitrate": 6000,
                     "VideoColorMatrixCodeOverride": 0,
+                    "VideoColorRange": "limited",
                     "VideoEncoder": "x264",
                     "VideoFramerate": "auto",
                     "VideoFramerateMode": "vfr",
@@ -110,9 +113,10 @@
                     "VideoOptionExtra": "",
                     "VideoQualityType": 2,
                     "VideoQualitySlider": 22.0,
-                    "VideoQSVDecode": false,
-                    "VideoTwoPass": false,
-                    "VideoTurboTwoPass": false,
+                    "VideoHWDecode": 0,
+                    "VideoMultiPass": false,
+                    "VideoTurboMultiPass": false,
+                    "VideoPasshtruHDRDynamicMetadata": "all",
                     "x264Option": "",
                     "x264UseAdvancedOptions": false
                 }

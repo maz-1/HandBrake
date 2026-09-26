@@ -6,6 +6,7 @@
 
 #import "HBAudioTrackPreset.h"
 #import "HBCodingUtilities.h"
+#import "HBAudioFilters.h"
 #include "handbrake/handbrake.h"
 
 #define DEFAULT_SAMPLERATE 48000
@@ -31,6 +32,7 @@
         _sampleRate = 0;
         _bitRate = 160;
         _mixdown = HB_AMIXDOWN_STEREO;
+        _filters = [[HBAudioFilters alloc] init];
     }
     return self;
 }
@@ -389,6 +391,12 @@
     }
 }
 
+- (void)setUndo:(NSUndoManager *)undo
+{
+    _undo = undo;
+    _filters.undo = undo;
+}
+
 #pragma mark - NSCopying
 
 - (instancetype)copyWithZone:(NSZone *)zone
@@ -406,6 +414,7 @@
 
         copy->_gain = _gain;
         copy->_drc = _drc;
+        copy->_filters = [_filters copy];
 
         copy->_container = _container;
     }
@@ -432,6 +441,7 @@
 
     encodeDouble(_gain);
     encodeDouble(_drc);
+    encodeObject(_filters);
 
     encodeInt(_container);
 }
@@ -448,8 +458,13 @@
 
     decodeDouble(_gain);
     decodeDouble(_drc);
+    decodeObject(_filters, HBAudioFilters);
+    if (_filters == nil)
+    {
+        _filters = [[HBAudioFilters alloc] init];
+    }
 
-    decodeInt(_container); if (_container != HB_MUX_MP4 && _container != HB_MUX_MKV && _container != HB_MUX_WEBM) { goto fail; }
+    decodeContainerOrFail(_container);
 
     [self validateFallbackEncoder];
 

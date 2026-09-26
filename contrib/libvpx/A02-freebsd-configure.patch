@@ -1,0 +1,11 @@
+--- libvpx-1.17.0/configure.orig 2026-08-20 21:06:35.000000000 +0200
++++ libvpx-1.17.0/configure 2026-08-26 10:32:10.910705389 +0200
+@@ -195,7 +195,7 @@
+     [ -f "${source_path}/${t}.mk" ] && enable_feature ${t}
+ done
+ 
+-if ! diff --version >/dev/null; then
++if ! hash diff 2>/dev/null; then
+   die "diff missing: Try installing diffutils via your package manager."
+ fi
+ 

@@ -21,6 +21,19 @@ typedef NS_ENUM(NSUInteger, HBVideoFrameRateMode) {
     HBVideoFrameRateModeCFR,
 };
 
+typedef NS_ENUM(NSUInteger, HBVideoHDRDynamicMetadataPassthru) {
+    HBVideoHDRDynamicMetadataPassthruOff,
+    HBVideoHDRDynamicMetadataPassthruHDR10Plus,
+    HBVideoHDRDynamicMetadataPassthruDolbyVision,
+    HBVideoHDRDynamicMetadataPassthruAll
+};
+
+typedef NS_ENUM(NSInteger, HBVideoColorRange) {
+    HBVideoColorRangeAuto    = 0,
+    HBVideoColorRangeLimited = 1,
+    HBVideoColorRangeFull    = 2
+};
+
 extern NSString * const HBVideoChangedNotification;
 
 /**
@@ -37,8 +50,12 @@ extern NSString * const HBVideoChangedNotification;
 @property (nonatomic, readwrite) HBVideoFrameRateMode frameRateMode;
 @property (nonatomic, readwrite) int frameRate;
 
-@property (nonatomic, readwrite) BOOL twoPass;
-@property (nonatomic, readwrite) BOOL turboTwoPass;
+@property (nonatomic, readwrite) HBVideoColorRange colorRange;
+
+@property (nonatomic, readwrite) BOOL multiPass;
+@property (nonatomic, readwrite) BOOL turboMultiPass;
+
+@property (nonatomic, readwrite) HBVideoHDRDynamicMetadataPassthru passthruHDRDynamicMetadata;
 
 /**
  *  Encoder specifics options

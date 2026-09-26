@@ -11,9 +11,6 @@ namespace HandBrake.Interop.Interop.Json.Presets
 {
     using System.Collections.Generic;
 
-    /// <summary>
-    ///     The preset.
-    /// </summary>
     public class HBPreset
     {
         public bool AlignAVStart { get; set; }
@@ -48,6 +45,10 @@ namespace HandBrake.Interop.Interop.Json.Presets
         /// </summary>
         public string AudioTrackSelectionBehavior { get; set; }
 
+        public bool AudioTrackNamePassthru { get; set; }
+
+        public string AudioAutomaticNamingBehavior { get; set; }
+
         /// <summary>
         /// Gets or sets a value indicating whether chapter markers.
         /// </summary>
@@ -79,9 +80,9 @@ namespace HandBrake.Interop.Interop.Json.Presets
         public bool FolderOpen { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether mp 4 http optimize.
+        /// Gets or sets a value indicating whether optimize.
         /// </summary>
-        public bool Mp4HttpOptimize { get; set; }
+        public bool Optimize { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether mp 4 i pod compatible.
@@ -89,9 +90,9 @@ namespace HandBrake.Interop.Interop.Json.Presets
         public bool Mp4iPodCompatible { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether picture auto crop.
+        /// Gets or sets a value indicating whether picture loose crop.
         /// </summary>
-        public bool PictureAutoCrop { get; set; }
+        public int PictureCropMode { get; set; }
 
         /// <summary>
         /// Gets or sets the picture bottom crop.
@@ -208,11 +209,6 @@ namespace HandBrake.Interop.Interop.Json.Presets
         public bool PictureKeepRatio { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether picture loose crop.
-        /// </summary>
-        public bool PictureLooseCrop { get; set; }
-
-        /// <summary>
         /// Gets or sets the picture par.
         /// </summary>
         public string PicturePAR { get; set; }
@@ -323,10 +319,17 @@ namespace HandBrake.Interop.Interop.Json.Presets
         /// </summary>
         public string SubtitleTrackSelectionBehavior { get; set; }
 
+        public bool SubtitleTrackNamePassthru { get; set; }
+
         /// <summary>
         /// Gets or sets the video avg bitrate.
         /// </summary>
         public int? VideoAvgBitrate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the video color range.
+        /// </summary>
+        public string VideoColorRange { get; set; }
 
         /// <summary>
         /// Gets or sets the video color matrix code.
@@ -394,24 +397,19 @@ namespace HandBrake.Interop.Interop.Json.Presets
         public double VideoQualitySlider { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether video qsv decode.
+        /// Gets or sets a value indicating whether video multi pass.
         /// </summary>
-        public bool VideoQSVDecode { get; set; }
+        public bool VideoMultiPass { get; set; }
 
         /// <summary>
-        /// Gets or sets the video qsv async depth.
+        /// Gets or sets a value indicating whether video turbo multi pass.
         /// </summary>
-        public int VideoQSVAsyncDepth { get; set; }
+        public bool VideoTurboMultiPass { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether video two pass.
+        /// Gets or sets a value indicating which dynamic metadata formats to preserve.
         /// </summary>
-        public bool VideoTwoPass { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether video turbo two pass.
-        /// </summary>
-        public bool VideoTurboTwoPass { get; set; }
+        public string VideoPasshtruHDRDynamicMetadata { get; set; }
 
         /// <summary>
         /// Gets or sets the x 264 option.
@@ -425,6 +423,6 @@ namespace HandBrake.Interop.Interop.Json.Presets
 
         public bool PresetDisabled { get; set; }
 
-        public bool MetadataPassthrough { get; set; }
+        public bool MetadataPassthru { get; set; }
     }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # mingw-w64-build - download and build mingw-w64 toolchain
 #
-# Copyright 2020 Bradley Sepos
+# Copyright 2026 Bradley Sepos
 # Released under the MIT License. See LICENSE for details.
 # https://github.com/bradleysepos/mingw-w64-build
 
@@ -113,61 +113,68 @@ function mingw-w64-build {  # mingw-w64-build [args] $TARGET_PARAM $TARGET_DIR
     MPC_NAME="mpc"
     ISL_NAME="isl"
     GCC_NAME="gcc"
-    NAMES=("${CONFIG_NAME}" "${BINUTILS_NAME}" "${MINGW_W64_NAME}" "${GMP_NAME}" "${MPFR_NAME}" "${MPC_NAME}" "${ISL_NAME}" "${GCC_NAME}")
+    GDB_NAME="gdb"
 
     # versions
     local CONFIG_VER BINUTILS_VER MINGW_W64_VER GMP_VER MPFR_VER MPC_VER ISL_VER GCC_VER GDB_VER VERSIONS
-    CONFIG_VER="77632d9"  # config.guess 2020-11-07
-    BINUTILS_VER="2.35.1"
-    MINGW_W64_VER="8.0.0"
-    GMP_VER="6.2.0"
-    MPFR_VER="4.1.0"
-    MPC_VER="1.2.1"
-    ISL_VER="0.22.1"
-    GCC_VER="10.2.0"
-    VERSIONS=("${CONFIG_VER}" "${BINUTILS_VER}" "${MINGW_W64_VER}" "${GMP_VER}" "${MPFR_VER}" "${MPC_VER}" "${ISL_VER}" "${GCC_VER}")
+    CONFIG_VER="4286648"  # config.guess 2026-05-17
+    BINUTILS_VER="2.47"
+    MINGW_W64_VER="14.0.0"
+    GMP_VER="6.3.0"
+    MPFR_VER="4.2.2"
+    MPC_VER="1.4.1"
+    ISL_VER="0.28"
+    GCC_VER="15.3.0"
+    GDB_VER="17.2"
 
     # filenames
     local CONFIG_PKG BINUTILS_PKG MINGW_W64_PKG GMP_PKG MPFR_PKG MPC_PKG ISL_PKG GCC_PKG GDB_PKG PKGS
     CONFIG_PKG="config-${CONFIG_VER}.tar.gz"
-    BINUTILS_PKG="binutils-${BINUTILS_VER}.tar.bz2"
+    BINUTILS_PKG="binutils-${BINUTILS_VER}.tar.xz"
     MINGW_W64_PKG="mingw-w64-v${MINGW_W64_VER}.tar.bz2"
-    GMP_PKG="gmp-${GMP_VER}.tar.bz2"
-    MPFR_PKG="mpfr-${MPFR_VER}.tar.gz"
-    MPC_PKG="mpc-${MPC_VER}.tar.gz"
-    ISL_PKG="isl-${ISL_VER}.tar.bz2"
-    GCC_PKG="gcc-${GCC_VER}.tar.gz"
-    PKGS=("${CONFIG_PKG}" "${BINUTILS_PKG}" "${MINGW_W64_PKG}" "${GMP_PKG}" "${MPFR_PKG}" "${MPC_PKG}" "${ISL_PKG}" "${GCC_PKG}")
+    GMP_PKG="gmp-${GMP_VER}.tar.xz"
+    MPFR_PKG="mpfr-${MPFR_VER}.tar.xz"
+    MPC_PKG="mpc-${MPC_VER}.tar.xz"
+    ISL_PKG="isl-${ISL_VER}.tar.xz"
+    GCC_PKG="gcc-${GCC_VER}.tar.xz"
+    GDB_PKG="gdb-${GDB_VER}.tar.xz"
 
     # urls
     local CONFIG_URLS BINUTILS_URLS MINGW_W64_URLS GMP_URLS MPFR_URLS MPC_URLS ISL_URLS GCC_URLS GDB_URLS URLS_VARNAMES ARCHIVE_URL
     ARCHIVE_URL="https://github.com/bradleysepos/mingw-w64-build-deps/releases/download/archive"
-    CONFIG_URLS=("https://git.savannah.gnu.org/gitweb/?p=config.git;a=snapshot;h=${CONFIG_VER};sf=tgz" "${ARCHIVE_URL}/${CONFIG_PKG}")
-    BINUTILS_URLS=("https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VER}.tar.bz2" "${ARCHIVE_URL}/${BINUTILS_PKG}")
+    CONFIG_URLS=("${ARCHIVE_URL}/${CONFIG_PKG}" "https://git.savannah.gnu.org/gitweb/?p=config.git;a=snapshot;h=${CONFIG_VER};sf=tgz")
+    BINUTILS_URLS=("https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VER}.tar.xz" "${ARCHIVE_URL}/${BINUTILS_PKG}")
     MINGW_W64_URLS=("http://downloads.sourceforge.net/project/mingw-w64/mingw-w64/mingw-w64-release/mingw-w64-v${MINGW_W64_VER}.tar.bz2" "${ARCHIVE_URL}/${MINGW_W64_PKG}")
-    GMP_URLS=("https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VER}.tar.bz2" "${ARCHIVE_URL}/${GMP_PKG}")
-    MPFR_URLS=("https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VER}.tar.gz" "${ARCHIVE_URL}/${MPFR_PKG}")
-    MPC_URLS=("https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VER}.tar.gz" "${ARCHIVE_URL}/${MPC_PKG}")
-    ISL_URLS=("http://isl.gforge.inria.fr/isl-${ISL_VER}.tar.bz2" "${ARCHIVE_URL}/${ISL_PKG}")
-    GCC_URLS=("https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VER}/gcc-${GCC_VER}.tar.gz" "${ARCHIVE_URL}/${GCC_PKG}")
-    URLS_VARNAMES=('CONFIG_URLS' 'BINUTILS_URLS' 'MINGW_W64_URLS' 'GMP_URLS' 'MPFR_URLS' 'MPC_URLS' 'ISL_URLS' 'GCC_URLS')
+    GMP_URLS=("https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VER}.tar.xz" "${ARCHIVE_URL}/${GMP_PKG}")
+    MPFR_URLS=("https://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VER}.tar.xz" "${ARCHIVE_URL}/${MPFR_PKG}")
+    MPC_URLS=("https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VER}.tar.xz" "${ARCHIVE_URL}/${MPC_PKG}")
+    ISL_URLS=("https://libisl.sourceforge.io/isl-${ISL_VER}.tar.xz" "${ARCHIVE_URL}/${ISL_PKG}")
+    GCC_URLS=("https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VER}/gcc-${GCC_VER}.tar.xz" "${ARCHIVE_URL}/${GCC_PKG}")
+    GDB_URLS=("https://ftp.gnu.org/gnu/gdb/gdb-${GDB_VER}.tar.xz" "${ARCHIVE_URL}/${GDB_PKG}")
 
     # checksums
     local CONFIG_SHA256 BINUTILS_SHA256 MINGW_W64_SHA256 GMP_SHA256 MPFR_SHA256 MPC_SHA256 ISL_SHA256 GCC_SHA256 GDB_SHA256 CHECKSUMS
-    CONFIG_SHA256="74a9d78c80258ae18e275c272056d6a7f606230c029890c614fa805ea44bb0bf"
-    BINUTILS_SHA256="320e7a1d0f46fcd9f413f1046e216cbe23bb2bce6deb6c6a63304425e48b1942"
-    MINGW_W64_SHA256="44c740ea6ab3924bc3aa169bad11ad3c5766c5c8459e3126d44eabb8735a5762"
-    GMP_SHA256="f51c99cb114deb21a60075ffb494c1a210eb9d7cb729ed042ddb7de9534451ea"
-    MPFR_SHA256="3127fe813218f3a1f0adf4e8899de23df33b4cf4b4b3831a5314f78e65ffa2d6"
-    MPC_SHA256="17503d2c395dfcf106b622dc142683c1199431d095367c6aacba6eec30340459"
-    ISL_SHA256="1a668ef92eb181a7c021e8531a3ca89fd71aa1b3744db56f68365ab0a224c5cd"
-    GCC_SHA256="27e879dccc639cd7b0cc08ed575c1669492579529b53c9ff27b0b96265fa867d"
+    CONFIG_SHA256="a18cf1601b383b4982b9ac8399f7ea275b90e91b068015433b6265c68f6f88f4"
+    BINUTILS_SHA256="154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff"
+    MINGW_W64_SHA256="6eaf921d9eb987d3820b364ea9775bc19b965ec81490b6fdd716526c28e1995c"
+    GMP_SHA256="a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898"
+    MPFR_SHA256="b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01"
+    MPC_SHA256="91204cd32f164bd3b7c992d4a6a8ce6519511aadab30f78b6982d0bf8d73e931"
+    ISL_SHA256="3dc31b8e1b18329e42d5dfbf84dd55e15c59b61569a2ab246f61497d9592f727"
+    GCC_SHA256="fa59c1beef8995f27c4d71c1df227587189315d3e6faff1bb4306e61b0c530eb"
+    GDB_SHA256="1c036c0d72e4b3d1fb5c94c88632add6f9d76f4d7c4d2ea793c12a9f19a3228c"
+
+    # arrays of default components
+    NAMES=("${CONFIG_NAME}" "${BINUTILS_NAME}" "${MINGW_W64_NAME}" "${GMP_NAME}" "${MPFR_NAME}" "${MPC_NAME}" "${ISL_NAME}" "${GCC_NAME}")
+    VERSIONS=("${CONFIG_VER}" "${BINUTILS_VER}" "${MINGW_W64_VER}" "${GMP_VER}" "${MPFR_VER}" "${MPC_VER}" "${ISL_VER}" "${GCC_VER}")
+    PKGS=("${CONFIG_PKG}" "${BINUTILS_PKG}" "${MINGW_W64_PKG}" "${GMP_PKG}" "${MPFR_PKG}" "${MPC_PKG}" "${ISL_PKG}" "${GCC_PKG}")
+    URLS_VARNAMES=('CONFIG_URLS' 'BINUTILS_URLS' 'MINGW_W64_URLS' 'GMP_URLS' 'MPFR_URLS' 'MPC_URLS' 'ISL_URLS' 'GCC_URLS')
     CHECKSUMS=("${CONFIG_SHA256}" "${BINUTILS_SHA256}" "${MINGW_W64_SHA256}" "${GMP_SHA256}" "${MPFR_SHA256}" "${MPC_SHA256}" "${ISL_SHA256}" "${GCC_SHA256}")
 
     # internal vars
     local NAME VERSION SELF SELF_NAME HELP
     NAME="mingw-w64-build"
-    VERSION="9.2.0"
+    VERSION="12.0.0"
     SELF="${BASH_SOURCE[0]}"
     SELF_NAME=$(basename "${SELF}")
     HELP="\
@@ -175,7 +182,8 @@ ${NAME} ${VERSION}
 usage: ${SELF_NAME} [-h | --help]
        ${SELF_NAME} [-l | --list]
        ${SELF_NAME} [-v | --version]
-       ${SELF_NAME} [-f | --force] [-j # | --jobs #] [--disable-gdb] target [install-dir]
+       ${SELF_NAME} [-f | --force] [-j # | --jobs #] [--msvcrt runtime]
+                    [--disable-gdb] target [install-dir]
 where:
   -h, --help
         display this help text
@@ -188,6 +196,9 @@ where:
   -j, --jobs
         number of concurrent build jobs to run
         default: 0 (automatic)
+  --msvcrt
+        msvc runtime version (ucrt or msvcrt)
+        default: ucrt
   --disable-gdb
         disable building GDB debugger
 targets:
@@ -197,18 +208,20 @@ targets:
   x86_64
   x86_64.clean
   x86_64.distclean
+  download
   pkgclean
-default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER}"
+default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-ucrt-gcc-${GCC_VER}"
 
     # args
     local FORCE JOBS LIST DISABLE_GDB OPTIND OPTSPEC OPTARRAY
     FORCE=false
     JOBS=0
     LIST=false
+    MSVCRT="ucrt"
     DISABLE_GDB=false
     OPTIND=1
     OPTSPEC=":-:hlvfj:"
-    OPTARRAY=('-h' '--help' '-l' '--list' '-v' '--version' '--force' '-j' '--jobs' '--disable-gdb')  # all short and long options
+    OPTARRAY=('-h' '--help' '-l' '--list' '-v' '--version' '-f' '--force' '-j' '--jobs' '--msvcrt' '--disable-gdb')  # all short and long options
     while getopts "${OPTSPEC}" OPT; do
         case "${OPT}" in
             -)
@@ -276,6 +289,31 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
                             return 1
                         fi
                         ;;
+                    msvcrt)
+                        # MSVC runtime
+                        if [[ -z ${!OPTIND+isset} ]] || in_array "${!OPTIND}" "${OPTARRAY[@]}"; then
+                            # Option without required argument
+                            echo "Option --${OPTARG} requires a value" >&2
+                            echo -e "${HELP}"
+                            return 1
+                        fi
+                        MSVCRT="${!OPTIND}"
+                        if [[ "${MSVCRT}" != "ucrt" ]] && [[ "${MSVCRT}" != "msvcrt" ]]; then
+                            echo "Option --${OPTARG} value must be ucrt or msvcrt" >&2
+                            echo -e "${HELP}"
+                            return 1
+                        fi
+                        OPTIND=$((OPTIND + 1))
+                        ;;
+                    msvcrt=*)
+                        # MSVC runtime
+                        MSVCRT="${OPTARG#*=}"
+                        if [[ "${MSVCRT}" != "ucrt" ]] && [[ "${MSVCRT}" != "msvcrt" ]]; then
+                            echo "Option --${OPTARG} value must be ucrt or msvcrt" >&2
+                            echo -e "${HELP}"
+                            return 1
+                        fi
+                        ;;
                     disable-gdb)
                         # Disable GDB
                         DISABLE_GDB=true
@@ -333,17 +371,12 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     done
     shift $((OPTIND - 1))
 
-    # gdb?
+    # add optional components to arrays
     if [[ "${DISABLE_GDB}" == false ]] || [[ "${LIST}" == true ]]; then
-        GDB_NAME="gdb"
         NAMES+=("${GDB_NAME}")
-        GDB_VER="10.1"
         VERSIONS+=("${GDB_VER}")
-        GDB_PKG="gdb-${GDB_VER}.tar.gz"
         PKGS+=("${GDB_PKG}")
-        GDB_URLS=("https://ftp.gnu.org/gnu/gdb/gdb-${GDB_VER}.tar.gz" "${ARCHIVE_URL}/${GDB_PKG}")
         URLS_VARNAMES+=('GDB_URLS')
-        GDB_SHA256="f12f388b99e1408c01308c3f753313fafa45517740c81ab7ed0d511b13e2cf55"
         CHECKSUMS+=("${GDB_SHA256}")
     fi
 
@@ -360,7 +393,7 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     [[ "${JOBS}" -eq 0 ]] && JOBS="${CPU_COUNT}"
 
     # begin output
-    echo "${NAME} ${VERSION} (${JOBS} job$([[ ${JOBS} -gt 1 ]] && echo 's'))"
+    echo -n "${NAME} ${VERSION}"
 
     # list components
     if [[ "${LIST}" == true ]]; then
@@ -374,26 +407,15 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
         IFS=$'\n'
         COMPONENTS=($(sort <<< "${COMPONENTS_TEMP[*]}"))
         IFS="${OIFS}"
+        echo ""
         echo "Components:"
         for I in "${!COMPONENTS[@]}"; do
             echo "  ${COMPONENTS[$I]}"
         done
         return 0
-    fi
-
-    # dependencies
-    local DEPS
-    DEPS=("bison" "bzip2" "curl" "flex" "g++" "gcc" "gunzip" "m4" "make" "pax" "shasum|sha256sum")
-    check_dependencies "${DEPS[@]}" || return 1
-
-    # sha256 binary
-    local SHA256
-    if hash shasum >/dev/null 2>&1; then
-        SHA256="shasum -a 256"
-    elif hash sha256sum >/dev/null 2>&1; then
-        SHA256="sha256sum"
     else
-        return 1
+        # print job count when actually building
+        echo " (${JOBS} job$([[ ${JOBS} -gt 1 ]] && echo 's'))"
     fi
 
     # target args
@@ -418,6 +440,10 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
             TARGET="${TARGET_x86_64}"
             PREFIX="${PREFIX_x86_64}"
             ;;
+        download)
+            TARGET="download"
+            PREFIX="download"
+            ;;
         pkgclean)
             TARGET="pkgclean"
             PREFIX="pkgclean"
@@ -429,7 +455,26 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
         return 1
     fi
     if [[ "${TARGET_DIR:-}" == "" ]]; then
-        TARGET_DIR="${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER}"
+        TARGET_DIR="${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-${MSVCRT}-gcc-${GCC_VER}"
+    fi
+
+    # dependencies
+    local DEPS
+    if [[ "${TARGET_PARAM}" == "download" ]]; then
+        DEPS=("curl" "shasum|sha256sum")
+    else
+        DEPS=("bison" "bzip2" "curl" "flex" "g++" "gcc" "gunzip" "m4" "make" "pax" "shasum|sha256sum")
+    fi
+    check_dependencies "${DEPS[@]}" || return 1
+
+    # sha256 binary
+    local SHA256
+    if hash shasum >/dev/null 2>&1; then
+        SHA256="shasum -a 256"
+    elif hash sha256sum >/dev/null 2>&1; then
+        SHA256="sha256sum"
+    else
+        return 1
     fi
 
     # create target directory
@@ -473,28 +518,31 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     esac
 
     # remove non-reusable directories
-    local CLEAN_INDEX CLEAN_TOTAL
-    CLEAN_INDEX=0
-    CLEAN_TOTAL=2
-    if [[ "${FORCE}" == true ]]; then
+    if [[ "${TARGET_PARAM}" != "download" ]]; then
+        local CLEAN_INDEX CLEAN_TOTAL
+        CLEAN_INDEX=0
+        CLEAN_TOTAL=2
+        if [[ "${FORCE}" == true ]]; then
+            CLEAN_INDEX=$((CLEAN_INDEX+1))
+            CLEAN_TOTAL=$((CLEAN_TOTAL+1))
+            printf "Cleaning    [%02i/%02i] dist " "${CLEAN_INDEX}" "${CLEAN_TOTAL}"
+            rm -rf "${MINGW_W64_DIR}"
+            echo ""
+        elif [[ -e "${MINGW_W64_DIR}" ]]; then
+            # prefix dir should not exist
+            echo "unable to create directory (exists): ${MINGW_W64_DIR}" >&2
+            echo "remove with: ${SELF_NAME} ${TARGET_PARAM%%.*}.distclean${2:+ $2}" >&2
+            return 1
+        fi
         CLEAN_INDEX=$((CLEAN_INDEX+1))
-        CLEAN_TOTAL=$((CLEAN_TOTAL+1))
-        printf "Cleaning    [%02i/%02i] dist " "${CLEAN_INDEX}" "${CLEAN_TOTAL}"
-        rm -rf "${MINGW_W64_DIR}"
+        printf "Cleaning    [%02i/%02i] source " "${CLEAN_INDEX}" "${CLEAN_TOTAL}"
+        rm -rf "${SOURCE_DIR}"
+        CLEAN_INDEX=$((CLEAN_INDEX+1))
         echo ""
-    elif [[ -e "${MINGW_W64_DIR}" ]]; then
-        # prefix dir should not exist
-        echo "unable to create directory (exists): ${MINGW_W64_DIR}" >&2
-        echo "remove with: ${SELF_NAME} ${TARGET_PARAM%%.*}.distclean${2:+ $2}" >&2
-        return 1
+        printf "Cleaning    [%02i/%02i] build " "${CLEAN_INDEX}" "${CLEAN_TOTAL}"
+        rm -rf "${BUILD_DIR}"
+        echo ""
     fi
-    CLEAN_INDEX=$((CLEAN_INDEX+1))
-    printf "Cleaning    [%02i/%02i] source " "${CLEAN_INDEX}" "${CLEAN_TOTAL}"
-    rm -rf "${SOURCE_DIR}"
-    CLEAN_INDEX=$((CLEAN_INDEX+1))
-    echo ""
-    printf "Cleaning    [%02i/%02i] build " "${CLEAN_INDEX}" "${CLEAN_TOTAL}"
-    rm -rf "${BUILD_DIR}"
 
     # verify/fetch
     mkdir -p "${PKG_DIR}"
@@ -505,15 +553,22 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     local DOWNLOAD_VERBOSE I URLS_IREF URLS CHECKSUM
     DOWNLOAD_VERBOSE=false
     for I in "${!PKGS[@]}"; do
-        echo ""
-        printf "Downloading [%02i/%02i] %s " "$((I+1))" "${#PKGS[@]}" "${NAMES[I]} ${VERSIONS[I]}"
+        if [[ "${I}" -gt 0 ]]; then echo ""; fi
         URLS_IREF="${URLS_VARNAMES[I]}[@]"
         URLS="${!URLS_IREF}"
-        CHECKSUM=$(${SHA256} "${PKG_DIR}/${PKGS[I]}" 2>/dev/null | awk '{ print $1 }')
-        if [[ "${CHECKSUM}" != "${CHECKSUMS[I]}" ]] >/dev/null 2>&1; then
-            download_url "${DOWNLOAD_VERBOSE}" "${PKG_DIR}/${PKGS[I]}" ${URLS[@]} || return 1
+        CHECKSUM=""
+        if [[ -e "${PKG_DIR}/${PKGS[I]}" ]]; then
+            printf "Verifying   [%02i/%02i] %s " "$((I+1))" "${#PKGS[@]}" "${NAMES[I]} ${VERSIONS[I]}"
+            CHECKSUM=$(${SHA256} "${PKG_DIR}/${PKGS[I]}" 2>/dev/null | awk '{ print $1 }')
+            if [[ "${CHECKSUM}" != "${CHECKSUMS[I]}" ]]; then
+                echo ""
+            fi
         fi
-        CHECKSUM=$(${SHA256} "${PKG_DIR}/${PKGS[I]}" 2>/dev/null | awk '{ print $1 }')
+        if [[ "${CHECKSUM}" != "${CHECKSUMS[I]}" ]] >/dev/null 2>&1; then
+            printf "Downloading [%02i/%02i] %s " "$((I+1))" "${#PKGS[@]}" "${NAMES[I]} ${VERSIONS[I]}"
+            download_url "${DOWNLOAD_VERBOSE}" "${PKG_DIR}/${PKGS[I]}" ${URLS[@]} || return 1
+            CHECKSUM=$(${SHA256} "${PKG_DIR}/${PKGS[I]}" 2>/dev/null | awk '{ print $1 }')
+        fi
         if [[ "${CHECKSUM}" != "${CHECKSUMS[I]}" ]]; then
             echo "checksum mismatch for package: ${PKG_DIR}/${PKGS[I]}" >&2
             echo "expected: ${CHECKSUMS[I]}" >&2
@@ -521,6 +576,10 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
             return 1
         fi
     done
+    if [[ "${TARGET_PARAM}" == "download" ]]; then
+        echo ""
+        return 0
+    fi
 
     # extract
     mkdir -p "${SOURCE_DIR}"
@@ -582,7 +641,7 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     touch "${LOG_DIR}/mingw-w64-headers.log"
     mkdir -pv "${BUILD_DIR}/mingw-w64-headers" > "${LOG_DIR}/mingw-w64-headers.log" 2>&1 || return 1
     cd "${BUILD_DIR}/mingw-w64-headers"
-    "${SOURCE_DIR}/mingw-w64/mingw-w64-v${MINGW_W64_VER}/mingw-w64-headers/configure" --build="${SYS_TYPE}" --host="${TARGET}" --prefix="${MINGW_W64_DIR}" >> "${LOG_DIR}/mingw-w64-headers.log" 2>&1 || return 1
+    "${SOURCE_DIR}/mingw-w64/mingw-w64-v${MINGW_W64_VER}/mingw-w64-headers/configure" --build="${SYS_TYPE}" --host="${TARGET}" --prefix="${MINGW_W64_DIR}" --with-default-msvcrt="${MSVCRT}" >> "${LOG_DIR}/mingw-w64-headers.log" 2>&1 || return 1
     make install-strip >> "${LOG_DIR}/mingw-w64-headers.log" 2>&1 || return 1
 
     # create symlinks
@@ -610,6 +669,7 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     GMP_DIR="${BUILD_DIR}/gmp-${GMP_VER}-${SYS_ARCH}"
     mkdir -pv "${BUILD_DIR}/gmp" > "${LOG_DIR}/gmp.log" 2>&1 || return 1
     cd "${BUILD_DIR}/gmp"
+    sed -i.bak '/^void g(){}$/s/void g(){}/void g(int a,t1 const*b,t1 c,t2 d,t1 const*e,int f){}/' "${SOURCE_DIR}/gmp/gmp-${GMP_VER}/configure" 2>&1 || return 1
     "${SOURCE_DIR}/gmp/gmp-${GMP_VER}/configure" CC=gcc CXX=g++ CPPFLAGS=-fexceptions --build="${SYS_TYPE}" --prefix="${GMP_DIR}" --enable-cxx --disable-shared --enable-static >> "${LOG_DIR}/gmp.log" 2>&1 || return 1
     make -j "${JOBS}" >> "${LOG_DIR}/gmp.log" 2>&1 || return 1
     make check >> "${LOG_DIR}/gmp.log" 2>&1 || return 1
@@ -662,7 +722,7 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     fi
     mkdir -pv "${BUILD_DIR}/gcc" > "${LOG_DIR}/gcc.log" 2>&1 || return 1
     cd "${BUILD_DIR}/gcc"
-    "${SOURCE_DIR}/gcc/gcc-${GCC_VER}/configure" CFLAGS="-I${GMP_DIR}/include -I${MPFR_DIR}/include -I${MPC_DIR}/include -I${ISL_DIR}/include" CPPFLAGS="-I${GMP_DIR}/include -I${MPFR_DIR}/include -I${MPC_DIR}/include -I${ISL_DIR}/include" LDFLAGS="-L${GMP_DIR}/lib -L${MPFR_DIR}/lib -L${MPC_DIR}/lib -L${ISL_DIR}/lib" --build="${SYS_TYPE}" --host="${SYS_TYPE}" --target="${TARGET}" --prefix="${MINGW_W64_DIR}" --with-sysroot="${MINGW_W64_DIR}" --with-gmp="${GMP_DIR}" --with-mpfr="${MPFR_DIR}" --with-mpc="${MPC_DIR}" --with-isl="${ISL_DIR}" --disable-multilib --disable-nls --disable-libstdcxx-pch --disable-win32-registry --enable-checking=release --enable-languages=c,c++ --enable-lto --disable-shared --enable-static "${GCC_CONFIG_EXTRA[@]}" >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
+    "${SOURCE_DIR}/gcc/gcc-${GCC_VER}/configure" CFLAGS="-fno-char8_t -I${GMP_DIR}/include -I${MPFR_DIR}/include -I${MPC_DIR}/include -I${ISL_DIR}/include" CPPFLAGS="-I${GMP_DIR}/include -I${MPFR_DIR}/include -I${MPC_DIR}/include -I${ISL_DIR}/include" CXXFLAGS="-fno-char8_t" LDFLAGS="-L${GMP_DIR}/lib -L${MPFR_DIR}/lib -L${MPC_DIR}/lib -L${ISL_DIR}/lib" --build="${SYS_TYPE}" --host="${SYS_TYPE}" --target="${TARGET}" --prefix="${MINGW_W64_DIR}" --with-sysroot="${MINGW_W64_DIR}" --with-gmp="${GMP_DIR}" --with-mpfr="${MPFR_DIR}" --with-mpc="${MPC_DIR}" --with-isl="${ISL_DIR}" --enable-libgomp --with-zstd=no --disable-multilib --disable-nls --disable-libstdcxx-pch --disable-win32-registry --enable-checking=release --enable-languages=c,c++ --enable-threads=posix --enable-lto --disable-shared --enable-static "${GCC_CONFIG_EXTRA[@]}" >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
     make -j "${JOBS}" all-gcc >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
     make install-strip-gcc >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
 
@@ -681,7 +741,7 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     fi
     mkdir -pv "${BUILD_DIR}/mingw-w64-crt" > "${LOG_DIR}/mingw-w64-crt.log" 2>&1 || return 1
     cd "${BUILD_DIR}/mingw-w64-crt"
-    "${SOURCE_DIR}/mingw-w64/mingw-w64-v${MINGW_W64_VER}/mingw-w64-crt/configure" --build="${SYS_TYPE}" --host="${TARGET}" --prefix="${MINGW_W64_DIR}" --with-sysroot="${MINGW_W64_DIR}" "${MINGW_W64_CONFIG_EXTRA[@]}" >> "${LOG_DIR}/mingw-w64-crt.log" 2>&1 || return 1
+    "${SOURCE_DIR}/mingw-w64/mingw-w64-v${MINGW_W64_VER}/mingw-w64-crt/configure" --build="${SYS_TYPE}" --host="${TARGET}" --prefix="${MINGW_W64_DIR}" --with-default-msvcrt="${MSVCRT}" --with-sysroot="${MINGW_W64_DIR}" "${MINGW_W64_CONFIG_EXTRA[@]}" >> "${LOG_DIR}/mingw-w64-crt.log" 2>&1 || return 1
     make -j "${JOBS}" >> "${LOG_DIR}/mingw-w64-crt.log" 2>&1 || return 1
     make install-strip >> "${LOG_DIR}/mingw-w64-crt.log" 2>&1 || return 1
 
@@ -692,19 +752,9 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     cd "${TARGET}"
     ln -s ../lib lib
 
-    # gcc libraries
-    echo ""
-    printf "Building    [%02i/%02i] %s " "9" "${TOTAL}" "gcc ${GCC_VER} libraries"
-    touch "${LOG_DIR}/gcc.log"
-    cd "${BUILD_DIR}/gcc"
-    make -j "${JOBS}" all-target-libgcc >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
-    make -j "${JOBS}" install-target-libgcc >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
-    make -j "${JOBS}" >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
-    make install-strip >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
-
     # winpthreads
     echo ""
-    printf "Building    [%02i/%02i] %s " "10" "${TOTAL}" "winpthreads"
+    printf "Building    [%02i/%02i] %s " "9" "${TOTAL}" "winpthreads"
     touch "${LOG_DIR}/winpthreads.log"
     mkdir -pv "${BUILD_DIR}/winpthreads" > "${LOG_DIR}/winpthreads.log" 2>&1 || return 1
     cd "${BUILD_DIR}/winpthreads"
@@ -712,18 +762,34 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     make -j "${JOBS}" >> "${LOG_DIR}/winpthreads.log" 2>&1 || return 1
     make install-strip >> "${LOG_DIR}/winpthreads.log" 2>&1 || return 1
 
+    # gcc libraries
+    echo ""
+    printf "Building    [%02i/%02i] %s " "10" "${TOTAL}" "gcc ${GCC_VER} libraries"
+    touch "${LOG_DIR}/gcc.log"
+    cd "${BUILD_DIR}/gcc"
+    make -j "${JOBS}" all-target-libgcc >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
+    make -j "${JOBS}" install-target-libgcc >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
+    make -j "${JOBS}" >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
+    make install-strip >> "${LOG_DIR}/gcc.log" 2>&1 || return 1
+
     # gdb
     if [[ "${DISABLE_GDB}" == false ]]; then
         echo ""
-        printf "Building    [%02i/%02i] %s " "11" "${TOTAL}" "gdb"
+        printf "Building    [%02i/%02i] %s " "11" "${TOTAL}" "gdb ${GDB_VER}"
         touch "${LOG_DIR}/gdb.log"
+        # create symlinks to gmp, mpfr, mpc, and isl for in-tree builds
+        cd "${SOURCE_DIR}/gdb/gdb-${GDB_VER}"
+        ln -s "../../gmp/gmp-${GMP_VER}" gmp > "${LOG_DIR}/gdb.log" 2>&1 || return 1
+        ln -s "../../mpfr/mpfr-${MPFR_VER}" mpfr > "${LOG_DIR}/gdb.log" 2>&1 || return 1
+        ln -s "../../mpc/mpc-${MPC_VER}" mpc > "${LOG_DIR}/gdb.log" 2>&1 || return 1
+        ln -s "../../isl/isl-${ISL_VER}" isl > "${LOG_DIR}/gdb.log" 2>&1 || return 1
         mkdir -pv "${BUILD_DIR}/gdb" > "${LOG_DIR}/gdb.log" 2>&1 || return 1
         cd "${BUILD_DIR}/gdb"
         # https://sourceware.org/bugzilla/show_bug.cgi?id=18113
         echo '#!/bin/sh' > makeinfo
         echo 'echo "makeinfo (GNU texinfo) 5.2"' >> makeinfo
         chmod a+x makeinfo
-        "${SOURCE_DIR}/gdb/gdb-${GDB_VER}/configure" --build="${SYS_TYPE}" --host="${TARGET}" --prefix="${MINGW_W64_DIR}" -disable-multilib --enable-checking=release --enable-languages=c,c++ --enable-lto --disable-shared --enable-static MAKEINFO="${BUILD_DIR}/gdb/makeinfo" >> "${LOG_DIR}/gdb.log" 2>&1 || return 1
+        "${SOURCE_DIR}/gdb/gdb-${GDB_VER}/configure" --build="${SYS_TYPE}" --host="${TARGET}" --prefix="${MINGW_W64_DIR}" --with-zstd=no --disable-multilib --enable-checking=release --enable-languages=c,c++ --enable-lto --disable-shared --enable-static MAKEINFO="${BUILD_DIR}/gdb/makeinfo" >> "${LOG_DIR}/gdb.log" 2>&1 || return 1
         make -j "${JOBS}" >> "${LOG_DIR}/gdb.log" 2>&1 || return 1
         make install >> "${LOG_DIR}/gdb.log" 2>&1 || return 1
         "${TARGET}"-strip "${MINGW_W64_DIR}/bin/gdb.exe" >> "${LOG_DIR}/gdb.log" 2>&1 || return 1
@@ -740,9 +806,8 @@ default install-dir: ${HOME}/toolchains/mingw-w64-${MINGW_W64_VER}-gcc-${GCC_VER
     echo "  (e.g., .bashrc or .bash_profile) to make persistent across sessions:"
     echo "    export PATH=\"${MINGW_W64_DIR}/bin:\${PATH}\""
     echo "Complete."
-    return 0
-
     set +o pipefail
+    return 0
 }
 
 trap die_gracefully EXIT INT TERM

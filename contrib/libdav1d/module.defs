@@ -1,20 +1,21 @@
-$(eval $(call import.MODULE.defs,LIBDAV1D,libdav1d,PTHREADW32))
+$(eval $(call import.MODULE.defs,LIBDAV1D,libdav1d))
 $(eval $(call import.CONTRIB.defs,LIBDAV1D))
 
-LIBDAV1D.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/dav1d-0.9.2.tar.bz2
-LIBDAV1D.FETCH.url    += https://code.videolan.org/videolan/dav1d/-/archive/0.9.2/dav1d-0.9.2.tar.bz2
-LIBDAV1D.FETCH.sha256  = 0d198c4fe63fe7f0395b1b17de75b21c8c4508cd3204996229355759efa30ef8
+LIBDAV1D.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/dav1d-1.5.4.tar.bz2
+LIBDAV1D.FETCH.url    += https://code.videolan.org/videolan/dav1d/-/archive/1.5.4/dav1d-1.5.4.tar.bz2
+LIBDAV1D.FETCH.sha256  = 2abfb0c89212e6e4733a54e0ae509ec00a5b845a6360946f918806e14aedb011
 
-LIBDAV1D.build_dir     = build/
-
-LIBDAV1D.CONFIGURE.exe    = $(MESON.exe)
+LIBDAV1D.build_dir        = build/
+LIBDAV1D.CONFIGURE.exe    = $(MESON.exe) setup
 LIBDAV1D.CONFIGURE.deps   =
 LIBDAV1D.CONFIGURE.shared =
 LIBDAV1D.CONFIGURE.host   =
 LIBDAV1D.CONFIGURE.build  =
 LIBDAV1D.CONFIGURE.static = -Ddefault_library=static
 LIBDAV1D.CONFIGURE.extra  = --libdir=$(call fn.ABSOLUTE,$(CONTRIB.build/))lib/ \
-                            -Denable_tools=false -Denable_tests=false -Denable_avx512=false
+                            -Denable_tools=false -Denable_tests=false \
+                            -Dc_args="-I$(call fn.ABSOLUTE,$(CONTRIB.build/)include) $(call fn.ARGS,LIBDAV1D.GCC,*archs *sysroot *minver ?extra)" \
+                            -Dc_link_args="-L$(call fn.ABSOLUTE,$(CONTRIB.build/)lib) $(call fn.ARGS,LIBDAV1D.GCC,*archs *sysroot *minver ?extra.exe)"
 LIBDAV1D.CONFIGURE.env    =
 
 ifneq (none,$(LIBDAV1D.GCC.g))
@@ -30,16 +31,14 @@ else
 endif
 
 ifeq (darwin,$(HOST.system))
-        LIBDAV1D.CONFIGURE.extra += --cross-file=$(call fn.ABSOLUTE,$(LIBDAV1D.EXTRACT.dir/))/$(HOST.machine)-darwin-gcc.meson -Dc_args="-arch $(HOST.machine)"
+        LIBDAV1D.CONFIGURE.extra += --cross-file=$(call fn.ABSOLUTE,$(SRC/))make/cross/$(HOST.machine)-darwin-gcc.meson
 endif
 
 ifeq (1-mingw,$(HOST.cross)-$(HOST.system))
-    LIBDAV1D.CONFIGURE.extra += --cross-file=$(call fn.ABSOLUTE,$(LIBDAV1D.EXTRACT.dir/))$(HOST.machine)-w64-mingw32.meson
+    LIBDAV1D.CONFIGURE.extra += --cross-file=$(call fn.ABSOLUTE,$(SRC/))make/cross/$(HOST.machine)-w64-mingw32.meson
 endif
 
 LIBDAV1D.BUILD.make       = $(NINJA.exe)
 LIBDAV1D.BUILD.extra      = -v
-
 LIBDAV1D.INSTALL.make     = $(NINJA.exe)
-
 LIBDAV1D.CLEAN.make       = $(NINJA.exe)

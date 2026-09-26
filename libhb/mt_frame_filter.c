@@ -1,6 +1,6 @@
 /* mt_frame_filter.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -58,15 +58,28 @@ static int mt_frame_init(hb_filter_object_t * filter,
                          hb_filter_init_t   * init)
 {
     filter->private_data = calloc(sizeof(struct hb_filter_private_s), 1);
+    if (filter->private_data == NULL)
+    {
+        hb_error("mt_frame: calloc failed");
+        return -1;
+    }
     hb_filter_private_t *pv = filter->private_data;
 
     pv->sub_filter = filter->sub_filter;
     pv->sub_filter->init(pv->sub_filter, init);
 
     pv->thread_count = hb_get_cpu_count();
-    pv->buf = calloc(pv->thread_count, sizeof(hb_buffer_t*));
+    pv->buf = calloc(pv->thread_count, sizeof(hb_buffer_t *));
+    if (pv->buf == NULL)
+    {
+        goto fail;
+    }
 
-    pv->thread_data = malloc(pv->thread_count * sizeof(mt_frame_thread_arg_t*));
+    pv->thread_data = malloc(pv->thread_count * sizeof(mt_frame_thread_arg_t *));
+    if (pv->thread_data == NULL)
+    {
+        goto fail;
+    }
     if (taskset_init(&pv->taskset, "mt_frame_filter", pv->thread_count,
                      sizeof(mt_frame_thread_arg_t), mt_frame_filter_work) == 0)
     {
@@ -116,6 +129,15 @@ static void mt_frame_close(hb_filter_object_t *filter)
 
     pv->sub_filter->close(pv->sub_filter);
     taskset_fini(&pv->taskset);
+
+    for (int f = 0; f < pv->frame_count; f++)
+    {
+        if (pv->buf[f] != NULL)
+        {
+            hb_buffer_close(&pv->buf[f]);
+        }
+    }
+
     free(pv->thread_data);
     free(pv->buf);
     free(pv);

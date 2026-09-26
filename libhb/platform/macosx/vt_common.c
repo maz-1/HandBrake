@@ -1,6 +1,6 @@
 /* vt_common.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -8,6 +8,7 @@
  */
 
 #include "vt_common.h"
+#include "cv_utils.h"
 #include "handbrake/hbffmpeg.h"
 
 #include <VideoToolbox/VideoToolbox.h>
@@ -66,6 +67,7 @@ static int is_hardware_encoder_available(CMVideoCodecType codecType, CFStringRef
 static int vt_h264_available;
 static int vt_h265_available;
 static int vt_h265_10bit_available;
+static int vt_h265_422_10bit_available;
 
 int hb_vt_is_encoder_available(int encoder)
 {
@@ -94,6 +96,7 @@ int hb_vt_is_encoder_available(int encoder)
                 if (__builtin_available (macOS 11, *))
                 {
                     vt_h265_10bit_available = is_hardware_encoder_available(kCMVideoCodecType_HEVC, kVTProfileLevel_HEVC_Main10_AutoLevel);
+                    vt_h265_422_10bit_available = is_hardware_encoder_available(kCMVideoCodecType_HEVC, CFSTR("HEVC_Main42210_AutoLevel"));
                 }
                 else
                 {
@@ -102,6 +105,8 @@ int hb_vt_is_encoder_available(int encoder)
             });
             return vt_h265_10bit_available;
         }
+        case HB_VCODEC_VT_PRORES:
+            return 1;
     }
     return 0;
 }
@@ -168,7 +173,7 @@ int hb_vt_is_constant_quality_available(int encoder)
     return 0;
 }
 
-int hb_vt_is_two_pass_available(int encoder)
+int hb_vt_is_multipass_available(int encoder)
 {
     switch (encoder)
     {
@@ -206,7 +211,17 @@ static const char * const vt_h264_profile_name[] =
 
 static const char * const vt_h265_profile_name[] =
 {
-    "auto", NULL
+    "auto", "main", NULL
+};
+
+static const char * const vt_h265_10_profile_name[] =
+{
+    "auto", "main10", NULL
+};
+
+static const char * const vt_h265_422_10_profile_name[] =
+{
+    "auto", "main10", "main422-10", NULL
 };
 
 static const char * vt_h264_level_names[] =
@@ -219,14 +234,20 @@ static const char * const vt_h265_level_names[] =
     "auto",  NULL,
 };
 
+static const char * const vt_prores_profile_name[] =
+{
+    "auto", "proxy", "lt", "standard", "hq", "4444", "4444xq", NULL
+};
+
+
 static const enum AVPixelFormat vt_h26x_pix_fmts[] =
 {
-    AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+    AV_PIX_FMT_P410, AV_PIX_FMT_NV24, AV_PIX_FMT_P210, AV_PIX_FMT_NV16, AV_PIX_FMT_P010, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NV12, AV_PIX_FMT_NONE
 };
 
 static const enum AVPixelFormat vt_h265_10bit_pix_fmts[] =
 {
-    AV_PIX_FMT_P010LE, AV_PIX_FMT_NONE
+    AV_PIX_FMT_P410, AV_PIX_FMT_NV24, AV_PIX_FMT_P210, AV_PIX_FMT_NV16, AV_PIX_FMT_P010, AV_PIX_FMT_NV12, AV_PIX_FMT_NONE
 };
 
 const int* hb_vt_get_pix_fmts(int encoder)
@@ -242,6 +263,26 @@ const int* hb_vt_get_pix_fmts(int encoder)
     return NULL;
 }
 
+int hb_vt_get_best_pix_fmt(int encoder, const char *profile)
+{
+    switch (encoder)
+    {
+        case HB_VCODEC_VT_H264:
+        case HB_VCODEC_VT_H265:
+            return AV_PIX_FMT_NV12;
+        case HB_VCODEC_VT_H265_10BIT:
+            if (profile != NULL && !strcasecmp(profile, "main422-10"))
+            {
+                return AV_PIX_FMT_P210;
+            }
+            else
+            {
+                return AV_PIX_FMT_P010;
+            }
+    }
+    return AV_PIX_FMT_NV12;
+}
+
 const char* const* hb_vt_preset_get_names(int encoder)
 {
     return vt_h26x_preset_name;
@@ -254,8 +295,20 @@ const char* const* hb_vt_profile_get_names(int encoder)
         case HB_VCODEC_VT_H264:
             return vt_h264_profile_name;
         case HB_VCODEC_VT_H265:
-        case HB_VCODEC_VT_H265_10BIT:
             return vt_h265_profile_name;
+        case HB_VCODEC_VT_H265_10BIT:
+        {
+            if (vt_h265_422_10bit_available)
+            {
+                return vt_h265_422_10_profile_name;
+            }
+            else
+            {
+                return vt_h265_10_profile_name;
+            }
+        }
+        case HB_VCODEC_VT_PRORES:
+            return vt_prores_profile_name;
     }
     return NULL;
 }
@@ -272,3 +325,237 @@ const char* const* hb_vt_level_get_names(int encoder)
     }
     return NULL;
 }
+
+hb_buffer_t * hb_vt_buffer_dup(const hb_buffer_t *src)
+{
+    CVPixelBufferRef pix_buf = hb_cv_get_pixel_buffer(src);
+
+    if (pix_buf == NULL)
+    {
+        return NULL;
+    }
+
+    CFRetain(pix_buf);
+
+    hb_buffer_t *out  = hb_buffer_wrapper_init();
+    out->storage_type = COREMEDIA;
+    out->storage      = pix_buf;
+    out->f            = src->f;
+    hb_buffer_copy_props(out, src);
+
+    return out;
+}
+
+hb_buffer_t * copy_video_buffer_to_hw_video_buffer(void *hw_frames_ctx, hb_buffer_t **in)
+{
+    hb_buffer_t *buf = *in;
+
+    OSType cv_pix_fmt = hb_cv_get_pixel_format(buf->f.fmt, buf->f.color_range);
+    CFNumberRef pix_fmt_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &cv_pix_fmt);
+    CFNumberRef width_num   = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &buf->f.width);
+    CFNumberRef height_num  = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &buf->f.height);
+
+    const void *attrs_keys[4] =
+    {
+        kCVPixelBufferWidthKey, kCVPixelBufferHeightKey,
+        kCVPixelBufferPixelFormatTypeKey, kCVPixelBufferMetalCompatibilityKey
+    };
+    const void *attrs_values[4] =
+    {
+        width_num, height_num, pix_fmt_num, kCFBooleanTrue
+    };
+
+    CFDictionaryRef attrs = CFDictionaryCreate(kCFAllocatorDefault,
+                                               attrs_keys, attrs_values, 4,
+                                               &kCFTypeDictionaryKeyCallBacks,
+                                               &kCFTypeDictionaryValueCallBacks);
+
+    CFRelease(width_num);
+    CFRelease(height_num);
+    CFRelease(pix_fmt_num);
+
+    CVPixelBufferRef pix_buf = NULL;
+    CVReturn ret = CVPixelBufferCreate(kCFAllocatorDefault,
+                                       buf->f.width, buf->f.height,
+                                       cv_pix_fmt, attrs,
+                                       &pix_buf);
+    CFRelease(attrs);
+
+    if (ret != kCVReturnSuccess)
+    {
+        hb_buffer_close(&buf);
+        return NULL;
+    }
+
+    CVPixelBufferLockBaseAddress(pix_buf, 0);
+
+    for (int pp = 0; pp <= buf->f.max_plane; pp++)
+    {
+        void *dst         = CVPixelBufferGetBaseAddressOfPlane(pix_buf, pp);
+        size_t dst_stride = CVPixelBufferGetBytesPerRowOfPlane(pix_buf, pp);
+
+        void *src         = buf->plane[pp].data;
+        size_t src_height = buf->plane[pp].height;
+        size_t src_stride = buf->plane[pp].stride;
+
+        size_t stride = MIN(dst_stride, src_stride);
+
+        for (int y = 0; y < src_height; y++)
+        {
+            memcpy(dst, src, stride);
+            src += src_stride;
+            dst += dst_stride;
+        }
+    }
+
+    CVPixelBufferUnlockBaseAddress(pix_buf, 0);
+
+    hb_buffer_t *out  = hb_buffer_wrapper_init();
+    out->storage_type = COREMEDIA;
+    out->storage      = pix_buf;
+    out->f            = buf->f;
+    hb_buffer_copy_props(out, buf);
+
+    hb_buffer_close(&buf);
+
+    return out;
+}
+
+static int are_filters_supported(hb_list_t *filters)
+{
+    int ret = 1;
+
+    for (int i = 0; i < hb_list_count(filters); i++)
+    {
+        int supported = 1;
+        hb_filter_object_t *filter = hb_list_item(filters, i);
+
+        switch (filter->id)
+        {
+            case HB_FILTER_VFR:
+            case HB_FILTER_COMB_DETECT:
+            case HB_FILTER_YADIF:
+            case HB_FILTER_BWDIF:
+            case HB_FILTER_CROP_SCALE:
+            case HB_FILTER_CHROMA_SMOOTH:
+            case HB_FILTER_ROTATE:
+            case HB_FILTER_PAD:
+            case HB_FILTER_GRAYSCALE:
+            case HB_FILTER_LAPSHARP:
+            case HB_FILTER_UNSHARP:
+            case HB_FILTER_RENDER_SUB:
+            case HB_FILTER_FORMAT:
+            case HB_FILTER_RPU:
+                break;
+            default:
+                supported = 0;
+                break;
+        }
+
+        if (supported == 0)
+        {
+            hb_deep_log(2, "videotoolbox: %s isn't yet supported for hw video frames", filter->name);
+            ret = 0;
+        }
+    }
+
+    return ret;
+}
+
+static void fix_prores_pix_fmt(hb_job_t *job)
+{
+    // TODO: Find a better way
+    // VideoToolbox ProRes decoder uses an higher bitdepth
+    // than FFmpeg software decoder. We get only the pixel format
+    // from the software decoder in decavcodec.c, so set
+    // a better one here
+    if (job->title->video_codec_param == AV_CODEC_ID_PRORES)
+    {
+        switch (job->title->video_codec_profile)
+        {
+            case AV_PROFILE_PRORES_XQ:
+            case AV_PROFILE_PRORES_4444:
+                job->input_pix_fmt = AV_PIX_FMT_P416;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+static void replace_filter(hb_job_t *job, int prev_filter_id, int new_filter_id)
+{
+    hb_list_t *list = job->list_filter;
+    hb_filter_object_t *filter = hb_filter_find(list, prev_filter_id);
+
+    if (filter != NULL)
+    {
+        hb_dict_t *settings = filter->settings;
+        if (settings != NULL)
+        {
+            hb_list_rem(list, filter);
+            hb_filter_object_t *new_filter = hb_filter_init(new_filter_id);
+            hb_add_filter_dict(job->list_filter, new_filter, settings);
+            hb_filter_close(&filter);
+        }
+    }
+}
+
+void hb_vt_setup_hw_filters(hb_job_t *job)
+{
+    if (job->hw_pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
+    {
+        fix_prores_pix_fmt(job);
+
+        // Add adapter
+        hb_filter_object_t *filter = hb_filter_init(HB_FILTER_ADAPTER_VT);
+        char *settings = hb_strdup_printf("rotation=%d", job->title->rotation);
+        hb_add_filter(job->list_filter, filter, settings);
+        free(settings);
+
+        replace_filter(job, HB_FILTER_COMB_DETECT, HB_FILTER_COMB_DETECT_VT);
+        replace_filter(job, HB_FILTER_YADIF, HB_FILTER_YADIF_VT);
+        replace_filter(job, HB_FILTER_BWDIF, HB_FILTER_BWDIF_VT);
+        replace_filter(job, HB_FILTER_CROP_SCALE, HB_FILTER_CROP_SCALE_VT);
+        replace_filter(job, HB_FILTER_CHROMA_SMOOTH, HB_FILTER_CHROMA_SMOOTH_VT);
+        replace_filter(job, HB_FILTER_ROTATE, HB_FILTER_ROTATE_VT);
+        replace_filter(job, HB_FILTER_PAD, HB_FILTER_PAD_VT);
+        replace_filter(job, HB_FILTER_GRAYSCALE, HB_FILTER_GRAYSCALE_VT);
+        replace_filter(job, HB_FILTER_LAPSHARP, HB_FILTER_LAPSHARP_VT);
+        replace_filter(job, HB_FILTER_UNSHARP, HB_FILTER_UNSHARP_VT);
+
+        int count = hb_list_count(job->list_filter);
+        if (count)
+        {
+            // Avoid an additional VTPixelTransferSession, when possible
+            // do the scale and pixel format conversion in one pass
+            hb_filter_object_t *last = hb_list_item(job->list_filter, count - 1);
+            if (last->id == HB_FILTER_CROP_SCALE_VT)
+            {
+                int pix_fmt = hb_vt_get_best_pix_fmt(job->vcodec, job->encoder_profile);
+                hb_dict_set(last->settings, "format", hb_value_int(pix_fmt));
+            }
+        }
+    }
+}
+
+static const int vt_encoders[] =
+{
+    HB_VCODEC_VT_H264,
+    HB_VCODEC_VT_H265,
+    HB_VCODEC_VT_H265_10BIT,
+    HB_VCODEC_VT_PRORES,
+    HB_VCODEC_INVALID
+};
+
+hb_hwaccel_t hb_hwaccel_videotoolbox =
+{
+    .id         = HB_DECODE_VIDEOTOOLBOX,
+    .name       = "videotoolbox hwaccel",
+    .encoders   = vt_encoders,
+    .type       = AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+    .hw_pix_fmt = AV_PIX_FMT_VIDEOTOOLBOX,
+    .can_filter = are_filters_supported,
+    .upload     = copy_video_buffer_to_hw_video_buffer,
+    .caps       = HB_HWACCEL_CAP_SCAN | HB_HWACCEL_CAP_ROTATE | HB_HWACCEL_CAP_COLOR_RANGE
+};

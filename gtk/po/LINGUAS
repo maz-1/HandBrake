@@ -1,32 +1,22 @@
 # please keep this list sorted alphabetically
-#
-af
+# and up to date with the list of available
+# display languages in hb-backend.c
+bg
+ca
 co
-cs
-da
 de
 es
 eu
+fi
 fr
-he
-hr
+gl_ES
 it
 ja
 ko
 nl
-no
-pl
 pt_BR
-pt
-ro
 ru
-si
-sk
 sl_SI
 sv
-th
-tr
-uk_UA
 zh_CN
-zh_TW
 

@@ -1,6 +1,6 @@
 /* detelecine.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -31,7 +31,7 @@
 struct pullup_buffer
 {
     int lock[2];
-    unsigned char **planes;
+    uint8_t **planes;
     int *size;
 };
 
@@ -62,8 +62,12 @@ struct pullup_context
     /* Public interface */
     int format;
     int nplanes;
+    int depth;
+    int field_stride_shift;
+    int half_value;
+    int quarter_value;
     int *bpp, *w, *h, *stride, *background;
-    unsigned int cpu;
+    void **background_lines;
     int junk_left, junk_right, junk_top, junk_bottom;
     int verbose;
     int metric_plane;
@@ -74,9 +78,9 @@ struct pullup_context
     struct pullup_field *first, *last, *head;
     struct pullup_buffer *buffers;
     int nbuffers;
-    int (*diff)(unsigned char *, unsigned char *, int);
-    int (*comb)(unsigned char *, unsigned char *, int);
-    int (*var)(unsigned char *, unsigned char *, int);
+    int (*diff)(void *, void *, int);
+    int (*comb)(void *, void *, int);
+    int (*var)(void *, void *, int);
     int metric_w, metric_h, metric_len, metric_offset;
     struct pullup_frame *frame;
 };
@@ -117,6 +121,7 @@ hb_filter_object_t hb_filter_detelecine =
     .id                = HB_FILTER_DETELECINE,
     .enforce_order     = 1,
     .name              = "Detelecine (pullup)",
+    .short_name        = "detelecine",
     .settings          = NULL,
     .init              = hb_detelecine_init,
     .work              = hb_detelecine_work,
@@ -130,48 +135,89 @@ hb_filter_object_t hb_filter_detelecine =
  *
  */
 
-static int pullup_diff_y( unsigned char  *a, unsigned char * b, int s )
-{
-    int i, j, diff = 0;
-    for( i = 4; i; i-- )
-    {
-        for( j = 0; j < 8; j++ )
-        {
-            diff += PULLUP_ABS( a[j]-b[j] );
-        }
-        a+=s; b+=s;
-    }
-    return diff;
+#define DEF_INIT_BACKGROUND_LINE_FUNC(nbits)                                               \
+static int init_background_line##_##nbits(struct pullup_context *c)                        \
+{                                                                                          \
+    for (int p = 0; p < c->nplanes; p++)                                                   \
+    {                                                                                      \
+        uint##nbits##_t *line = (uint##nbits##_t *)malloc(sizeof(uint##nbits##_t) *        \
+                                                          c->stride[p] / (nbits / 8));     \
+        if (line == NULL)                                                                  \
+        {                                                                                  \
+            return -1;                                                                     \
+        }                                                                                  \
+        const uint##nbits##_t background = c->background[p];                               \
+        for (int i = 0; i < c->w[p]; i++)                                                  \
+        {                                                                                  \
+            line[i] = background;                                                          \
+        }                                                                                  \
+        c->background_lines[p] = (void *)line;                                             \
+    }                                                                                      \
+    return 0;                                                                              \
 }
 
-static int pullup_licomb_y( unsigned char * a, unsigned char * b, int s )
-{
-    int i, j, diff = 0;
-    for( i = 4; i; i-- )
-    {
-        for( j = 0; j < 8; j++ )
-        {
-            diff += PULLUP_ABS( (a[j]<<1) - b[j-s] - b[j] )
-                  + PULLUP_ABS( (b[j]<<1) - a[j] - a[j+s] );
-        }
-        a+=s; b+=s;
-    }
-    return diff;
-}
+#define DEF_DIFF_Y_FUNC(nbits)                                              \
+static int pullup_diff_y##_##nbits(void *a_in, void *b_in, int s)           \
+{                                                                           \
+    int diff = 0;                                                           \
+    const uint##nbits##_t *a = (const uint##nbits##_t *)a_in;               \
+    const uint##nbits##_t *b = (const uint##nbits##_t *)b_in;               \
+    for (int i = 4; i; i--)                                                 \
+    {                                                                       \
+        for (int j = 0; j < 8; j++)                                         \
+        {                                                                   \
+            diff += PULLUP_ABS(a[j]-b[j]);                                  \
+        }                                                                   \
+        a+=s; b+=s;                                                         \
+    }                                                                       \
+    return diff;                                                            \
+}                                                                           \
 
-static int pullup_var_y( unsigned char * a, unsigned char * b, int s )
-{
-    int i, j, var = 0;
-    for( i = 3; i; i-- )
-    {
-        for( j = 0; j < 8; j++ )
-        {
-            var += PULLUP_ABS( a[j]-a[j+s] );
-        }
-        a+=s; b+=s;
-    }
-    return 4*var;
-}
+#define DEF_LICOMB_Y_FUNC(nbits)                                            \
+static int pullup_licomb_y##_##nbits(void *a_in, void *b_in, int s)         \
+{                                                                           \
+    int diff = 0;                                                           \
+    const uint##nbits##_t *a = (const uint##nbits##_t *)a_in;               \
+    const uint##nbits##_t *b = (const uint##nbits##_t *)b_in;               \
+    for (int i = 4; i; i--)                                                 \
+    {                                                                       \
+        for (int j = 0; j < 8; j++)                                         \
+        {                                                                   \
+            diff += PULLUP_ABS((a[j]<<1) - b[j-s] - b[j])                   \
+                  + PULLUP_ABS((b[j]<<1) - a[j] - a[j+s]);                  \
+        }                                                                   \
+        a+=s; b+=s;                                                         \
+    }                                                                       \
+    return diff;                                                            \
+}                                                                           \
+
+#define DEF_VAR_Y_FUNC(nbits)                                               \
+static int pullup_var_y##_##nbits(void *a_in, void *b_in, int s)            \
+{                                                                           \
+    int var = 0;                                                            \
+    const uint##nbits##_t *a = (const uint##nbits##_t *)a_in;               \
+    for (int i = 3; i; i--)                                                 \
+    {                                                                       \
+        for (int j = 0; j < 8; j++)                                         \
+        {                                                                   \
+            var += PULLUP_ABS(a[j]-a[j+s]);                                 \
+        }                                                                   \
+        a+= s;                                                              \
+    }                                                                       \
+    return 4 * var;                                                         \
+}                                                                           \
+
+DEF_DIFF_Y_FUNC(8)
+DEF_DIFF_Y_FUNC(16)
+
+DEF_LICOMB_Y_FUNC(8)
+DEF_LICOMB_Y_FUNC(16)
+
+DEF_VAR_Y_FUNC(8)
+DEF_VAR_Y_FUNC(16)
+
+DEF_INIT_BACKGROUND_LINE_FUNC(8)
+DEF_INIT_BACKGROUND_LINE_FUNC(16)
 
 static void pullup_alloc_metrics( struct pullup_context * c,
                                   struct pullup_field * f )
@@ -184,16 +230,16 @@ static void pullup_alloc_metrics( struct pullup_context * c,
 static void pullup_compute_metric( struct pullup_context * c,
                                    struct pullup_field * fa, int pa,
                                    struct pullup_field * fb, int pb,
-                                   int (* func)( unsigned char *,
-                                                 unsigned char *, int),
+                                   int (* func)( void *,
+                                                 void *, int),
                                    int * dest )
 {
-    unsigned char *a, *b;
+    uint8_t *a, *b;
     int x, y;
     int mp    = c->metric_plane;
     int xstep = c->bpp[mp];
-    int ystep = c->stride[mp]<<3;
-    int s     = c->stride[mp]<<1; /* field stride */
+    int ystep = c->stride[mp] << 3;
+    int s     = c->stride[mp] << c->field_stride_shift; /* field stride */
     int w     = c->metric_w*xstep;
 
     if( !fa->buffer || !fb->buffer ) return;
@@ -255,7 +301,7 @@ static void pullup_copy_field( struct pullup_context * c,
                                int parity )
 {
     int i, j;
-    unsigned char *d, *s;
+    uint8_t *d, *s;
     for( i = 0; i < c->nplanes; i++ )
     {
         s = src->planes[i] + parity*c->stride[i];
@@ -328,7 +374,7 @@ static void pullup_compute_breaks( struct pullup_context * c,
     }
 
     /* Don't get tripped up when differences are mostly quant error */
-    if( max_l + max_r < 128 ) return;
+    if( max_l + max_r < c->half_value ) return;
     if( max_l > 4*max_r ) f1->breaks |= PULLUP_BREAK_LEFT;
     if( max_r > 4*max_l ) f2->breaks |= PULLUP_BREAK_RIGHT;
 }
@@ -372,7 +418,7 @@ static void pullup_compute_affinity( struct pullup_context * c,
         if( -l > max_r ) max_r = -l;
     }
 
-    if( max_l + max_r < 64 )
+    if( max_l + max_r < c->quarter_value )
     {
         return;
     }
@@ -533,16 +579,26 @@ struct pullup_context * pullup_alloc_context( void )
     return c;
 }
 
-void pullup_preinit_context( struct pullup_context * c )
+int pullup_preinit_context(struct pullup_context *c)
 {
     c->bpp        = calloc( c->nplanes, sizeof(int) );
     c->w          = calloc( c->nplanes, sizeof(int) );
     c->h          = calloc( c->nplanes, sizeof(int) );
     c->stride     = calloc( c->nplanes, sizeof(int) );
     c->background = calloc( c->nplanes, sizeof(int) );
+    c->background_lines = calloc( c->nplanes, sizeof(void *) );
+
+    if (c->bpp == NULL || c->w == NULL || c->h == NULL ||
+        c->stride == NULL || c->background == NULL ||
+        c->background_lines == NULL)
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
-void pullup_init_context( struct pullup_context * c )
+int pullup_init_context(struct pullup_context *c)
 {
     int mp = c->metric_plane;
     if ( c->nbuffers < 10 )
@@ -551,6 +607,11 @@ void pullup_init_context( struct pullup_context * c )
     }
     c->buffers = calloc( c->nbuffers, sizeof (struct pullup_buffer) );
 
+    if (c->buffers == NULL)
+    {
+        return -1;
+    }
+
     c->metric_w      = (c->w[mp] - ((c->junk_left + c->junk_right) << 3)) >> 3;
     c->metric_h      = (c->h[mp] - ((c->junk_top + c->junk_bottom) << 1)) >> 3;
     c->metric_offset = c->junk_left*c->bpp[mp] + (c->junk_top<<1)*c->stride[mp];
@@ -558,37 +619,108 @@ void pullup_init_context( struct pullup_context * c )
 
     c->head = pullup_make_field_queue( c, 8 );
 
+    if (c->head == NULL)
+    {
+        return -1;
+    }
+
     c->frame = calloc( 1, sizeof (struct pullup_frame) );
     c->frame->ifields = calloc( 3, sizeof (struct pullup_buffer *) );
 
-    if( c->format == PULLUP_FMT_Y )
+    if (c->frame == NULL || c->frame->ifields == NULL)
     {
-        c->diff = pullup_diff_y;
-        c->comb = pullup_licomb_y;
-        c->var  = pullup_var_y;
+        return -1;
     }
+
+    int err = 0;
+    switch (c->depth)
+    {
+        case 8:
+            err = init_background_line_8(c);
+            break;
+        default:
+            err = init_background_line_16(c);
+            break;
+    }
+
+    if (err)
+    {
+        return -1;
+    }
+
+    if (c->format == PULLUP_FMT_Y)
+    {
+        switch (c->depth)
+        {
+            case 8:
+                c->diff = pullup_diff_y_8;
+                c->comb = pullup_licomb_y_8;
+                c->var  = pullup_var_y_8;
+                break;
+
+            default:
+                c->diff = pullup_diff_y_16;
+                c->comb = pullup_licomb_y_16;
+                c->var  = pullup_var_y_16;
+                break;
+        }
+    }
+
+    return 0;
 }
 
 void pullup_free_context( struct pullup_context * c )
 {
-    struct pullup_field * f;
-
-    free( c->buffers );
-
-    f = c->head->next;
-    while( f != c->head )
+    for (int i = 0; i < c->nbuffers; i++)
     {
-        free( f->diffs );
-        free( f->comb );
-        f = f->next;
-        free( f->prev );
+        struct pullup_buffer *b = &c->buffers[i];
+        if (b->planes)
+        {
+            for (int p = 0; p < c->nplanes; p++)
+            {
+                free(b->planes[p]);
+            }
+            free(b->planes);
+            free(b->size);
+        }
     }
-    free( f->diffs );
-    free( f->comb );
-    free(f);
+    free(c->buffers);
 
-    free( c->frame );
-    free( c );
+    free(c->bpp);
+    free(c->w);
+    free(c->h);
+    free(c->stride);
+    free(c->background);
+
+    for (int p = 0; p < c->nplanes; p++)
+    {
+        free(c->background_lines[p]);
+    }
+    free(c->background_lines);
+
+    if (c->head)
+    {
+        struct pullup_field *f = c->head->next;
+        while (f != c->head)
+        {
+            free(f->diffs);
+            free(f->comb);
+            free(f->var);
+            f = f->next;
+            free(f->prev);
+        }
+        free(f->diffs);
+        free(f->comb);
+        free(f->var);
+        free(f);
+    }
+
+    if (c->frame)
+    {
+        free(c->frame->ifields);
+        free(c->frame);
+    }
+    free(c);
 }
 
 /*
@@ -597,20 +729,45 @@ void pullup_free_context( struct pullup_context * c )
  *
  */
 
-static void pullup_alloc_buffer( struct pullup_context * c,
-                                 struct pullup_buffer * b )
+static int pullup_alloc_buffer(struct pullup_context *c,
+                               struct pullup_buffer *b)
 {
-    int i;
-    if( b->planes ) return;
-    b->planes = calloc( c->nplanes, sizeof(unsigned char *) );
-    b->size = calloc( c->nplanes, sizeof(int) );
-    for ( i = 0; i < c->nplanes; i++ )
+    if (b->planes) return 0;
+
+    b->planes = calloc(c->nplanes, sizeof(uint8_t *));
+    b->size = calloc(c->nplanes, sizeof(int));
+
+    if (b->planes == NULL || b->size == NULL)
+    {
+        return -1;
+    }
+
+    for (int i = 0; i < c->nplanes; i++)
     {
         b->size[i] = c->h[i] * c->stride[i];
         b->planes[i] = malloc(b->size[i]);
+
+        if (b->planes[i] == NULL)
+        {
+            return -1;
+        }
+
         /* Deal with idiotic 128=0 for chroma: */
-        memset( b->planes[i], c->background[i], b->size[i] );
+        if (c->depth == 8 || i == 0)
+        {
+            memset( b->planes[i], c->background[i], b->size[i] );
+        }
+        else
+        {
+            // Copy a precomputed line if depth is > 8
+            for (int h = 0; h < c->h[i]; h++)
+            {
+                memcpy(b->planes[i], c->background_lines[i], c->stride[i]);
+            }
+        }
     }
+
+    return 0;
 }
 
 struct pullup_buffer * pullup_lock_buffer( struct pullup_buffer * b,
@@ -634,39 +791,55 @@ void pullup_release_buffer( struct pullup_buffer * b,
 struct pullup_buffer * pullup_get_buffer( struct pullup_context * c,
                                           int parity )
 {
-    int i;
-
     /* Try first to get the sister buffer for the previous field */
-    if( parity < 2 &&
+    if (parity < 2 &&
         c->last &&
         parity != c->last->parity &&
         !c->last->buffer->lock[parity])
     {
-        pullup_alloc_buffer( c, c->last->buffer );
-        return pullup_lock_buffer( c->last->buffer, parity );
+        if (pullup_alloc_buffer(c, c->last->buffer))
+        {
+            return NULL;
+        }
+        else
+        {
+            return pullup_lock_buffer(c->last->buffer, parity);
+        }
     }
 
     /* Prefer a buffer with both fields open */
-    for( i = 0; i < c->nbuffers; i++ )
+    for (int i = 0; i < c->nbuffers; i++)
     {
-        if( c->buffers[i].lock[0] ) continue;
-        if( c->buffers[i].lock[1] ) continue;
-        pullup_alloc_buffer( c, &c->buffers[i] );
-        return pullup_lock_buffer( &c->buffers[i], parity );
+        if (c->buffers[i].lock[0]) continue;
+        if (c->buffers[i].lock[1]) continue;
+        if (pullup_alloc_buffer(c, &c->buffers[i]))
+        {
+            return NULL;
+        }
+        else
+        {
+            return pullup_lock_buffer(&c->buffers[i], parity);
+        }
     }
 
-    if( parity == 2 ) return 0;
+    if (parity == 2) return 0;
 
     /* Search for any half-free buffer */
-    for( i = 0; i < c->nbuffers; i++ )
+    for (int i = 0; i < c->nbuffers; i++)
     {
-        if( ((parity+1) & 1) && c->buffers[i].lock[0] ) continue;
-        if( ((parity+1) & 2) && c->buffers[i].lock[1] ) continue;
-        pullup_alloc_buffer( c, &c->buffers[i] );
-        return pullup_lock_buffer( &c->buffers[i], parity );
+        if (((parity+1) & 1) && c->buffers[i].lock[0]) continue;
+        if (((parity+1) & 2) && c->buffers[i].lock[1]) continue;
+        if (pullup_alloc_buffer( c, &c->buffers[i]))
+        {
+            return NULL;
+        }
+        else
+        {
+            return pullup_lock_buffer(&c->buffers[i], parity);
+        }
     }
 
-    return 0;
+    return NULL;
 }
 
 /*
@@ -734,22 +907,31 @@ struct pullup_frame * pullup_get_frame( struct pullup_context * c )
     return fr;
 }
 
-void pullup_pack_frame( struct pullup_context * c, struct pullup_frame * fr)
+int pullup_pack_frame(struct pullup_context *c, struct pullup_frame *fr)
 {
-    int i;
-    if (fr->buffer) return;
-    if (fr->length < 2) return; /* FIXME: deal with this */
-    for( i = 0; i < 2; i++ )
+    if (fr->buffer) return 0;
+    if (fr->length < 2) return -1; /* FIXME: deal with this */
+
+    for (int i = 0; i < 2; i++)
     {
         if( fr->ofields[i]->lock[i^1] ) continue;
         fr->buffer = fr->ofields[i];
         pullup_lock_buffer(fr->buffer, 2);
         pullup_copy_field( c, fr->buffer, fr->ofields[i^1], i^1 );
-        return;
+        return 0;
     }
-    fr->buffer = pullup_get_buffer( c, 2 );
-    pullup_copy_field( c, fr->buffer, fr->ofields[0], 0 );
-    pullup_copy_field( c, fr->buffer, fr->ofields[1], 1 );
+
+    fr->buffer = pullup_get_buffer(c, 2);
+
+    if (fr->buffer == NULL)
+    {
+        return -1;
+    }
+
+    pullup_copy_field(c, fr->buffer, fr->ofields[0], 0);
+    pullup_copy_field(c, fr->buffer, fr->ofields[1], 1);
+
+    return 0;
 }
 
 void pullup_release_frame( struct pullup_frame * fr )
@@ -824,7 +1006,12 @@ void pullup_flush_fields( struct pullup_context * c )
 static int hb_detelecine_init( hb_filter_object_t * filter,
                                hb_filter_init_t * init )
 {
-    filter->private_data = calloc(sizeof(struct hb_filter_private_s), 1);
+    filter->private_data = calloc(1, sizeof(struct hb_filter_private_s));
+    if (filter->private_data == NULL)
+    {
+        hb_error("detelecine: calloc failed");
+        return -1;
+    }
 
     hb_filter_private_t   * pv = filter->private_data;
     struct pullup_context * ctx;
@@ -855,44 +1042,56 @@ static int hb_detelecine_init( hb_filter_object_t * filter,
     hb_dict_extract_int(&ctx->metric_plane, filter->settings, "plane");
     hb_dict_extract_int(&ctx->parity, filter->settings, "parity");
 
-    ctx->format = PULLUP_FMT_Y;
-    ctx->nplanes = 4;
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(init->pix_fmt);
 
-    pullup_preinit_context( ctx );
+    ctx->format     = PULLUP_FMT_Y;
+    ctx->nplanes    = desc->nb_components;
+    ctx->depth      = desc->comp[0].depth;
+    ctx->field_stride_shift = ctx->depth > 8 ? 0 : 1;
+    ctx->half_value         = (1 << ctx->depth) / 2;
+    ctx->quarter_value      = (1 << ctx->depth) / 4;
 
-    ctx->bpp[0] = ctx->bpp[1] = ctx->bpp[2] = 8;
-    ctx->background[1] = ctx->background[2] = 128;
+    if (pullup_preinit_context(ctx))
+    {
+        hb_error("detelecine: pullup_preinit_context failed");
+        goto fail;
+    }
 
-    ctx->w[0]      = init->geometry.width;
-    ctx->h[0]      = hb_image_height( init->pix_fmt, init->geometry.height, 0 );
-    ctx->stride[0] = hb_image_stride( init->pix_fmt, init->geometry.width, 0 );
+    ctx->bpp[0] = ctx->bpp[1] = ctx->bpp[2] = 8 * (ctx->depth > 8 ? 2 : 1);
+    ctx->background[1] = ctx->background[2] = ctx->half_value;
 
-    ctx->w[1]      = init->geometry.width >> 1;
-    ctx->h[1]      = hb_image_height( init->pix_fmt, init->geometry.height, 1 );
-    ctx->stride[1] = hb_image_stride( init->pix_fmt, init->geometry.width, 1 );
-
-    ctx->w[1]      = init->geometry.width >> 1;
-    ctx->h[2]      = hb_image_height( init->pix_fmt, init->geometry.height, 2 );
-    ctx->stride[2] = hb_image_stride( init->pix_fmt, init->geometry.width, 2 );
-
-    ctx->w[3]      = ((init->geometry.width + 15) / 16) *
-                     ((init->geometry.height + 15) / 16);
-    ctx->h[3]      = 2;
-    ctx->stride[3] = ctx->w[3];
+    for (int p = 0; p < ctx->nplanes; p++)
+    {
+        ctx->w[p]      = hb_image_width(init->pix_fmt, init->geometry.width, p);
+        ctx->h[p]      = hb_image_height(init->pix_fmt, init->geometry.height, p);
+        ctx->stride[p] = hb_image_stride(init->pix_fmt, init->geometry.width, p);
+    }
 
 #if 0
     ctx->verbose = 1;
 #endif
 
-    pullup_init_context( ctx );
+    if (ctx->metric_plane >= ctx->nplanes || ctx->metric_plane < 0)
+    {
+        ctx->metric_plane = 0;
+    }
+
+    if (pullup_init_context(ctx))
+    {
+        hb_error("detelecine: pullup_init_context failed");
+        goto fail;
+    }
 
     pv->pullup_fakecount = 1;
     pv->pullup_skipflag = 0;
 
-    init->job->use_detelecine = 1;
     pv->output = *init;
 
     return 0;
+
+fail:
+    hb_detelecine_close(filter);
+    return -1;
 }
 
 static void hb_detelecine_close( hb_filter_object_t * filter )
@@ -933,18 +1132,32 @@ static int hb_detelecine_work( hb_filter_object_t * filter,
     struct pullup_frame   * frame;
 
     buf = pullup_get_buffer( ctx, 2 );
-    if( !buf )
+    if (!buf)
     {
-        frame = pullup_get_frame( ctx );
-        pullup_release_frame( frame );
+        frame = pullup_get_frame(ctx);
+        pullup_release_frame(frame);
         hb_log( "Could not get buffer from pullup!" );
         return HB_FILTER_FAILED;
     }
 
+    for (int pp = 0; pp < 3; pp++)
+    {
+        if (buf->planes[pp] == NULL)
+        {
+            frame = pullup_get_frame( ctx );
+            pullup_release_frame( frame );
+            hb_log( "Could not get buffer from pullup!" );
+            return HB_FILTER_FAILED;
+        }
+    }
+
     /* Copy input buffer into pullup buffer */
-    memcpy( buf->planes[0], in->plane[0].data, buf->size[0] );
-    memcpy( buf->planes[1], in->plane[1].data, buf->size[1] );
-    memcpy( buf->planes[2], in->plane[2].data, buf->size[2] );
+    for (int pp = 0; pp < 3; pp++)
+    {
+        hb_image_copy_plane(buf->planes[pp], in->plane[pp].data,
+                            ctx->stride[pp], in->plane[pp].stride,
+                            in->plane[pp].height);
+    }
 
     /* Submit buffer fields based on buffer flags.
        Detelecine assumes BFF when the TFF flag isn't present. */
@@ -1045,7 +1258,7 @@ static int hb_detelecine_work( hb_filter_object_t * filter,
 
     pullup_release_frame( frame );
 
-    out->s = in->s;
+    hb_buffer_copy_props(out, in);
     *buf_out = out;
 
 output_frame:

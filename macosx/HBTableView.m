@@ -1,4 +1,4 @@
-/*  HBQueueOutlineView.m $
+/*  HBTableView.m $
 
  This file is part of the HandBrake source code.
  Homepage: <http://handbrake.fr/>.
@@ -73,14 +73,6 @@
     }
 
     [super keyDown:event];
-}
-
-- (void)viewDidEndLiveResize
-{
-    // Since we disabled calculating row heights during a live resize, force them to
-    // recalculate now.
-    [self noteHeightOfRowsWithIndexesChanged:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, self.numberOfRows)]];
-    [super viewDidEndLiveResize];
 }
 
 @end

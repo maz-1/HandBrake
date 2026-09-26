@@ -10,6 +10,7 @@
 namespace HandBrakeWPF.Utilities
 {
     using System;
+    using System.Diagnostics;
     using System.IO;
     using System.Text.RegularExpressions;
     using System.Xml;
@@ -40,9 +41,9 @@ namespace HandBrakeWPF.Utilities
         public string DownloadFile { get; private set; }
 
         /// <summary>
-        /// Gets the hash for verifying the download completed correctly.
+        /// Gets the Signature for verifying the download completed correctly.
         /// </summary>
-        public string Hash { get; private set; }
+        public string Signature { get; private set; }
 
         /// <summary>
         /// Get the build information from the required appcasts. Run before accessing the public vars.
@@ -60,18 +61,29 @@ namespace HandBrakeWPF.Utilities
 
                 // Regular Expressions
                 Match ver = Regex.Match(result, @"sparkle:version=""([0-9]*)\""");
-                Match verShort = Regex.Match(result, @"sparkle:shortVersionString=""(([svn]*)([0-9.\s]*))\""");
+                Match verShort = Regex.Match(result, @"sparkle:shortVersionString=""([0-9.]*)");
 
                 this.Build = ver.ToString().Replace("sparkle:version=", string.Empty).Replace("\"", string.Empty);
-                this.Version = verShort.ToString().Replace("sparkle:shortVersionString=", string.Empty).Replace(
-                    "\"", string.Empty);
-                this.DownloadFile = nodeItem["windows"].InnerText;
-                this.Hash = nodeItem["windowsHash"].InnerText;  
-                this.DescriptionUrl = new Uri(nodeItem["sparkle:releaseNotesLink"].InnerText);
+                if (verShort.Success)
+                {
+                    this.Version = verShort.Groups[1].Value;
+                }
+               
+                this.DownloadFile = nodeItem["windows"]?.InnerText;
+                this.Signature = nodeItem["windowsSignature"]?.InnerText;
+
+                string descriptionUrl = nodeItem["sparkle:releaseNotesLink"]?.InnerText;
+                if (!string.IsNullOrEmpty(descriptionUrl))
+                {
+                    if (descriptionUrl.StartsWith("https://handbrake.fr", StringComparison.InvariantCultureIgnoreCase) || descriptionUrl.StartsWith("https://github.com/HandBrake/", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        this.DescriptionUrl = new Uri(descriptionUrl);
+                    }
+                }
             }
-            catch (Exception)
+            catch (Exception exc)
             {
-                return;
+                Debug.WriteLine(exc);
             }
         }
 

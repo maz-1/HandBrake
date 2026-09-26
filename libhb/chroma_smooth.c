@@ -1,7 +1,7 @@
 /* chroma_smooth.c
 
    Copyright (c) 2002 Rémi Guyomarch <rguyom at pobox.com>
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -13,11 +13,14 @@
 #define CHROMA_SMOOTH_STRENGTH_DEFAULT 0.25
 #define CHROMA_SMOOTH_SIZE_DEFAULT 7
 #define CHROMA_SMOOTH_SIZE_MIN 3
-#define CHROMA_SMOOTH_SIZE_MAX 63
+#define CHROMA_SMOOTH_SIZE_MAX 15
 
 typedef struct
 {
     int        pix_fmt;   // source pixel format
+    int        bps;
+    int        max_value;
+    int        min_value;
     int        width;     // source video width
     double     strength;  // strength
     int        size;      // pixel context region width (must be odd)
@@ -37,6 +40,8 @@ typedef chroma_smooth_thread_context_t chroma_smooth_thread_context3_t[3];
 
 struct hb_filter_private_s
 {
+    int depth;
+
     chroma_smooth_plane_context_t     plane_ctx[3];
     chroma_smooth_thread_context3_t * thread_ctx;
     int                               threads;
@@ -68,6 +73,7 @@ hb_filter_object_t hb_filter_chroma_smooth =
     .id                = HB_FILTER_CHROMA_SMOOTH,
     .enforce_order     = 1,
     .name              = "Chroma Smooth",
+    .short_name        = "chromasmooth",
     .settings          = NULL,
     .init              = chroma_smooth_init,
     .init_thread       = chroma_smooth_init_thread,
@@ -77,84 +83,100 @@ hb_filter_object_t hb_filter_chroma_smooth =
     .settings_template = chroma_smooth_template,
 };
 
-static void chroma_smooth(const uint8_t *src,
-                          uint8_t *dst,
-                          const int width,
-                          const int height,
-                          const int stride,
-                          chroma_smooth_plane_context_t * ctx,
-                          chroma_smooth_thread_context_t * tctx)
-{
-    uint32_t **SC = tctx->SC;
-    uint32_t SR[CHROMA_SMOOTH_SIZE_MAX - 1],
-             Tmp1,
-             Tmp2;
-    const uint8_t *src2 = src; // avoid gcc warning
-    int32_t res;
-    int x, y, z;
-    int amount        = ctx->amount;
-    int steps         = ctx->steps;
-    int scalebits     = ctx->scalebits;
-    int32_t halfscale = ctx->halfscale;
 
-    if (!amount)
-    {
-        if (src != dst)
-        {
-            memcpy(dst, src, stride*height);
-        }
+#define DEF_CHROMA_SMOOTH_FUNC(name, nbits)                                                                 \
+static void name##_##nbits(const uint8_t *frame_src,                                                        \
+                                 uint8_t *frame_dst,                                                        \
+                           const int width,                                                                 \
+                           const int height,                                                                \
+                           int stride_src,                                                                  \
+                           int stride_dst,                                                                  \
+                           chroma_smooth_plane_context_t * ctx,                                             \
+                           chroma_smooth_thread_context_t * tctx)                                           \
+{                                                                                                           \
+    uint32_t **SC = tctx->SC;                                                                               \
+    uint32_t SR[CHROMA_SMOOTH_SIZE_MAX - 1],                                                                \
+             Tmp1,                                                                                          \
+             Tmp2;                                                                                          \
+    const uint##nbits##_t *src  = (const uint##nbits##_t *)frame_src;                                       \
+    uint##nbits##_t       *dst  = (uint##nbits##_t *)frame_dst;                                             \
+    const uint##nbits##_t *src2 = (const uint##nbits##_t *)frame_src;                                       \
+    int32_t res;                                                                                            \
+    int x, y, z;                                                                                            \
+    const int amount        = ctx->amount;                                                                  \
+    const int steps         = ctx->steps;                                                                   \
+    const int scalebits     = ctx->scalebits;                                                               \
+    const int32_t halfscale = ctx->halfscale;                                                               \
+    const int16_t max_value = ctx->max_value;                                                               \
+    const int16_t min_value = ctx->min_value;                                                               \
+                                                                                                            \
+    if (!amount)                                                                                            \
+    {                                                                                                       \
+        hb_image_copy_plane(frame_dst, frame_src, stride_dst, stride_src, height);                          \
+        return;                                                                                             \
+    }                                                                                                       \
+                                                                                                            \
+    for (y = 0; y < 2 * steps; y++)                                                                         \
+    {                                                                                                       \
+        memset(SC[y], 0, sizeof(SC[y][0]) * (width + 2 * steps));                                           \
+    }                                                                                                       \
+                                                                                                            \
+    stride_src /= ctx->bps;                                                                                 \
+    stride_dst /= ctx->bps;                                                                                 \
+                                                                                                            \
+    for (y = -steps; y < height + steps; y++)                                                               \
+    {                                                                                                       \
+        if (y < height)                                                                                     \
+        {                                                                                                   \
+            src2 = src;                                                                                     \
+        }                                                                                                   \
+                                                                                                            \
+        memset(SR, 0, sizeof(SR[0]) * (2 * steps));                                                         \
+                                                                                                            \
+        for (x = -steps; x < width + steps; x++)                                                            \
+        {                                                                                                   \
+            Tmp1 = x <= 0 ? src2[0] : x >= width ? src2[width - 1] : src2[x];                               \
+                                                                                                            \
+            for (z = 0; z < steps * 2; z += 2)                                                              \
+            {                                                                                               \
+                Tmp2 = SR[z + 0] + Tmp1; SR[z + 0] = Tmp1;                                                  \
+                Tmp1 = SR[z + 1] + Tmp2; SR[z + 1] = Tmp2;                                                  \
+            }                                                                                               \
+                                                                                                            \
+            for (z = 0; z < steps * 2; z += 2)                                                              \
+            {                                                                                               \
+                Tmp2 = SC[z + 0][x + steps] + Tmp1; SC[z + 0][x + steps] = Tmp1;                            \
+                Tmp1 = SC[z + 1][x + steps] + Tmp2; SC[z + 1][x + steps] = Tmp2;                            \
+            }                                                                                               \
+                                                                                                            \
+            if (x >= steps && y >= steps)                                                                   \
+            {                                                                                               \
+                const uint##nbits##_t *srx = src - steps * stride_src + x - steps;                          \
+                uint##nbits##_t       *dsx = dst - steps * stride_dst + x - steps;                          \
+                                                                                                            \
+                res = (int32_t)*srx - ((((int32_t)*srx -                                                    \
+                      (int32_t)((Tmp1 + halfscale) >> scalebits)) * amount) >> 16);                         \
+                *dsx = res > max_value ? max_value : res < min_value ? min_value : (uint##nbits##_t)res;    \
+            }                                                                                               \
+        }                                                                                                   \
+                                                                                                            \
+        if (y >= 0)                                                                                         \
+        {                                                                                                   \
+            dst += stride_dst;                                                                              \
+            src += stride_src;                                                                              \
+        }                                                                                                   \
+    }                                                                                                       \
+}                                                                                                           \
 
-        return;
+DEF_CHROMA_SMOOTH_FUNC(chroma_smooth, 16)
+DEF_CHROMA_SMOOTH_FUNC(chroma_smooth, 8)
+
+#define chroma_smooth(...)                                  \
+    switch (pv->depth)                                      \
+    {                                                       \
+        case  8: chroma_smooth_8(__VA_ARGS__); break;       \
+        default: chroma_smooth_16(__VA_ARGS__); break;      \
     }
-
-    for (y = 0; y < 2 * steps; y++)
-    {
-        memset(SC[y], 0, sizeof(SC[y][0]) * (width + 2 * steps));
-    }
-
-    for (y = -steps; y < height + steps; y++)
-    {
-        if (y < height)
-        {
-            src2 = src;
-        }
-
-        memset(SR, 0, sizeof(SR[0]) * (2 * steps - 1));
-
-        for (x = -steps; x < width + steps; x++)
-        {
-            Tmp1 = x <= 0 ? src2[0] : x >= width ? src2[width - 1] : src2[x];
-
-            for (z = 0; z < steps * 2; z += 2)
-            {
-                Tmp2 = SR[z + 0] + Tmp1; SR[z + 0] = Tmp1;
-                Tmp1 = SR[z + 1] + Tmp2; SR[z + 1] = Tmp2;
-            }
-
-            for (z = 0; z < steps * 2; z += 2)
-            {
-                Tmp2 = SC[z + 0][x + steps] + Tmp1; SC[z + 0][x + steps] = Tmp1;
-                Tmp1 = SC[z + 1][x + steps] + Tmp2; SC[z + 1][x + steps] = Tmp2;
-            }
-
-            if (x >= steps && y >= steps)
-            {
-                const uint8_t * srx = src - steps * stride + x - steps;
-                uint8_t       * dsx = dst - steps * stride + x - steps;
-
-                res = (int32_t)*srx - ((((int32_t)*srx -
-                      (int32_t)((Tmp1 + halfscale) >> scalebits)) * amount) >> 16);
-                *dsx = res > 240 ? 240 : res < 16 ? 16 : (uint8_t)res;
-            }
-        }
-
-        if (y >= 0)
-        {
-            dst += stride;
-            src += stride;
-        }
-    }
-}
 
 static int chroma_smooth_init(hb_filter_object_t *filter,
                               hb_filter_init_t   *init)
@@ -168,6 +190,9 @@ static int chroma_smooth_init(hb_filter_object_t *filter,
     hb_filter_private_t * pv = filter->private_data;
 
     pv->input = *init;
+
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(init->pix_fmt);
+    pv->depth = desc->comp[0].depth;
 
     // Mark parameters unset
     for (int c = 0; c < 3; c++)
@@ -203,6 +228,11 @@ static int chroma_smooth_init(hb_filter_object_t *filter,
         chroma_smooth_plane_context_t * ctx = &pv->plane_ctx[c];
 
         ctx->width = init->geometry.width;
+        ctx->pix_fmt = init->pix_fmt;
+        ctx->bps = pv->depth > 8 ? 2 : 1;
+        int max = (1 << pv->depth);
+        ctx->max_value = max - max / 16;
+        ctx->min_value = max / 16;
 
         // Replace unset values with defaults
         if (ctx->strength == -1)
@@ -279,6 +309,11 @@ static int chroma_smooth_init_thread(hb_filter_object_t *filter, int threads)
 
     chroma_smooth_thread_close(pv);
     pv->thread_ctx = calloc(threads, sizeof(chroma_smooth_thread_context3_t));
+    if (pv->thread_ctx == NULL)
+    {
+        hb_error("Chroma Smooth calloc failed");
+        return -1;
+    }
     pv->threads = threads;
     for (int c = 0; c < 3; c++)
     {
@@ -299,7 +334,6 @@ static int chroma_smooth_init_thread(hb_filter_object_t *filter, int threads)
                     if (tctx->SC[z] == NULL)
                     {
                         hb_error("Chroma Smooth calloc failed");
-                        chroma_smooth_close(filter);
                         return -1;
                     }
                 }
@@ -355,10 +389,11 @@ static int chroma_smooth_work_thread(hb_filter_object_t *filter,
                       in->plane[c].width,
                       in->plane[c].height,
                       in->plane[c].stride,
+                      out->plane[c].stride,
                       ctx, tctx);
     }
 
-    out->s = in->s;
+    hb_buffer_copy_props(out, in);
     *buf_out = out;
 
     return HB_FILTER_OK;

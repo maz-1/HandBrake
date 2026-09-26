@@ -15,11 +15,10 @@ namespace HandBrakeWPF.ViewModels
     using System.IO;
     using System.Linq;
     using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
 
-    using Caliburn.Micro;
+    using HandBrake.App.Core.Utilities;
 
+    using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model.Logging;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
@@ -27,7 +26,6 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Logging.Interfaces;
     using HandBrakeWPF.Services.Logging.Model;
     using HandBrakeWPF.Services.Queue.Interfaces;
-    using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModels.Interfaces;
 
     using Clipboard = System.Windows.Clipboard;
@@ -45,7 +43,6 @@ namespace HandBrakeWPF.ViewModels
         private StringBuilder log = new StringBuilder();
         private long lastReadIndex;
         private LogFile selectedLogFile;
-        private readonly object lockObject = new object();
 
         public LogViewModel(IErrorService errorService, ILogInstanceManager logInstanceManager, IQueueService queueService)
         {
@@ -103,15 +100,16 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        protected override Task OnActivateAsync(CancellationToken cancellationToken)
+        public override void Activate()
         {
             this.logInstanceManager.LogInstancesChanged += this.LogInstanceManager_NewLogInstanceRegistered;
 
             this.CollectLogFiles(null);
 
-            return base.OnActivateAsync(cancellationToken);
+            base.Activate();
         }
-        protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+
+        public override void Deactivate()
         {
             if (this.logService != null)
             {
@@ -122,7 +120,7 @@ namespace HandBrakeWPF.ViewModels
             this.SelectedLogFile = null;
             this.logInstanceManager.LogInstancesChanged -= this.LogInstanceManager_NewLogInstanceRegistered;
 
-            return base.OnDeactivateAsync(close, cancellationToken);
+            base.Deactivate();
         }
 
         protected virtual void OnLogResetEvent()
@@ -150,6 +148,11 @@ namespace HandBrakeWPF.ViewModels
             }
 
             this.logService = this.logInstanceManager.GetLogInstance(this.SelectedLogFile.LogFileName);
+            if (this.logService == null && this.SelectedLogFile != null && this.SelectedLogFile.LogFileName.Equals(this.logInstanceManager.ApplicationLogInstance.FileName, StringComparison.InvariantCultureIgnoreCase))
+            {
+                this.logService = this.logInstanceManager.ApplicationLogInstance;
+            }
+            
             string logDir = DirectoryUtilities.GetLogDirectory();
             string logFile = Path.Combine(logDir, this.selectedLogFile.LogFileName);
 
@@ -231,7 +234,7 @@ namespace HandBrakeWPF.ViewModels
         {
             if (this.lastReadIndex < e.Log.MessageIndex)
             {
-                Execute.BeginOnUIThread(() =>
+                ThreadHelper.OnUIThread(() =>
                         {
                             this.lastReadIndex = e.Log.MessageIndex;
                             this.log.AppendLine(e.Log.Content);

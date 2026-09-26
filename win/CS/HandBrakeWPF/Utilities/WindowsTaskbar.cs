@@ -6,8 +6,9 @@
 
 namespace HandBrakeWPF.Utilities
 {
+    using HandBrakeWPF.Helpers;
     using System.Windows.Shell;
-    
+
     public class WindowsTaskbar
     {
         private static TaskbarItemInfo wintaskbar;
@@ -25,7 +26,7 @@ namespace HandBrakeWPF.Utilities
         public void SetTaskBarProgress(int percentage)
         {
             // Update the taskbar progress indicator.  The normal state shows a green progress bar.
-            Caliburn.Micro.Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                 () =>
                 {
                     wintaskbar.ProgressState = TaskbarItemProgressState.Normal;
@@ -33,11 +34,19 @@ namespace HandBrakeWPF.Utilities
                 });
         }
 
-        public void SetTaskBarProgressToNoProgress()
+        public void SetPaused()
         {
             if (wintaskbar.ProgressState != TaskbarItemProgressState.None)
             {
-                Caliburn.Micro.Execute.OnUIThread(() => wintaskbar.ProgressState = TaskbarItemProgressState.None);
+                ThreadHelper.OnUIThread(() => wintaskbar.ProgressState = TaskbarItemProgressState.Paused);
+            }
+        }
+
+        public void SetNoProgress()
+        {
+            if (wintaskbar.ProgressState != TaskbarItemProgressState.None)
+            {
+                ThreadHelper.OnUIThread(() => wintaskbar.ProgressState = TaskbarItemProgressState.None);
             }
         }
     }

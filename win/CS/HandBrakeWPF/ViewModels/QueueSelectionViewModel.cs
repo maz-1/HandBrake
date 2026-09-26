@@ -15,7 +15,9 @@ namespace HandBrakeWPF.ViewModels
     using System.Linq;
 
     using HandBrakeWPF.Model;
+    using HandBrakeWPF.Model.Queue;
     using HandBrakeWPF.Properties;
+    using HandBrakeWPF.Services.Encode.Model.Models;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Model;
@@ -28,12 +30,13 @@ namespace HandBrakeWPF.ViewModels
     {
         private readonly IErrorService errorService;
         private readonly IUserSettingService userSettingService;
-        private bool orderedByDuration;
-        private bool orderedByTitle;
-        private bool orderedByName;
-        private Action<IEnumerable<SelectionTitle>> addToQueue;
+        private Action<IEnumerable<SelectionTitle>, QueueAddRangeLimit> addToQueue;
+        private BindingList<int> startEndRangeItems1;
 
         private string currentPreset;
+        public bool titleDesc = true;
+        public bool durationDesc = true;
+        public bool nameDesc = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="QueueSelectionViewModel"/> class. 
@@ -50,7 +53,17 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService = userSettingService;
             this.Title = Resources.QueueSelectionViewModel_AddToQueue;
             this.TitleList = new BindingList<SelectionTitle>();
-            this.OrderedByTitle = true;
+            this.RangeLimits = new QueueAddRangeLimit();
+
+
+            List<int>  startEndRangeItems = new List<int>();
+
+            for (int i = 1; i <= 99; i++)
+            {
+                startEndRangeItems.Add(i);
+            }
+
+            this.StartEndRangeItems = new BindingList<int>(startEndRangeItems);
         }
 
         /// <summary>
@@ -82,58 +95,7 @@ namespace HandBrakeWPF.ViewModels
                 this.NotifyOfPropertyChange(() => this.CurrentPreset);
             }
         }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether ordered by title.
-        /// </summary>
-        public bool OrderedByTitle
-        {
-            get
-            {
-                return this.orderedByTitle;
-            }
-
-            set
-            {
-                this.orderedByTitle = value;
-                this.NotifyOfPropertyChange(() => OrderedByTitle);
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether ordered by duration.
-        /// </summary>
-        public bool OrderedByDuration
-        {
-            get
-            {
-                return this.orderedByDuration;
-            }
-
-            set
-            {
-                this.orderedByDuration = value;
-                this.NotifyOfPropertyChange(() => OrderedByDuration);
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether ordered by name.
-        /// </summary>
-        public bool OrderedByName
-        {
-            get
-            {
-                return this.orderedByName;
-            }
-
-            set
-            {
-                this.orderedByName = value;
-                this.NotifyOfPropertyChange(() => OrderedByName);
-            }
-        }
-
+        
         /// <summary>
         /// Gets a value indicating whether is auto naming enabled.
         /// </summary>
@@ -145,40 +107,68 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        /// <summary>
-        /// The order by title.
-        /// </summary>
+        public QueueAddRangeLimit RangeLimits { get; set; }
+
+        public BindingList<PointToPointMode> RangeMode { get; } = new BindingList<PointToPointMode> { PointToPointMode.Chapters, PointToPointMode.Seconds, PointToPointMode.Frames };
+
+        public BindingList<int> StartEndRangeItems
+        {
+            get => this.startEndRangeItems1;
+            private set
+            {
+                if (Equals(value, this.startEndRangeItems1))
+                {
+                    return;
+                }
+
+                this.startEndRangeItems1 = value;
+                this.NotifyOfPropertyChange(() => this.StartEndRangeItems);
+            }
+        }
+
         public void OrderByTitle()
         {
-            TitleList = new BindingList<SelectionTitle>(TitleList.OrderBy(o => o.Title.TitleNumber).ToList());
+            if (this.titleDesc)
+            {
+                TitleList = new BindingList<SelectionTitle>(TitleList.OrderByDescending(o => o.Title.TitleNumber).ToList());
+            }
+            else
+            {
+                TitleList = new BindingList<SelectionTitle>(TitleList.OrderBy(o => o.Title.TitleNumber).ToList());
+            }
+            
             this.NotifyOfPropertyChange(() => TitleList);
-            this.OrderedByTitle = true;
-            this.OrderedByDuration = false;
-            this.OrderedByName = false;
+            this.titleDesc = !this.titleDesc;
         }
 
-        /// <summary>
-        /// The order by duration.
-        /// </summary>
         public void OrderByDuration()
         {
-            TitleList = new BindingList<SelectionTitle>(TitleList.OrderByDescending(o => o.Title.Duration).ToList());
+            if (this.durationDesc)
+            {
+                TitleList = new BindingList<SelectionTitle>(TitleList.OrderByDescending(o => o.Title.Duration).ToList());
+            }
+            else
+            {
+                TitleList = new BindingList<SelectionTitle>(TitleList.OrderBy(o => o.Title.Duration).ToList());
+            }
+
             this.NotifyOfPropertyChange(() => TitleList);
-            this.OrderedByTitle = false;
-            this.OrderedByDuration = true;
-            this.OrderedByName = false;
+            this.durationDesc = !this.durationDesc;
         }
 
-        /// <summary>
-        /// The order by name.
-        /// </summary>
         public void OrderByName()
         {
-            TitleList = new BindingList<SelectionTitle>(TitleList.OrderBy(o => o.Title.SourceName).ToList());
+            if (this.nameDesc)
+            {
+                TitleList = new BindingList<SelectionTitle>(TitleList.OrderByDescending(o => o.Title.SourcePath).ToList());
+            }
+            else
+            {
+                TitleList = new BindingList<SelectionTitle>(TitleList.OrderBy(o => o.Title.SourcePath).ToList());
+            }
+            
             this.NotifyOfPropertyChange(() => TitleList);
-            this.OrderedByTitle = false;
-            this.OrderedByDuration = false;
-            this.OrderedByName = true;
+            this.nameDesc = !this.nameDesc;
         }
 
         /// <summary>
@@ -193,7 +183,7 @@ namespace HandBrakeWPF.ViewModels
         }
 
         /// <summary>
-        /// The select all.
+        /// The unselect all.
         /// </summary>
         public void UnSelectAll()
         {
@@ -204,11 +194,22 @@ namespace HandBrakeWPF.ViewModels
         }
 
         /// <summary>
+        /// Invert selection
+        /// </summary>
+        public void InvertSelection()
+        {
+            foreach (var item in TitleList)
+            {
+                item.IsSelected = !item.IsSelected;
+            }
+        }
+
+        /// <summary>
         /// Add a Preset
         /// </summary>
         public void Add()
         {
-            this.addToQueue(this.TitleList.Where(c => c.IsSelected));
+            this.addToQueue(this.TitleList.Where(c => c.IsSelected), this.RangeLimits);
             this.Close();
         }
 
@@ -226,7 +227,7 @@ namespace HandBrakeWPF.ViewModels
         /// </summary>
         public void Close()
         {
-            this.TryCloseAsync();
+            this.TryClose();
         }
 
         /// <summary>
@@ -241,20 +242,18 @@ namespace HandBrakeWPF.ViewModels
         /// <param name="preset">
         /// The preset.
         /// </param>
-        public void Setup(Source scannedSource, Action<IEnumerable<SelectionTitle>> addAction, Preset preset)
+        public void Setup(Source scannedSource, Action<IEnumerable<SelectionTitle>, QueueAddRangeLimit> addAction, Preset preset)
         {
             this.TitleList.Clear();
             this.addToQueue = addAction;
 
             if (scannedSource != null)
             {
-                IEnumerable<Title> titles = orderedByTitle
-                                         ? scannedSource.Titles
-                                         : scannedSource.Titles.OrderByDescending(o => o.Duration).ToList();
+                IEnumerable<Title> titles = scannedSource.Titles;
 
                 foreach (Title item in titles)
                 {
-                    string srcName = scannedSource?.SourceName ?? item.DisplaySourceName;
+                    string srcName = item.DisplaySourceName ?? item.SourcePath;
                     SelectionTitle title = new SelectionTitle(item, srcName) { IsSelected = true };
                     TitleList.Add(title);
                 }

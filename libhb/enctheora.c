@@ -1,6 +1,6 @@
 /* enctheora.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -8,6 +8,7 @@
  */
 
 #include "handbrake/handbrake.h"
+#include "handbrake/extradata.h"
 #include "theora/codec.h"
 #include "theora/theoraenc.h"
 
@@ -40,16 +41,21 @@ int enctheoraInit( hb_work_object_t * w, hb_job_t * job )
 {
     int keyframe_frequency, log_keyframe, ret;
     hb_work_private_t * pv = calloc( 1, sizeof( hb_work_private_t ) );
+    if (pv == NULL)
+    {
+        hb_error("theora: calloc failed");
+        return 1;
+    }
     w->private_data = pv;
 
     pv->job = job;
 
-    if( job->pass_id == HB_PASS_ENCODE_1ST ||
-        job->pass_id == HB_PASS_ENCODE_2ND )
+    if( job->pass_id == HB_PASS_ENCODE_ANALYSIS ||
+        job->pass_id == HB_PASS_ENCODE_FINAL )
     {
         char * filename;
         filename = hb_get_temporary_filename("theora.log");
-        if ( job->pass_id == HB_PASS_ENCODE_1ST )
+        if ( job->pass_id == HB_PASS_ENCODE_ANALYSIS )
         {
             pv->file = hb_fopen(filename, "wb");
         }
@@ -117,8 +123,8 @@ int enctheoraInit( hb_work_object_t * w, hb_job_t * job )
     {
         hb_log("theora: Could not set soft ratecontrol");
     }
-    if( job->pass_id == HB_PASS_ENCODE_1ST ||
-        job->pass_id == HB_PASS_ENCODE_2ND )
+    if( job->pass_id == HB_PASS_ENCODE_ANALYSIS ||
+        job->pass_id == HB_PASS_ENCODE_FINAL )
     {
         arg = keyframe_frequency * 7 >> 1;
         ret = th_encode_ctl(pv->ctx, TH_ENCCTL_SET_RATE_BUFFER, &arg, sizeof(arg));
@@ -128,7 +134,7 @@ int enctheoraInit( hb_work_object_t * w, hb_job_t * job )
         }
     }
 
-    if( job->pass_id == HB_PASS_ENCODE_1ST )
+    if( job->pass_id == HB_PASS_ENCODE_ANALYSIS )
     {
         unsigned char *buffer;
         int bytes;
@@ -146,7 +152,7 @@ int enctheoraInit( hb_work_object_t * w, hb_job_t * job )
         }
         fflush( pv->file );
     }
-    if( job->pass_id == HB_PASS_ENCODE_2ND )
+    if( job->pass_id == HB_PASS_ENCODE_FINAL )
     {
         /* Enable the second pass here.
          * We make this call just to set the encoder into 2-pass mode, because
@@ -164,17 +170,18 @@ int enctheoraInit( hb_work_object_t * w, hb_job_t * job )
 
     th_comment_init( &tc );
 
-    ogg_packet *header;
+    uint8_t headers[3][HB_CONFIG_MAX_SIZE];
 
-    int ii;
-    for (ii = 0; ii < 3; ii++)
+    for (int ii = 0; ii < 3; ii++)
     {
-        th_encode_flushheader( pv->ctx, &tc, &op );
-        header = (ogg_packet*)w->config->theora.headers[ii];
+        th_encode_flushheader(pv->ctx, &tc, &op);
+        ogg_packet *header = (ogg_packet *)headers[ii];
         memcpy(header, &op, sizeof(op));
-        header->packet = w->config->theora.headers[ii] + sizeof(ogg_packet);
-        memcpy(header->packet, op.packet, op.bytes );
+        header->packet = headers[ii] + sizeof(ogg_packet);
+        memcpy(header->packet, op.packet, op.bytes);
     }
+
+    hb_set_xiph_extradata(w->extradata, headers);
 
     th_comment_clear( &tc );
 
@@ -231,7 +238,7 @@ int enctheoraWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         *buf_out = in;
         *buf_in = NULL;
         th_encode_packetout( pv->ctx, 1, &op );
-        if( job->pass_id == HB_PASS_ENCODE_1ST )
+        if( job->pass_id == HB_PASS_ENCODE_ANALYSIS )
         {
             unsigned char *buffer;
             int bytes;
@@ -254,7 +261,7 @@ int enctheoraWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         return HB_WORK_DONE;
     }
 
-    if( job->pass_id == HB_PASS_ENCODE_2ND )
+    if( job->pass_id == HB_PASS_ENCODE_FINAL )
     {
         for(;;)
         {
@@ -333,7 +340,7 @@ int enctheoraWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
 
     th_encode_ycbcr_in( pv->ctx, ycbcr );
 
-    if( job->pass_id == HB_PASS_ENCODE_1ST )
+    if( job->pass_id == HB_PASS_ENCODE_ANALYSIS )
     {
         unsigned char *buffer;
         int bytes;

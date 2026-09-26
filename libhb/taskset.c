@@ -1,6 +1,6 @@
 /* taskset.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -209,6 +209,11 @@ taskset_thread_f( void *thread_args_v )
 void
 taskset_fini( taskset_t *ts )
 {
+    if (ts == NULL)
+    {
+        return;
+    }
+
     int i;
     if ( ts->task_thread_started ) {
         /*
@@ -227,17 +232,26 @@ taskset_fini( taskset_t *ts )
             hb_unlock( thread->lock );
         }
         /*
-         * Clean up taskset memory.
+         * Clean up thread memory.
          */
         for( i = 0; i < ts->thread_count; i++ )
         {
             taskset_thread_t *thread = taskset_thread( ts, i );
             hb_thread_close( &thread->thread );
-            hb_lock_close( &thread->lock );
-            hb_cond_close( &thread->begin_cond );
-            hb_cond_close( &thread->complete_cond );
         }
     }
+
+    /*
+     * Clean up taskset memory.
+     */
+    for( i = 0; i < ts->thread_count; i++ )
+    {
+        taskset_thread_t *thread = taskset_thread( ts, i );
+        hb_lock_close( &thread->lock );
+        hb_cond_close( &thread->begin_cond );
+        hb_cond_close( &thread->complete_cond );
+    }
+
     free( ts->task_threads );
 
     if( ts->task_threads_args != NULL )

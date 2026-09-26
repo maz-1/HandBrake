@@ -81,7 +81,7 @@
 
 - (BOOL)fastDecodeSupported
 {
-    if (!(self.encoder & HB_VCODEC_X264_MASK))
+    if (!(self.encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_SVT_AV1_MASK)))
     {
         return NO;
     }
@@ -98,25 +98,25 @@
     return NO;
 }
 
-+ (NSSet<NSString *> *)keyPathsForValuesAffectingTurboTwoPassSupported
++ (NSSet<NSString *> *)keyPathsForValuesAffectingTurboMultiPassSupported
 {
-    return [NSSet setWithObjects:@"encoder", nil];
+    return [NSSet setWithObjects:@"encoder", @"qualityType", nil];
 }
 
-- (BOOL)turboTwoPassSupported
+- (BOOL)turboMultiPassSupported
 {
     return ((self.encoder & HB_VCODEC_X264_MASK) ||
             (self.encoder & HB_VCODEC_X265_MASK));
 }
 
-+ (NSSet<NSString *> *)keyPathsForValuesAffectingTwoPassSupported
++ (NSSet<NSString *> *)keyPathsForValuesAffectingMultiPassSupported
 {
-    return [NSSet setWithObjects:@"encoder", nil];
+    return [NSSet setWithObjects:@"encoder", @"qualityType", nil];
 }
 
-- (BOOL)twoPassSupported
+- (BOOL)multiPassSupported
 {
-    return hb_video_twopass_is_supported(self.encoder);
+    return hb_video_multipass_is_supported(self.encoder, self.qualityType != 0);
 }
 
 + (NSSet<NSString *> *)keyPathsForValuesAffectingConstantQualityLabel
@@ -137,6 +137,16 @@
 - (BOOL)isConstantQualitySupported
 {
     return hb_video_quality_is_supported(self.encoder);
+}
+
++ (NSSet<NSString *> *)keyPathsForValuesAffectingIsAverageBitrateSupported
+{
+    return [NSSet setWithObjects:@"encoder", nil];
+}
+
+- (BOOL)isAverageBitrateSupported
+{
+    return hb_video_bitrate_is_supported(self.encoder);
 }
 
 + (NSSet<NSString *> *)keyPathsForValuesAffectingUnparseOptions
@@ -370,14 +380,15 @@
     BOOL _reverse;
     double _min;
     double _max;
+    double _granularity;
 }
 
 - (instancetype)init
 {
-    return [self initWithReversedDirection:NO min:0 max:50];
+    return [self initWithReversedDirection:NO min:0 max:50 granularity:1];
 }
 
-- (instancetype)initWithReversedDirection:(BOOL)reverse min:(double)min max:(double)max
+- (instancetype)initWithReversedDirection:(BOOL)reverse min:(double)min max:(double)max granularity:(float)granularity
 {
     self = [super init];
     if (self)
@@ -385,6 +396,7 @@
         _reverse = reverse;
         _min = min;
         _max = max;
+        _granularity = granularity > 0 ? granularity : 1;
     }
 
     return self;
@@ -418,11 +430,14 @@
     if (_reverse)
     {
         double inverseValue = _min + _max - [value doubleValue];
+        inverseValue = round(inverseValue / _granularity) * _granularity;
         return @(inverseValue);
     }
     else
     {
-        return value;
+        double doubleValue = [value doubleValue];
+        doubleValue = round(doubleValue / _granularity) * _granularity;
+        return @(doubleValue);
     }
 }
 
@@ -508,15 +523,6 @@
 - (BOOL)isUnparsedSupported:(int)encoder
 {
     return (encoder & HB_VCODEC_X264_MASK) != 0;
-}
-- (BOOL)isPresetSystemSupported:(int)encoder
-{
-    return hb_video_encoder_get_presets(encoder) != NULL;
-}
-
-- (BOOL)isSimpleOptionsPanelSupported:(int)encoder
-{
-    return (encoder & HB_VCODEC_FFMPEG_MASK) != 0;
 }
 
 - (void)qualityLimitsForEncoder:(int)encoder low:(float *)low high:(float *)high granularity:(float *)granularity direction:(int *)direction

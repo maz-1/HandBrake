@@ -1,16 +1,15 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "Sparkle",
-        "repositoryURL": "https://github.com/sparkle-project/Sparkle",
-        "state": {
-          "branch": null,
-          "revision": "85d3fa2e0e2b7871866eb1a92231847cff4162fd",
-          "version": "2.0.0"
-        }
+  "originHash" : "06b28d3c146785d8a568d023d94ecf24b972ddb0e4f636eeb5114a9b0850b95a",
+  "pins" : [
+    {
+      "identity" : "sparkle",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/HandBrake/Sparkle",
+      "state" : {
+        "revision" : "bc4eab6277e46a6b53bd927b86487d449eb4ff01",
+        "version" : "2.9.2-handbrake"
       }
-    ]
-  },
-  "version": 1
+    }
+  ],
+  "version" : 3
 }

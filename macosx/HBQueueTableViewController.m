@@ -109,21 +109,32 @@
 - (IBAction)moveSelectedQueueItemsToTop:(id)sender
 {
     NSIndexSet *indexes = self.tableView.targetedRowIndexes;
-    NSArray *items = [self.queue.items objectsAtIndexes:indexes];
-    [self.queue moveItems:items toIndex:0];
+    NSArray<id<HBQueueItem>> *items = [self.queue.items objectsAtIndexes:indexes];
+
+    NSUInteger index = 0;
+    for (id<HBQueueItem> item in self.queue.items)
+    {
+        if (item.state == HBQueueItemStateReady)
+        {
+            break;
+        }
+        index += 1;
+    }
+
+    [self.queue moveItems:items toIndex:index];
 }
 
 - (IBAction)moveSelectedQueueItemsToBottom:(id)sender
 {
     NSIndexSet *indexes = self.tableView.targetedRowIndexes;
-    NSArray *items = [self.queue.items objectsAtIndexes:indexes];
+    NSArray<id<HBQueueItem>> *items = [self.queue.items objectsAtIndexes:indexes];
     [self.queue moveItems:items toIndex:self.queue.items.count];
 }
 
 /**
  * Show the finished encode in the finder
  */
-- (IBAction)revealSelectedQueueItems:(id)sender
+- (IBAction)revealDestinationItemsInFinder:(id)sender
 {
     NSIndexSet *targetedRows = self.tableView.targetedRowIndexes;
     NSMutableArray<NSURL *> *urls = [[NSMutableArray alloc] init];
@@ -145,7 +156,7 @@
     }
 }
 
-- (IBAction)revealSelectedQueueItemsSources:(id)sender
+- (IBAction)revealSourceItemsInFinder:(id)sender
 {
     NSIndexSet *targetedRows = self.tableView.targetedRowIndexes;
     NSMutableArray<NSURL *> *urls = [[NSMutableArray alloc] init];
@@ -227,6 +238,14 @@
     [self.queue removeCompletedItems];
 }
 
+- (IBAction)insertStopAction:(id)sender
+{
+    NSInteger index = self.tableView.targetedRowIndexes.count ?
+    self.tableView.targetedRowIndexes.lastIndex + 1 : self.tableView.numberOfRows;
+    HBQueueActionStopItem *stopAction = [[HBQueueActionStopItem alloc] init];
+    [self.delegate tableViewAddAction:stopAction atIndex:index];
+}
+
 #pragma mark - UI Validation
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
@@ -245,7 +264,7 @@
         return self.tableView.targetedRowIndexes.count > 0;
     }
 
-    if (action == @selector(revealSelectedQueueItemsSources:))
+    if (action == @selector(revealSourceItemsInFinder:))
     {
         NSIndexSet *indexes = self.tableView.targetedRowIndexes;
         if (indexes.count == 0) { return NO; }
@@ -257,7 +276,7 @@
     }
 
     if (action == @selector(revealSelectedQueueItemsActivityLogs:) ||
-        action == @selector(revealSelectedQueueItems:))
+        action == @selector(revealDestinationItemsInFinder:))
     {
         NSIndexSet *indexes = self.tableView.targetedRowIndexes;
         if (indexes.count == 0) { return NO; }

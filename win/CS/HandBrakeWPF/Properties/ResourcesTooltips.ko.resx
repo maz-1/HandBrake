@@ -60,45 +60,45 @@
             : and then encoded with base64 encoding.
     -->
   <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="type" type="xsd:string"/>
+              <xsd:attribute name="mimetype" type="xsd:string"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="alias" type="xsd:string"/>
+              <xsd:attribute name="name" type="xsd:string"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required"/>
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -112,16 +112,16 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="FilterView_Deblock" xml:space="preserve">
     <value>블록 제거는 낮은 품질의 비디오 압축으로 인해 발생하는 블록 아티팩트를 줄여줍니다.</value>
   </data>
   <data name="FilterView_DecombDeinterlace" xml:space="preserve">
-    <value>decomb 또는 인터레이스 해제 필터 옵션을 선택하십시오.
+    <value>decomb 또는 인터레이스 제거 필터 옵션을 선택하십시오.
 
 decomb 필터는 선택적으로 인터레이스된 프레임을 비인터레이스로 바꾸어줍니다. 
 이것은 인터레이스 되지 않은 프레임의 품질을 보존합니다.
@@ -138,7 +138,7 @@ NLMeans는 비용이 많이 드는 높은 품질의 잡음 제거 필터입니�
 HQDN3D는 적응형 low-pass 필터로 NLMeans보다 빠르지만 세부 사항을 유지하는데 덜 효과적입니다.</value>
   </data>
   <data name="FilterView_Detelecine" xml:space="preserve">
-    <value>텔레시네 해제는 영화 프레임률을 TV 프레임률로 바꿔주는 과정인 텔레시네의 결과물인 comb 아티팩트를 제거합니다. </value>
+    <value>텔레시네 제거는 영화 프레임률을 TV 프레임률로 바꿔주는 과정인 텔레시네의 결과물인 comb 아티팩트를 제거합니다. </value>
   </data>
   <data name="FilterView_Grayscale" xml:space="preserve">
     <value>그레이스케일은 비디오의 색상 구성 요소를 제거합니다. 흔히 흑백 동영상이라고 합니다.</value>
@@ -163,15 +163,13 @@ HQDN3D는 적응형 low-pass 필터로 NLMeans보다 빠르지만 세부 사항�
 Blu-ray와 DVD 자료는 대개 여러 개의 제목을 가지고 있으며, 그 중 가장 긴 것은 일반적으로 주요 기능이다.</value>
   </data>
   <data name="PictureSettingsView_Anamorphic" xml:space="preserve">
-    <value>아나모픽은 재생하는 동안 원래의 화면을 유지하면서 임의의 저장 치수를 허용합니다.
+    <value>아나모픽은 재생 중에 원본 화면을 유지하면서 임의의 저장 크기를 허용합니다.
 
-없음은 아나모픽을 비활성화합니다. 비디오 저장 치수와 화면 치수는 동일합니다. 특정한 기존 장치들과의 호환성에만 유용합니다.
+없음은 아나모픽을 비활성화합니다. 동영상 저장 크기와 표시 크기는 동일하게 유지됩니다. 특정 레거시 장치와의 호환성에만 유용합니다.
 
-자동은 원래 화면 종횡비를 유지하면서 저장 해상도를 최대화합니다. 추천합니다.
+자동은 원래 디스플레이 종횡비를 유지하면서 저장소 해상도를 최대화합니다. 권장.
 
-루스는 자동과 비슷하지만 저장 종횡비를 유지하려고 합니다. 이로 인해 자동에 비해 약간의 저장 해상도 손실이 발생할 수 있습니다.
-
-사용자 지정은 모든 매개 변수를 수동으로 설정할 수 있습니다. 잘못된 원본 디스플레이 화면을 수정하고 포스트 프로덕션에서 고급 제어가 필요한 전문가에게 유용합니다.</value>
+사용자 지정은 모든 매개변수를 수동으로 설정할 수 있습니다. 잘못된 소스 디스플레이 비율을 수정하거나 포스트 프로덕션에서 고급 제어가 필요한 전문가에게 유용합니다.</value>
   </data>
   <data name="PictureSettingsView_AutoCrop" xml:space="preserve">
     <value>비디오 가장자리 주위에 검은 색 테두리를 자동으로 자릅니다.</value>
@@ -190,16 +188,16 @@ Blu-ray와 DVD 자료는 대개 여러 개의 제목을 가지고 있으며, 그
   </data>
   <data name="PictureSettingsView_Height" xml:space="preserve">
     <value>이 높이가 비디오를 저장할 높이입니다.
-픽셀 종횡비가 1:1이 아닌 경우 실제 화면 치수가 다릅니다.</value>
+픽셀 종횡비가 1:1이 아닌 경우 실제 화면 해상도가 다릅니다.</value>
   </data>
   <data name="PictureSettingsView_ManualCrop" xml:space="preserve">
     <value>수동으로 비디오를 자릅니다.</value>
   </data>
   <data name="PictureSettingsView_Modulus" xml:space="preserve">
-    <value>스토리지 차원을 이 값의 배수로 정렬하십시오. 
+    <value>스토리지 크기를 이 값의 배수로 맞춥니다.
 
-이 설정은 일부 장치화와의 호환성에만 필요합니다.
-호환성 문제가 발생하지 않는 한 2를  사용해야합니다.</value>
+이 설정은 일부 장치와의 호환성을 위해서만 필요합니다.
+호환성 문제가 발생하지 않는 한 2를 사용해야 합니다.</value>
   </data>
   <data name="PictureSettingsView_PAR" xml:space="preserve">
     <value>가로세로 픽셀은 픽셀들의 모양을 결정합니다.
@@ -208,7 +206,7 @@ Blu-ray와 DVD 자료는 대개 여러 개의 제목을 가지고 있으며, 그
   </data>
   <data name="PictureSettingsView_Width" xml:space="preserve">
     <value>이 너비는 비디오를 저장할 너비입니다.
-픽셀 종횡비가 1:1이 아닌 경우 실제 화면 치수가 다릅니다.</value>
+픽셀 종횡비가 1:1이 아닌 경우 실제 화면 해상도가 다릅니다.</value>
   </data>
   <data name="QueueView_DeleteJob" xml:space="preserve">
     <value>대기열에서 작업을 삭제합니다.</value>
@@ -220,11 +218,11 @@ Blu-ray와 DVD 자료는 대개 여러 개의 제목을 가지고 있으며, 그
     <value>편집을 위해 작업을 기본창으로 다시 보냅니다.</value>
   </data>
   <data name="Video_AvgBitrate" xml:space="preserve">
-    <value>평균 비트 전송률을 설정하십시오.
+    <value>평균 비트전송률을 설정하십시오.
 
-순간 비트 전송률은 어느 시점에서 훨씬 높거나 낮을 수 있습니다.
+순간 비트전송률을 어느 시점에서 훨씬 높거나 낮을 수 있습니다.
 하지만 긴 전송 시간 동안의 평균은 여기서 설정한 값이 될 것입니다.
-순간 비트 전송률을 제한해야 하는 경우 x264의 vbv-bufsize 와 vbv-maxrate 설정을 확인하십시오.</value>
+순간 비트전송률을 제한해야 하는 경우 x264의 vbv-bufsize 와 vbv-maxrate 설정을 확인하십시오.</value>
   </data>
   <data name="Video_ConstantFramerate" xml:space="preserve">
     <value>일정한 프레임 속도 출력을 가능하게 합니다.</value>
@@ -253,7 +251,7 @@ Blu-ray와 DVD 자료는 대개 여러 개의 제목을 가지고 있으며, 그
 '원본 파일과 동일'이 권장됩니다. 원본 파일 비디오의 프레임 속도가 가변적인 경우, '원본 파일과 동일'이 비디오를 보존하게 됩니다.</value>
   </data>
   <data name="Video_Level" xml:space="preserve">
-    <value>지정된 레벨을 준수하도록 설정하고 보장합니다.
+    <value>지정된 레벨을 준수하도록 설정하고 준수 여부를 확인합니다.
 
 다른 모든 설정을 재정의합니다.</value>
   </data>
@@ -261,15 +259,18 @@ Blu-ray와 DVD 자료는 대개 여러 개의 제목을 가지고 있으며, 그
     <value>프레임 속도 설정에 의해 결정된 최고 속도로 가변 프레임 속도 출력을 활성화합니다.</value>
   </data>
   <data name="Video_Presets" xml:space="preserve">
-    <value>인코더 설정을 인코딩 속도와 비교하여 압축 효율을 유지하도록 바꾸십시오.
+    <value>인코더 설정을 조정하여 인코딩 속도와 압축 효율의 균형을 맞출 수 있습니다.
 
 이렇게 하면 기본 인코더 설정이 설정됩니다.
-음정, 개요, 수준, 고급 옵션 문자열이 해당 설정에서 적용될 것입니다.
-느린 설정은 품질이 향상되거나 파일의 크기가 작아지기 때문에 일반적으로 
-이 옵션을 가장 느리게 설정해야 합니다.</value>
+곡, 프로필, 레벨 및 고급 옵션 문자열이 여기에 적용됩니다.
+일반적으로 이 옵션을 느리게 설정하면 품질이 떨어지거나 크기가 작아지므로
+설정할수록 화질이 좋아지거나 파일 크기가 작아지므로 일반적으로 감당할 수 있는 가장 느린 속도로 설정하는 것이 좋습니다.
+
+슬라이더를 오른쪽으로 조정하여 인코딩 속도를 희생하는 대신 압축 효율을 높이세요,
+또는 압축 효율을 희생하여 인코딩 속도를 높이려면 왼쪽으로 조정합니다.</value>
   </data>
   <data name="Video_Profile" xml:space="preserve">
-    <value>지정된 프로필을 준수하도록 설정하고 보장합니다.
+    <value>지정된 프로필을 설정하고 준수 여부를 확인합니다.
 
 다른 모든 설정을 재정의합니다.</value>
   </data>
@@ -288,14 +289,13 @@ x264의 스케일은 로그이며 더 낮은 값은 더 높은 품질에 해당�
 FFMpeg와 Theora의 척도는 더 선형적입니다.
 이 인코더들은 무손실 모드를 갖고 있지 않습니다.</value>
   </data>
-  <data name="Video_TurboFirstPass" xml:space="preserve">
-    <value>2 pass 인코딩 중 첫 번째 pass를 하는 동안, 속도를 조절하는 설정을 사용하십시오.</value>
+  <data name="Video_TurboAnalysisPass" xml:space="preserve">
+    <value>멀티 패스 인코딩의 분석 패스에서 작업 속도를 높이는 설정을 사용합니다.</value>
   </data>
-  <data name="Video_TwoPass" xml:space="preserve">
-    <value>2 Pass 인코딩을 수행하십시오.
+  <data name="Video_MultiPass" xml:space="preserve">
+    <value>멀티 패스 인코딩을 수행합니다.
 
-'비트 전송 속도' 설정이 필요합니다. 첫 번째 pass 동안, 비디오에 대한
-통계가 수집됩니다. 그러면 두 번째 pass 동안, 전송 속도 할당이 결정되는 데 수집한 통계가 사용됩니다.</value>
+'비트 전송률' 옵션은 필수입니다. 분석 패스가 진행되는 동안 동영상에 대한 통계가 수집됩니다. 그런 다음 최종 패스에서 이러한 통계를 사용하여 비트레이트 할당 결정을 내립니다.</value>
   </data>
   <data name="Video_VariableFramerate" xml:space="preserve">
     <value>가변 프레임 속도 출력을 활성화합니다. VFR은 일부 재생기와 호환되지 않습니다.</value>
@@ -360,25 +360,25 @@ HQDN3D 기본값: y-spatial=3:cb-spatial=2:cr-spatial=2:y-temporal=2:cb-temporal
 - Sprite는 1-/4-/8-/16-비트의 2-차원 게임에 대해 유용합니다. Sprite는 고화질 비디오용으로 설계되지 않았습니다.</value>
   </data>
   <data name="FilterView_Deinterlace" xml:space="preserve">
-    <value>인터레이스 해제는 comb 아티팩트를 그림에서 제거합니다.
+    <value>인터레이스 제거는 그림에서 빗 모양의 아티팩트를 제거합니다.
 
-Yadif는 유명하고 빠른 인터레이스 해제 도구 입니다.
+Bwdif와 Yadif는 널리 사용되는 빠른 디인터레이서입니다.
 
-Decomb은 속도와 품질을 위해 복수의 보간 알고리즘을 전환합니다.</value>
+Decomb은 속도와 품질을 위해 여러 보간 알고리즘 간에 전환합니다.</value>
   </data>
   <data name="FilterView_DeinterlaceCustom" xml:space="preserve">
-    <value>사용자 설정 인터레이스 해제 매개 변수.
+    <value>사용자 지정 인터레이스 제거 매개변수입니다.
 
-Yadif 구문: mode=m:parity=p
+Bwdif 및 Yadif 구문: mode=m:syslog=p
 
-Yadif 기본값: mode=3
+Bwdif 및 Yadif 기본값: mode=3
 
-Decomb 구문: mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
+Decomb 구문: mode=m: scrandity-thresh=m: scrandity-thresh=v: laplacian-thresh=l:dilation-thresh=d: search-thresh=e: n: search-distance=p: p: postproc=p
 
 Decomb 기본값: mode=7</value>
   </data>
   <data name="FilterView_DeinterlacePreset" xml:space="preserve">
-    <value>디인터레이스 필터 프리셋.
+    <value>인터레이스 제거 필터 프리셋.
 
 기본값은 속도와 품질의 균형을 맞춥니다.
 
@@ -392,7 +392,7 @@ Bob는 문제가 있다고 인지된 해상도에 대한 모션을 더욱 잘 �
     <value>가로축으로 영상을 뒤집습니다(미러).</value>
   </data>
   <data name="FilterView_InterlaceDetection" xml:space="preserve">
-    <value>인터레이스 감지가 활성화된 경우 인터레이스 해제 필터가 인터레이스된 비디오 프레임만 처리 할 수 있도록 합니다. </value>
+    <value>인터레이스 감지가 활성화된 경우 인터레이스 제거 필터가 인터레이스된 비디오 프레임만 처리 할 수 있도록 합니다. </value>
   </data>
   <data name="FilterView_InterlaceDetectionCustom" xml:space="preserve">
     <value>사용자 설정 인터레이스 검출 파라미터.
@@ -493,7 +493,7 @@ Lapsharp's Sprite 설정은 1-/4-/8-/16-비트의 2-차원 게임에 대해 유�
     <value>새 소스 또는 제목을 선택할 때 이 탭에서 자막 트랙을 자동으로 추가하는 방법을 지정하는 동작을 설정합니다.</value>
   </data>
   <data name="OptionsView_SendFileToArguments" xml:space="preserve">
-    <value>다음 환경 변수는 항상 지정됩니다:
+    <value>다음 환경 변수는 항상 설정됩니다:
 HB_SOURCE
 HB_DESTINATION
 HB_EXIT_CODE
@@ -509,6 +509,62 @@ HB_EXIT_CODE
 작업을 수행하기 전에 출력 파일의 유효성을 검사하는 것이 좋습니다.</value>
   </data>
   <data name="Options_AdditionalFormatOptions" xml:space="preserve">
-    <value>출력 파일의 형식입니다. 지원되는 파일 시스템 문자 외에도 제목을 변경하거나 소스를 스캔하거나 특정 설정을 업데이트할 때 대체될 자리 표시자를 사용할 수 있습니다.</value>
+    <value>출력 파일의 형식입니다. 지원되는 모든 파일 시스템 문자 외에도 제목을 변경하거나 소스를 스캔하거나 특정 설정을 업데이트할 때 대체할 자리 표시자를 사용할 수 있습니다.
+
+{source} - 소스 파일의 이름입니다.
+{title} - 정수 값입니다. 디스크 타이틀 번호를 나타냅니다.
+{chapters} - 선택한 챕터의 범위입니다.
+{creation-date}  - 소스 파일을 생성한 날짜(사용 가능한 경우)입니다.
+{creation-time} - 소스 파일을 생성한 시간(사용 가능한 경우).
+{modification-date}- 소스 파일을 마지막으로 수정한 날짜입니다(사용 가능한 경우).
+{modification-time}- 소스 파일을 마지막으로 수정한 시간(사용 가능한 경우).
+{date}  - 오늘입니다. 대기열에 추가할 때 설정합니다.
+{time}- 오늘. 대기열에 추가할 때 설정합니다.
+{quality_bitrate} - RF/CQ 번호 또는 비트 전송률입니다.
+{quality_type}  - 비디오 탭에서 선택한 품질 모드에 따라 “kbps” 또는 “Q”를 출력합니다.
+{preset} - 선택한 사전 설정의 이름입니다.
+{encode_bit_depth} - 정수 값(예: 8, 10 또는 12)
+{width}  - 출력 저장 너비
+{height} - 출력 저장소 높이
+{codec}- 동영상 포맷을 표시합니다.
+{encoder} - 사용된 인코더의 짧은 형식 키를 표시합니다.
+
+잘못된 경로 문자는 자동으로 제거됩니다.</value>
+  </data>
+  <data name="OptionsView_RightToleftMode" xml:space="preserve">
+    <value>오른쪽에서 왼쪽으로 사용되는 언어의 경우 두 가지 모드 중 하나를 활성화할 수 있습니다. "텍스트만"은 오른쪽에서 왼쪽 스타일로만 텍스트를 렌더링합니다. "전체 사용자 인터페이스"는 모든 컨트롤을 오른쪽에서 왼쪽으로 렌더링합니다.
+
+이러한 모드를 사용할 때 UI 레이아웃이 불완전할 수 있습니다. 언어에 따라 가장 적합한 것을 찾기 위해 두 모드를 모두 시도해 볼 가치가 있습니다.</value>
+  </data>
+  <data name="AudioView_Quality" xml:space="preserve">
+    <value>Target a specific quality level for audio.
+Higher values mean higher quality.
+
+Bitrate will vary source to source.</value>
+  </data>
+  <data name="OptionsView_DestinationReplacementOptions" xml:space="preserve">
+    <value>다음은 단독으로 사용하거나, 함께 사용하여 대상 경로를 만들어 낼 수 있습니다.
+
+{source_path} - 원본 경로와 동일한 폴더(가능한 경우)
+{source_folder_name} – 전체 경로 없이 원본 파일이 있는 디렉터리의 이름입니다.
+{source} - 원본 파일의 이름입니다.</value>
+  </data>
+  <data name="OptionsView_LaunchsHelp" xml:space="preserve">
+    <value>문서 웹사이트(https://handbrake.fr/docs)를 시작합니다.</value>
+  </data>
+  <data name="Options_RemovePunctuation" xml:space="preserve">
+    <value>대시(-), 마침표(.) 및 쉼표(,)</value>
+  </data>
+  <data name="PictureSettingsView_OptimalSize" xml:space="preserve">
+    <value>위 설정에서 허용하는 최고 해상도 사용</value>
+  </data>
+  <data name="PictureSettingsView_AllowUpscaling" xml:space="preserve">
+    <value>활성화하지 않으면 스케일링된 차원이 원본 차원으로 제한됩니다.</value>
+  </data>
+  <data name="PictureSettingsView_AutomaticKeepAR" xml:space="preserve">
+    <value>디스플레이 크기를 변경하면 동영상이 늘어납니다.</value>
+  </data>
+  <data name="Video_ColourRange" xml:space="preserve">
+    <value>Color Range. Determines the values of the reference black and white. Set to limited to maximize compatibility.</value>
   </data>
 </root>

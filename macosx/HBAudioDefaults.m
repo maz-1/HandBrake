@@ -8,6 +8,7 @@
 #import "HBAudioTrackPreset.h"
 #import "HBCodingUtilities.h"
 #import "HBMutablePreset.h"
+#import "HBAudioFilters.h"
 
 #import "handbrake/handbrake.h"
 #import "handbrake/lang.h"
@@ -23,12 +24,15 @@
 - (instancetype)init
 {
     self = [super init];
-    if (self) {
+    if (self)
+    {
         _encoderFallback = HB_ACODEC_AC3;
         _trackSelectionLanguages = [[NSMutableArray alloc] init];
         _tracksArray = [[NSMutableArray alloc] init];
         _trackSelectionBehavior = HBAudioTrackSelectionBehaviorFirst;
         _container = HB_MUX_MKV;
+        _passthruName = NO;
+        _automaticNamingBehavior = HBAudioTrackAutomaticNamingBehaviorNone;
     }
     return self;
 }
@@ -124,6 +128,24 @@
     _allowMP3Passthru = allowMP3Passthru;
 }
 
+- (void)setAllowVorbisPassthru:(BOOL)allowVorbisPassthru
+{
+    if (allowVorbisPassthru != _allowVorbisPassthru)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setAllowVorbisPassthru:_allowVorbisPassthru];
+    }
+    _allowVorbisPassthru = allowVorbisPassthru;
+}
+
+- (void)setAllowOpusPassthru:(BOOL)allowOpusPassthru
+{
+    if (allowOpusPassthru != _allowOpusPassthru)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setAllowOpusPassthru:_allowOpusPassthru];
+    }
+    _allowOpusPassthru = allowOpusPassthru;
+}
+
 - (void)setAllowTrueHDPassthru:(BOOL)allowTrueHDPassthru
 {
     if (allowTrueHDPassthru != _allowTrueHDPassthru)
@@ -133,6 +155,15 @@
     _allowTrueHDPassthru = allowTrueHDPassthru;
 }
 
+- (void)setAllowALACPassthru:(BOOL)allowALACPassthru
+{
+    if (allowALACPassthru != _allowALACPassthru)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setAllowALACPassthru:_allowALACPassthru];
+    }
+    _allowALACPassthru = allowALACPassthru;
+}
+
 - (void)setAllowFLACPassthru:(BOOL)allowFLACPassthru
 {
     if (allowFLACPassthru != _allowFLACPassthru)
@@ -140,6 +171,15 @@
         [[self.undo prepareWithInvocationTarget:self] setAllowFLACPassthru:_allowFLACPassthru];
     }
     _allowFLACPassthru = allowFLACPassthru;
+}
+
+- (void)setAllowPCMPassthru:(BOOL)allowPCMPassthru
+{
+    if (allowPCMPassthru != _allowPCMPassthru)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setAllowPCMPassthru:_allowPCMPassthru];
+    }
+    _allowPCMPassthru = allowPCMPassthru;
 }
 
 - (void)setEncoderFallback:(int)encoderFallback
@@ -181,6 +221,24 @@
     return fallbacks;
 }
 
+- (void)setPassthruName:(BOOL)passthruName
+{
+    if (passthruName != _passthruName)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setPassthruName:_passthruName];
+    }
+    _passthruName = passthruName;
+}
+
+- (void)setautomaticNamingBehavior:(HBAudioTrackAutomaticNamingBehavior)automaticNamingBehavior
+{
+    if (automaticNamingBehavior != _automaticNamingBehavior)
+    {
+        [[self.undo prepareWithInvocationTarget:self] setautomaticNamingBehavior:_automaticNamingBehavior];
+    }
+    _automaticNamingBehavior = automaticNamingBehavior;
+}
+
 #pragma mark - HBPresetCoding
 
 - (BOOL)applyPreset:(HBPreset *)preset error:(NSError * __autoreleasing *)outError
@@ -212,10 +270,14 @@
     self.allowDTSPassthru    = NO;
     self.allowDTSHDPassthru  = NO;
     self.allowEAC3Passthru   = NO;
+    self.allowALACPassthru   = NO;
     self.allowFLACPassthru   = NO;
     self.allowMP2Passthru    = NO;
     self.allowMP3Passthru    = NO;
+    self.allowVorbisPassthru = NO;
+    self.allowOpusPassthru   = NO;
     self.allowTrueHDPassthru = NO;
+    self.allowPCMPassthru    = NO;
 
     // then, enable allowed passthru encoders
     for (NSString *copyMask in preset[@"AudioCopyMask"])
@@ -240,6 +302,9 @@
                 case HB_ACODEC_EAC3_PASS:
                     self.allowEAC3Passthru = YES;
                     break;
+                case HB_ACODEC_ALAC_PASS:
+                    self.allowALACPassthru = YES;
+                    break;
                 case HB_ACODEC_FLAC_PASS:
                     self.allowFLACPassthru = YES;
                     break;
@@ -249,8 +314,17 @@
                 case HB_ACODEC_MP3_PASS:
                     self.allowMP3Passthru = YES;
                     break;
+                case HB_ACODEC_VORBIS_PASS:
+                    self.allowVorbisPassthru = YES;
+                    break;
+                case HB_ACODEC_OPUS_PASS:
+                    self.allowOpusPassthru = YES;
+                    break;
                 case HB_ACODEC_TRUEHD_PASS:
                     self.allowTrueHDPassthru = YES;
+                    break;
+                case HB_ACODEC_PCM_PASS:
+                    self.allowPCMPassthru = YES;
                     break;
                 default:
                     break;
@@ -264,6 +338,25 @@
     {
         // map legacy encoder names via libhb
         self.encoderFallback = hb_audio_encoder_get_from_name([preset[@"AudioEncoderFallback"] UTF8String]);
+    }
+
+    self.passthruName = [preset[@"AudioTrackNamePassthru"] boolValue];
+
+    NSString *automaticNamingBehavior = preset[@"AudioAutomaticNamingBehavior"];
+    if ([automaticNamingBehavior isKindOfClass:[NSString class]])
+    {
+        if ([automaticNamingBehavior isEqualToString:@"none"])
+        {
+            self.automaticNamingBehavior = HBAudioTrackAutomaticNamingBehaviorNone;
+        }
+        else if ([automaticNamingBehavior isEqualToString:@"unnamed"])
+        {
+            self.automaticNamingBehavior = HBAudioTrackAutomaticNamingBehaviorUnnamed;
+        }
+        else if ([automaticNamingBehavior isEqualToString:@"all"])
+        {
+            self.automaticNamingBehavior = HBAudioTrackAutomaticNamingBehaviorAll;
+        }
     }
 
     while ([self countOfTracksArray])
@@ -299,6 +392,29 @@
         newTrack.drc = [track[@"AudioTrackDRCSlider"] doubleValue];
         newTrack.gain = [track[@"AudioTrackGainSlider"] doubleValue];
         [self insertObject:newTrack inTracksArrayAtIndex:[self countOfTracksArray]];
+
+        for (NSDictionary *filter in track[@"AudioFilterList"])
+        {
+            NSString *filterName   = filter[@"AudioFilterName"];
+            NSString *filterPreset = filter[@"AudioFilterPreset"];
+            NSString *filterTune   = filter[@"AudioFilterTune"] ? filter[@"AudioFilterTune"] : @"none";
+            NSString *filterCustom = filter[@"AudioFilterCustom"] ? filter[@"AudioFilterCustom"] : @"";
+
+            if ([filterName isKindOfClass:[NSString class]] && filterName.length &&
+                [filterPreset isKindOfClass:[NSString class]] && filterPreset.length &&
+                [filterTune isKindOfClass:[NSString class]] && [filterCustom isKindOfClass:[NSString class]])
+            {
+                HBFilter *newFilter = [[HBFilter alloc] initWithFilter:filterName
+                                                                preset:filterPreset
+                                                                  tune:filterTune
+                                                                custom:filterCustom];
+                newFilter.delegate = newTrack.filters;
+                if (newFilter)
+                {
+                    [newTrack.filters insertObject:newFilter inFiltersAtIndex:newTrack.filters.countOfFilters];
+                }
+            }
+        }
     }
 
     return YES;
@@ -356,19 +472,51 @@
     {
         [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_MP3_PASS))];
     }
+    if (self.allowVorbisPassthru)
+    {
+        [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_VORBIS_PASS))];
+    }
+    if (self.allowOpusPassthru)
+    {
+        [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_OPUS_PASS))];
+    }
     if (self.allowTrueHDPassthru)
     {
         [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_TRUEHD_PASS))];
     }
+    if (self.allowALACPassthru)
+    {
+        [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_ALAC_PASS))];
+    }
     if (self.allowFLACPassthru)
     {
         [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_FLAC_PASS))];
+    }
+    if (self.allowPCMPassthru)
+    {
+        [copyMask addObject:@(hb_audio_encoder_get_short_name(HB_ACODEC_PCM_PASS))];
     }
     preset[@"AudioCopyMask"] = [copyMask copy];
 
     preset[@"AudioEncoderFallback"] = @(hb_audio_encoder_get_short_name(self.encoderFallback));
 
     preset[@"AudioSecondaryEncoderMode"] = @(self.secondaryEncoderMode);
+
+    preset[@"AudioTrackNamePassthru"] = @(self.passthruName);
+
+    switch (self.automaticNamingBehavior)
+    {
+        case HBAudioTrackAutomaticNamingBehaviorNone:
+            preset[@"AudioAutomaticNamingBehavior"] = @"none";
+            break;
+        case HBAudioTrackAutomaticNamingBehaviorUnnamed:
+            preset[@"AudioAutomaticNamingBehavior"] = @"unnamed";
+            break;
+        case HBAudioTrackAutomaticNamingBehaviorAll:
+        default:
+            preset[@"AudioAutomaticNamingBehavior"] = @"all";
+            break;
+    }
 
     NSMutableArray<NSDictionary *> *audioList = [[NSMutableArray alloc] init];
 
@@ -383,12 +531,24 @@
         const char *mixdownShortName = hb_mixdown_get_short_name(track.mixdown);
         if (encoderShortName && mixdownShortName)
         {
+            NSMutableArray *filters = [[NSMutableArray alloc] init];
+            for (HBFilter *filter in track.filters.filters)
+            {
+                NSDictionary *filterDict = @{@"AudioFilterName": @(hb_filter_get_short_name(filter.filterID)),
+                                             @"AudioFilterPreset": filter.preset,
+                                             @"AudioFilterTune": filter.tune,
+                                             @"AudioFilterCustom": filter.custom};
+
+                [filters addObject:filterDict];
+            }
+
             NSDictionary *newTrack = @{@"AudioEncoder": @(encoderShortName),
                                        @"AudioMixdown": @(mixdownShortName),
                                        @"AudioSamplerate": sampleRate,
                                        @"AudioBitrate": @(track.bitRate),
                                        @"AudioTrackDRCSlider": @(track.drc),
-                                       @"AudioTrackGainSlider": @(track.gain)};
+                                       @"AudioTrackGainSlider": @(track.gain),
+                                       @"AudioFilterList": filters};
 
             [audioList addObject:newTrack];
         }
@@ -448,12 +608,17 @@
         copy->_allowDTSPassthru = _allowDTSPassthru;
         copy->_allowMP2Passthru = _allowMP2Passthru;
         copy->_allowMP3Passthru = _allowMP3Passthru;
+        copy->_allowOpusPassthru = _allowOpusPassthru;
         copy->_allowTrueHDPassthru = _allowTrueHDPassthru;
         copy->_allowFLACPassthru = _allowFLACPassthru;
+        copy->_allowPCMPassthru = _allowPCMPassthru;
 
         copy->_encoderFallback = _encoderFallback;
         copy->_container = _container;
         copy->_secondaryEncoderMode = _secondaryEncoderMode;
+
+        copy->_passthruName = _passthruName;
+        copy->_automaticNamingBehavior = _automaticNamingBehavior;
     }
 
     return copy;
@@ -482,12 +647,17 @@
     encodeBool(_allowDTSPassthru);
     encodeBool(_allowMP2Passthru);
     encodeBool(_allowMP3Passthru);
+    encodeBool(_allowOpusPassthru);
     encodeBool(_allowTrueHDPassthru);
     encodeBool(_allowFLACPassthru);
+    encodeBool(_allowPCMPassthru);
 
     encodeInt(_encoderFallback);
     encodeInt(_container);
     encodeBool(_secondaryEncoderMode);
+
+    encodeBool(_passthruName);
+    encodeInteger(_automaticNamingBehavior);
 }
 
 - (instancetype)initWithCoder:(NSCoder *)decoder
@@ -510,12 +680,22 @@
     decodeBool(_allowDTSPassthru);
     decodeBool(_allowMP2Passthru);
     decodeBool(_allowMP3Passthru);
+    decodeBool(_allowOpusPassthru);
     decodeBool(_allowTrueHDPassthru);
     decodeBool(_allowFLACPassthru);
+    decodeBool(_allowPCMPassthru);
 
     decodeInt(_encoderFallback); if (_encoderFallback < 0) { goto fail; }
-    decodeInt(_container); if (_container != HB_MUX_MP4 && _container != HB_MUX_MKV && _container != HB_MUX_WEBM) { goto fail; }
+    decodeContainerOrFail(_container);
     decodeBool(_secondaryEncoderMode);
+
+    decodeBool(_passthruName);
+    decodeInt(_automaticNamingBehavior);
+    if (_automaticNamingBehavior < HBAudioTrackAutomaticNamingBehaviorNone || _automaticNamingBehavior > HBAudioTrackAutomaticNamingBehaviorAll)
+    {
+        goto fail;
+    }
+
 
     return self;
 

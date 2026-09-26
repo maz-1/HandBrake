@@ -15,6 +15,8 @@ namespace HandBrakeWPF.Utilities
     using System.Text;
     using System.Threading.Tasks;
 
+    using HandBrake.App.Core.Utilities;
+
     using HandBrakeWPF.Instance.Model;
 
     public class HttpRequestBase
@@ -25,6 +27,8 @@ namespace HandBrakeWPF.Utilities
 
         protected string base64Token;
 
+        HttpClient activeHttpClient;
+
         public async Task<ServerResponse> MakeHttpJsonPostRequest(string urlPath, string json)
         {
             if (string.IsNullOrEmpty(json))
@@ -32,25 +36,24 @@ namespace HandBrakeWPF.Utilities
                 throw new InvalidOperationException("No Post Values Found.");
             }
 
-            using (HttpClient client = new HttpClient())
+            HttpClient client = GetHttpClient();
+
+            HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, this.serverUrl + urlPath);
+            if (!string.IsNullOrEmpty(this.base64Token))
             {
-                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, this.serverUrl + urlPath);
-                if (!string.IsNullOrEmpty(this.base64Token))
+                requestMessage.Headers.Add("token", this.base64Token);
+            }
+
+            requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using (HttpResponseMessage response = await client.SendAsync(requestMessage))
+            {
+                if (response != null)
                 {
-                    requestMessage.Headers.Add("token", this.base64Token);
-                }
+                    string returnContent = await response.Content.ReadAsStringAsync();
+                    ServerResponse serverResponse = new ServerResponse(response.IsSuccessStatusCode, returnContent, response.StatusCode.ToString());
 
-                requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                using (HttpResponseMessage response = await client.SendAsync(requestMessage))
-                {
-                    if (response != null)
-                    {
-                        string returnContent = await response.Content.ReadAsStringAsync();
-                        ServerResponse serverResponse = new ServerResponse(response.IsSuccessStatusCode, returnContent);
-
-                        return serverResponse;
-                    }
+                    return serverResponse;
                 }
             }
 
@@ -59,28 +62,52 @@ namespace HandBrakeWPF.Utilities
 
         public async Task<ServerResponse> MakeHttpGetRequest(string urlPath)
         {
-            using (HttpClient client = new HttpClient())
+            HttpClient client = GetHttpClient();
+
+            HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, this.serverUrl + urlPath);
+            if (!string.IsNullOrEmpty(this.base64Token))
             {
-                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, this.serverUrl + urlPath);
-                if (!string.IsNullOrEmpty(this.base64Token))
-                {
-                    requestMessage.Headers.Add("token", this.base64Token);
-                }
+                requestMessage.Headers.Add("token", this.base64Token);
+            }
 
-                using (HttpResponseMessage response = await client.SendAsync(requestMessage))
+            using (HttpResponseMessage response = await client.SendAsync(requestMessage))
+            {
+                if (response != null)
                 {
-                    if (response != null)
-                    {
-                        string returnContent = await response.Content.ReadAsStringAsync();
-                        ServerResponse serverResponse = null;
-                        serverResponse = response.StatusCode == HttpStatusCode.Unauthorized ? new ServerResponse(false, returnContent) : new ServerResponse(response.IsSuccessStatusCode, returnContent);
+                    string returnContent = await response.Content.ReadAsStringAsync();
+                    ServerResponse serverResponse = response.StatusCode == HttpStatusCode.Unauthorized
+                        ? new ServerResponse(false, returnContent, response.StatusCode.ToString())
+                        : new ServerResponse(response.IsSuccessStatusCode, returnContent, response.StatusCode.ToString());
 
-                        return serverResponse;
-                    }
+                    return serverResponse;
                 }
             }
 
             return null;
+        }
+
+        private HttpClient GetHttpClient()
+        {
+            if (this.activeHttpClient != null)
+            {
+                return this.activeHttpClient;
+            }
+
+            if (Portable.IsSystemProxyDisabled())
+            {
+                var handler = new HttpClientHandler
+                              {
+                                  UseProxy = false // Ignore system proxy settings
+                              };
+
+                activeHttpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
+            }
+            else
+            {
+                activeHttpClient = new HttpClient() { Timeout = TimeSpan.FromSeconds(20) };
+            }
+
+            return activeHttpClient;
         }
     }
 }

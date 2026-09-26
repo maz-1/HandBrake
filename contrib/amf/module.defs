@@ -1,17 +1,18 @@
 $(eval $(call import.MODULE.defs,AMF,amf))
 $(eval $(call import.CONTRIB.defs,AMF))
 
-AMF.FETCH.url      = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/AMF-1.4.18.tar.gz
-AMF.FETCH.url     += https://github.com/GPUOpen-LibrariesAndSDKs/AMF/archive/refs/tags/v1.4.18.zip
-AMF.FETCH.sha256   = 4f21ee07c8bb9b73ff48dbce7cb0917cdcd4d81d33333da391d97ce7f00642fe
-AMF.FETCH.basename = AMF-1.4.18.tar.gz
+AMF.FETCH.url        = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/AMF-headers-v1.5.2.tar.gz
+AMF.FETCH.url       += https://github.com/GPUOpen-LibrariesAndSDKs/AMF/releases/download/v1.5.2/AMF-headers-v1.5.2.tar.gz
+AMF.FETCH.sha256     = d3c12eb324edf05e214608b6a395a51dd95770ed9d45520185d6c3a206811c99
+AMF.FETCH.basename   = AMF-headers-v1.5.2.tar.gz
+AMF.EXTRACT.tarbase  = amf-headers-v1.5.2
 
 AMF.CONFIGURE = $(TOUCH.exe) $@
 AMF.BUILD     = $(TOUCH.exe) $@
 
 define AMF.INSTALL
     $(MKDIR.exe) -p $(CONTRIB.build/)include/AMF
-    $(CP.exe) -R $(AMF.EXTRACT.dir/)amf/public/include/* $(CONTRIB.build/)include/AMF/
+    $(CP.exe) -R $(AMF.EXTRACT.dir/)AMF/* $(CONTRIB.build/)include/AMF/
     $(TOUCH.exe) $@
 endef
 

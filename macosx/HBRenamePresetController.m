@@ -9,6 +9,8 @@
 @interface HBRenamePresetController () <NSTextFieldDelegate>
 
 @property (nonatomic, strong) IBOutlet NSTextField *name;
+@property (nonatomic, strong) IBOutlet NSTextField *desc;
+
 @property (nonatomic, strong) IBOutlet NSButton *renameButton;
 
 @property (nonatomic, strong) HBPreset *preset;
@@ -34,14 +36,17 @@
 
 - (void)windowDidLoad
 {
-    [super windowDidLoad];
-
     self.name.placeholderString = self.preset.name;
     self.name.stringValue = self.preset.name;
+
+    self.desc.placeholderString = self.preset.presetDescription;
+    self.desc.stringValue = self.preset.presetDescription;
 
     [NSNotificationCenter.defaultCenter addObserver:self
                                            selector:@selector(controlTextDidChange:)
                                                name:NSControlTextDidChangeNotification object:self.name];
+
+    self.window.preventsApplicationTerminationWhenModal = NO;
 }
 
 - (void)dealloc
@@ -55,7 +60,15 @@
 
 - (IBAction)dismiss:(id)sender
 {
-    [self.window.sheetParent endSheet:self.window returnCode:NSModalResponseCancel];
+    if (self.window.isSheet)
+    {
+        [self.window.sheetParent endSheet:self.window returnCode:NSModalResponseCancel];
+    }
+    else
+    {
+        [NSApp stopModalWithCode:NSModalResponseCancel];
+        [self.window orderOut:self];
+    }
 }
 
 - (IBAction)rename:(id)sender
@@ -70,7 +83,17 @@
     else
     {
         self.preset.name = self.name.stringValue;
-        [self.window.sheetParent endSheet:self.window returnCode:NSModalResponseOK];
+        self.preset.presetDescription = self.desc.stringValue;
+
+        if (self.window.isSheet)
+        {
+            [self.window.sheetParent endSheet:self.window returnCode:NSModalResponseOK];
+        }
+        else
+        {
+            [NSApp stopModalWithCode:NSModalResponseOK];
+            [self.window orderOut:self];
+        }
     }
 }
 

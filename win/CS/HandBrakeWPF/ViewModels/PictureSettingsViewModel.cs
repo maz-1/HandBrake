@@ -10,24 +10,23 @@
 namespace HandBrakeWPF.ViewModels
 {
     using System;
-    using System.Collections.Generic;
     using System.ComponentModel;
     using System.Globalization;
     using System.Linq;
     using System.Windows;
 
-    using Caliburn.Micro;
-
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
 
     using HandBrakeWPF.EventArgs;
+    using HandBrakeWPF.Model;
     using HandBrakeWPF.Model.Filters;
     using HandBrakeWPF.Model.Picture;
     using HandBrakeWPF.Properties;
+    using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Model;
-    using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModelItems.Filters;
     using HandBrakeWPF.ViewModels.Interfaces;
     using HandBrakeWPF.Views;
@@ -68,7 +67,7 @@ namespace HandBrakeWPF.ViewModels
 
         public IStaticPreviewViewModel StaticPreviewViewModel { get; set; }
 
-        public IEnumerable<Anamorphic> AnamorphicModes { get; } = new List<Anamorphic> { Anamorphic.None, Anamorphic.Automatic, Anamorphic.Custom };
+        public BindingList<AnamorphicMode> AnamorphicModes { get; } = new BindingList<AnamorphicMode> { AnamorphicMode.None, AnamorphicMode.Automatic, AnamorphicMode.Custom };
 
         public PadFilter PaddingFilter { get; set; }
 
@@ -298,33 +297,58 @@ namespace HandBrakeWPF.ViewModels
         public int MaxCropLR => currentTitle?.Resolution.Width - 8 ?? 0;
         
         public int MaxCropTB => currentTitle?.Resolution.Height - 8 ?? 0;
-        
-        public bool IsCustomCrop
+
+        public BindingList<CropMode> CropModes { get; } = new BindingList<CropMode> { CropMode.Automatic, CropMode.Loose, CropMode.None, CropMode.Custom };
+
+        public CropMode SelectedCropMode
         {
-            get => this.Task.HasCropping;
+            get
+            {
+                return (CropMode)this.Task.Cropping.CropMode;
+            }
 
             set
             {
-                this.Task.HasCropping = value;
-                this.NotifyOfPropertyChange(() => this.IsCustomCrop);
+                this.Task.Cropping.CropMode = (int)value;
+                this.NotifyOfPropertyChange(() => this.SelectedCropMode);
                 this.OnTabStatusChanged(null);
 
-                if (!value && this.currentTitle != null)
+                if (value != CropMode.Custom && this.currentTitle != null)
                 {
-                    this.Task.Cropping.Top = currentTitle.AutoCropDimensions.Top;
-                    this.Task.Cropping.Bottom = currentTitle.AutoCropDimensions.Bottom;
-                    this.Task.Cropping.Left = currentTitle.AutoCropDimensions.Left;
-                    this.Task.Cropping.Right = currentTitle.AutoCropDimensions.Right;
-
-                    this.NotifyOfPropertyChange(() => this.CropLeft);
-                    this.NotifyOfPropertyChange(() => this.CropRight);
-                    this.NotifyOfPropertyChange(() => this.CropTop);
-                    this.NotifyOfPropertyChange(() => this.CropBottom);
+                    if (value == CropMode.Automatic)
+                    {
+                        this.Task.Cropping.Top = currentTitle.AutoCropDimensions.Top;
+                        this.Task.Cropping.Bottom = currentTitle.AutoCropDimensions.Bottom;
+                        this.Task.Cropping.Left = currentTitle.AutoCropDimensions.Left;
+                        this.Task.Cropping.Right = currentTitle.AutoCropDimensions.Right;
+                    } 
+                    else if (value == CropMode.Loose)
+                    {
+                        this.Task.Cropping.Top = currentTitle.LooseCropDimensions.Top;
+                        this.Task.Cropping.Bottom = currentTitle.LooseCropDimensions.Bottom;
+                        this.Task.Cropping.Left = currentTitle.LooseCropDimensions.Left;
+                        this.Task.Cropping.Right = currentTitle.LooseCropDimensions.Right;
+                    }
+                    else
+                    {
+                        this.Task.Cropping.Top = 0;
+                        this.Task.Cropping.Bottom = 0;
+                        this.Task.Cropping.Left = 0;
+                        this.Task.Cropping.Right = 0;
+                    }
                 }
+
+                this.NotifyOfPropertyChange(() => this.CropLeft);
+                this.NotifyOfPropertyChange(() => this.CropRight);
+                this.NotifyOfPropertyChange(() => this.CropTop);
+                this.NotifyOfPropertyChange(() => this.CropBottom);
+                this.NotifyOfPropertyChange(() => this.IsCustomCrop);
 
                 this.RecalculatePictureSettingsProperties(ChangedPictureField.Crop);
             }
         }
+
+        public bool IsCustomCrop => this.SelectedCropMode == CropMode.Custom;
 
         public int DisplayWidth
         {
@@ -426,19 +450,19 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        public Anamorphic SelectedAnamorphicMode
+        public AnamorphicMode SelectedAnamorphicMode
         {
-            get => this.Task.Anamorphic;
+            get => (AnamorphicMode)this.Task.Anamorphic;
 
             set
             {
                 if (!object.Equals(this.SelectedAnamorphicMode, value))
                 {
-                    this.Task.Anamorphic = value;
+                    this.Task.Anamorphic = (Anamorphic)value;
                     this.NotifyOfPropertyChange(() => this.SelectedAnamorphicMode);
                     this.RecalculatePictureSettingsProperties(ChangedPictureField.Anamorphic);
                     this.OnTabStatusChanged(null);
-                    this.IsPixelAspectSettable = value == Anamorphic.Custom;
+                    this.IsPixelAspectSettable = value == AnamorphicMode.Custom;
                     this.NotifyOfPropertyChange(() => this.IsPixelAspectSettable);
                 }
             }
@@ -453,9 +477,9 @@ namespace HandBrakeWPF.ViewModels
             this.Task = task;
 
             // Cropping
-            if (preset.Task.HasCropping)
+            if ((CropMode)preset.Task.Cropping.CropMode == CropMode.Custom)
             {
-                this.IsCustomCrop = true;
+                this.SelectedCropMode = CropMode.Custom;
                 this.Task.Cropping.Left = preset.Task.Cropping.Left;
                 this.Task.Cropping.Right = preset.Task.Cropping.Right;
                 this.Task.Cropping.Top = preset.Task.Cropping.Top;
@@ -468,7 +492,7 @@ namespace HandBrakeWPF.ViewModels
             }
             else
             {
-                this.IsCustomCrop = false;
+                this.SelectedCropMode = (CropMode)preset.Task.Cropping.CropMode;
             }
 
             // Padding and Rotate Filters
@@ -476,7 +500,7 @@ namespace HandBrakeWPF.ViewModels
             this.RotateFlipFilter?.SetPreset(preset, task);
 
             // Picture Sizes and Anamorphic
-            this.SelectedAnamorphicMode = preset.Task.Anamorphic;
+            this.SelectedAnamorphicMode = (AnamorphicMode)preset.Task.Anamorphic;
             this.OptimalSize = preset.Task.OptimalSize;
             this.AllowUpscaling = preset.Task.AllowUpscaling;
 
@@ -532,13 +556,14 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.CropBottom);
             this.NotifyOfPropertyChange(() => this.CropLeft);
             this.NotifyOfPropertyChange(() => this.CropRight);
-            this.NotifyOfPropertyChange(() => this.IsCustomCrop);
+            this.NotifyOfPropertyChange(() => this.SelectedCropMode);
             this.NotifyOfPropertyChange(() => this.MaintainAspectRatio);
             this.NotifyOfPropertyChange(() => this.DisplayWidth);
             this.NotifyOfPropertyChange(() => this.ParWidth);
             this.NotifyOfPropertyChange(() => this.ParHeight);
             this.NotifyOfPropertyChange(() => this.MaxWidth);
             this.NotifyOfPropertyChange(() => this.MaxHeight);
+            this.NotifyOfPropertyChange(() => this.IsCustomCrop);
 
             this.UpdateVisibleControls();
         }
@@ -559,22 +584,39 @@ namespace HandBrakeWPF.ViewModels
                 this.sourceResolution = title.Resolution;
 
                 // Update the cropping values, preferring those in the presets.
-                if (preset.Task.HasCropping)
+                if ((CropMode)preset.Task.Cropping.CropMode == CropMode.Custom)
                 {
                     this.Task.Cropping.Left = preset.Task.Cropping.Left;
                     this.Task.Cropping.Right = preset.Task.Cropping.Right;
                     this.Task.Cropping.Top = preset.Task.Cropping.Top;
                     this.Task.Cropping.Bottom = preset.Task.Cropping.Bottom;
-                    this.IsCustomCrop = true;
+                    this.SelectedCropMode = CropMode.Custom;
                 }
-                else if (!this.IsCustomCrop)  
+                else
                 {
-                    // Only set Auto-crop values if we are in Automatic mode. If it's custom, assume the user has taken control.
-                    this.Task.Cropping.Top = title.AutoCropDimensions.Top;
-                    this.Task.Cropping.Bottom = title.AutoCropDimensions.Bottom;
-                    this.Task.Cropping.Left = title.AutoCropDimensions.Left;
-                    this.Task.Cropping.Right = title.AutoCropDimensions.Right;
-                    this.IsCustomCrop = false;
+                    if ((CropMode)preset.Task.Cropping.CropMode == CropMode.Automatic)
+                    {
+                        this.Task.Cropping.Top = title.AutoCropDimensions.Top;
+                        this.Task.Cropping.Bottom = title.AutoCropDimensions.Bottom;
+                        this.Task.Cropping.Left = title.AutoCropDimensions.Left;
+                        this.Task.Cropping.Right = title.AutoCropDimensions.Right;
+                    } 
+                    else if ((CropMode)preset.Task.Cropping.CropMode == CropMode.Loose)
+                    {
+                        this.Task.Cropping.Top = title.LooseCropDimensions.Top;
+                        this.Task.Cropping.Bottom = title.LooseCropDimensions.Bottom;
+                        this.Task.Cropping.Left = title.LooseCropDimensions.Left;
+                        this.Task.Cropping.Right = title.LooseCropDimensions.Right;
+                    }
+                    else
+                    {
+                        this.Task.Cropping.Top = 0;
+                        this.Task.Cropping.Bottom = 0;
+                        this.Task.Cropping.Left = 0;
+                        this.Task.Cropping.Right = 0;
+                    }
+
+                    this.SelectedCropMode = (CropMode)preset.Task.Cropping.CropMode;
                 }
                 
                 // Set the W/H
@@ -602,7 +644,7 @@ namespace HandBrakeWPF.ViewModels
 
         public bool MatchesPreset(Preset preset)
         {
-            if (preset.Task.Anamorphic != this.SelectedAnamorphicMode)
+            if ((AnamorphicMode)preset.Task.Anamorphic != this.SelectedAnamorphicMode)
             {
                 return false;
             }
@@ -617,7 +659,7 @@ namespace HandBrakeWPF.ViewModels
                 return false;
             }
 
-            if (!preset.Task.HasCropping && this.IsCustomCrop)
+            if ((CropMode)preset.Task.Cropping.CropMode != this.SelectedCropMode)
             {
                 return false;
             }
@@ -642,8 +684,8 @@ namespace HandBrakeWPF.ViewModels
             if (!string.IsNullOrEmpty(this.Task.Source) && !this.StaticPreviewViewModel.IsOpen)
             {
                 this.StaticPreviewViewModel.IsOpen = true;
-                this.StaticPreviewViewModel.UpdatePreviewFrame(this.Task, this.scannedSource);
-                this.windowManager.ShowWindowAsync(this.StaticPreviewViewModel);
+                this.StaticPreviewViewModel.UpdatePreviewFrame(this.currentTitle, this.Task, this.scannedSource);
+                this.windowManager.ShowWindow<StaticPreviewView>(this.StaticPreviewViewModel);
             }
             else if (this.StaticPreviewViewModel.IsOpen)
             {
@@ -702,13 +744,13 @@ namespace HandBrakeWPF.ViewModels
                 Width = this.Width,
                 Height = this.Height,
                 ItuPar = false,
-                ParW = this.SelectedAnamorphicMode == Anamorphic.None ? 1 : this.ParWidth,
-                ParH = this.SelectedAnamorphicMode == Anamorphic.None ? 1 : this.ParHeight,
+                ParW = this.SelectedAnamorphicMode == AnamorphicMode.None ? 1 : this.ParWidth,
+                ParH = this.SelectedAnamorphicMode == AnamorphicMode.None ? 1 : this.ParHeight,
                 MaxWidth = this.MaxWidth.HasValue ? this.MaxWidth.Value : 0,
                 MaxHeight = this.MaxHeight.HasValue ? this.MaxHeight.Value : 0,
                 KeepDisplayAspect = this.MaintainAspectRatio,
-                AnamorphicMode = this.SelectedAnamorphicMode,
-                Crop = new Cropping(this.CropTop, this.CropBottom, this.CropLeft, this.CropRight),
+                AnamorphicMode = (Anamorphic)this.SelectedAnamorphicMode,
+                Crop = new Cropping(this.CropTop, this.CropBottom, this.CropLeft, this.CropRight, (int)CropMode.Custom),
                 Pad = new Padding(this.PaddingFilter.Top, this.PaddingFilter.Bottom, this.PaddingFilter.Left, this.PaddingFilter.Right),
                 RotateAngle = this.RotateFlipFilter.SelectedRotation,
                 Hflip = this.RotateFlipFilter.FlipVideo ? 1 : 0,
@@ -716,7 +758,7 @@ namespace HandBrakeWPF.ViewModels
                 DarHeight = this.DisplayHeight
             };
 
-            if (this.SelectedAnamorphicMode == Anamorphic.Custom)
+            if (this.SelectedAnamorphicMode == AnamorphicMode.Custom)
             {
                 if (changedField == ChangedPictureField.DisplayWidth)
                 {
@@ -758,7 +800,7 @@ namespace HandBrakeWPF.ViewModels
             this.UpdateVisibleControls();
 
             // Step 2, Set sensible defaults
-            if (changedField == ChangedPictureField.Anamorphic && (this.SelectedAnamorphicMode == Anamorphic.None))
+            if (changedField == ChangedPictureField.Anamorphic && (this.SelectedAnamorphicMode == AnamorphicMode.None))
             {
                 this.Task.Width = this.sourceResolution.Width > this.MaxWidth
                                       ? this.MaxWidth
@@ -853,8 +895,10 @@ namespace HandBrakeWPF.ViewModels
             // Step 5, Update the Preview
             if (delayedPreviewprocessor != null && this.Task != null && this.StaticPreviewViewModel != null && this.StaticPreviewViewModel.IsOpen)
             {
-                delayedPreviewprocessor.PerformTask(() => this.StaticPreviewViewModel.UpdatePreviewFrame(this.Task, this.scannedSource), 800);
+                delayedPreviewprocessor.PerformTask(() => this.StaticPreviewViewModel.UpdatePreviewFrame(this.currentTitle, this.Task, this.scannedSource), 800);
             }
+
+            this.OnTabStatusChanged(new TabStatusEventArgs("picture", ChangedOption.Dimensions));
         }
 
         private void ApplyPad(PaddingMode mode, AnamorphicResult result)

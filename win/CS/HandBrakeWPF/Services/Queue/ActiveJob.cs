@@ -51,12 +51,12 @@ namespace HandBrakeWPF.Services.Queue
             else if (!this.encodeService.IsEncoding)
             {
                 this.job.Status = QueueItemStatus.InProgress;
-                this.job.Statistics.StartTime = DateTime.Now;
-
+                this.job.Statistics.UpdateStats(job, DateTime.Now);
+            
                 this.encodeService.EncodeCompleted += this.EncodeServiceEncodeCompleted;
                 this.encodeService.EncodeStatusChanged += this.EncodeStatusChanged;
                 
-                this.encodeService.Start(this.job.Task, this.job.Configuration, this.job.SelectedPresetKey);
+                this.encodeService.Start(this.job.Task, this.job.SelectedPresetKey);
             }
         }
 
@@ -74,6 +74,7 @@ namespace HandBrakeWPF.Services.Queue
 
         public void Stop()
         {
+            this.job.IsShuttingDown = true;
             if (this.encodeService.IsEncoding)
             {
                 this.encodeService.Stop();
@@ -98,10 +99,23 @@ namespace HandBrakeWPF.Services.Queue
 
         private void EncodeServiceEncodeCompleted(object sender, EncodeCompletedEventArgs e)
         {
+            this.job.IsShuttingDown = false;
             this.IsEncoding = false;
             this.IsPaused = false;
 
-            this.job.Status = !e.Successful ? QueueItemStatus.Error : QueueItemStatus.Completed;
+            if (e.Successful)
+            {
+                this.job.Status = QueueItemStatus.Completed;
+            }
+            else if (e.ErrorCode == 1)
+            {
+                this.job.Status = QueueItemStatus.Cancelled;
+            }
+            else
+            {
+                this.job.Status = QueueItemStatus.Error;
+            }
+
             this.job?.JobProgress.Update(e);
    
             this.job.Statistics.UpdateStats(e, this.job);

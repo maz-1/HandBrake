@@ -7,24 +7,31 @@ endif
 $(eval $(call import.MODULE.defs,LIBASS,libass,$(__deps__)))
 $(eval $(call import.CONTRIB.defs,LIBASS))
 
-LIBASS.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/libass-0.15.2.tar.gz
-LIBASS.FETCH.url    += https://github.com/libass/libass/releases/download/0.15.2/libass-0.15.2.tar.gz
-LIBASS.FETCH.sha256  = 1b2a54dda819ef84fa2dee3069cf99748a886363d2adb630fde87fe046e2d1d5
+LIBASS.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/libass-0.17.5.tar.gz
+LIBASS.FETCH.url    += https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.gz
+LIBASS.FETCH.sha256  = caab4b993dd7be6187c55623b789ed75dddefea6e65938af134637c732fe094a
+
+LIBASS.GCC.args.c_std =
+
+LIBASS.GCC.args.extra += $(LIBASS.GCC.args.O.$(LIBASS.GCC.O))
 
 # Tell configure where to find our versions of these libs
+ifneq (1,$(FEATURE.flatpak))
 LIBASS.CONFIGURE.extra = \
-    --enable-asm \
     HARFBUZZ_LIBS="-L$(call fn.ABSOLUTE,$(CONTRIB.build/))lib -lharfbuzz" \
     HARFBUZZ_CFLAGS="-I$(call fn.ABSOLUTE,$(CONTRIB.build/))include/harfbuzz" \
     FREETYPE_LIBS="-L$(call fn.ABSOLUTE,$(CONTRIB.build/))lib -lfreetype" \
     FREETYPE_CFLAGS="-I$(call fn.ABSOLUTE,$(CONTRIB.build/))include/freetype2"
+endif
 
 ifeq (,$(filter $(HOST.system),darwin cygwin mingw))
     # Tell configure where to find our version of fontconfig
+    LIBASS.CONFIGURE.extra += --enable-fontconfig
+ifneq (1,$(FEATURE.flatpak))
     LIBASS.CONFIGURE.extra += \
-        --enable-fontconfig \
         FONTCONFIG_LIBS="-L$(call fn.ABSOLUTE,$(CONTRIB.build/))lib -lfontconfig" \
         FONTCONFIG_CFLAGS="-I$(call fn.ABSOLUTE,$(CONTRIB.build/))include"
+endif
 else
     LIBASS.CONFIGURE.extra += --disable-fontconfig
 endif
@@ -34,3 +41,5 @@ ifneq ($(HOST.system),linux)
         FRIBIDI_LIBS="-L$(call fn.ABSOLUTE,$(CONTRIB.build/))lib -lfribidi" \
         FRIBIDI_CFLAGS="-I$(call fn.ABSOLUTE,$(CONTRIB.build/))include"
 endif
+
+LIBASS.CONFIGURE.extra += --disable-libunibreak

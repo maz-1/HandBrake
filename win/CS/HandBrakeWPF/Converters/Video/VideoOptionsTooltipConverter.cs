@@ -15,10 +15,7 @@ namespace HandBrakeWPF.Converters.Video
 
     using HandBrake.Interop.Interop;
 
-    using HandBrakeWPF.Utilities;
-
     using EncodeTask = HandBrakeWPF.Services.Encode.Model.EncodeTask;
-    using VideoEncoder = HandBrakeWPF.Model.Video.VideoEncoder;
     using VideoEncodeRateType = HandBrakeWPF.Model.Video.VideoEncodeRateType;
 
     /// <summary>
@@ -49,17 +46,17 @@ namespace HandBrakeWPF.Converters.Video
             EncodeTask task = value as EncodeTask;
             if (task != null)
             {
-                string rfqp = HandBrakeEncoderHelpers.GetVideoQualityRateControlName(EnumHelper<VideoEncoder>.GetShortName(task.VideoEncoder));
+                string rfqp = HandBrakeEncoderHelpers.GetVideoQualityRateControlName(task.VideoEncoder.ShortName);
 
                 string quality = task.VideoEncodeRateType == VideoEncodeRateType.ConstantQuality ? string.Format("{0} {1}", task.Quality, rfqp) : string.Format("{0} {1}", task.VideoBitrate, " kbps");
-                string twoPass = null;
+                string multiPass = null;
 
                 if (task.VideoEncodeRateType == VideoEncodeRateType.AverageBitrate)
                 {
-                    twoPass = task.TwoPass ? task.TurboFirstPass ? " (2-Pass with Turbo)" : " (2-Pass)" : string.Empty;
+                    multiPass = task.MultiPass ? task.TurboAnalysisPass ? " (Multi-Pass with Turbo)" : " (Multi-Pass)" : string.Empty;
                 }
 
-                return string.Format("{0} - {1}{2}", EnumHelper<VideoEncoder>.GetDisplay(task.VideoEncoder), quality, twoPass); 
+                return string.Format("{0} - {1}{2}", task.VideoEncoder.DisplayName, quality, multiPass); 
             }
 
             return "Unknown";

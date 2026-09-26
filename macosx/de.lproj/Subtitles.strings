@@ -10,9 +10,6 @@
 /* Class = "NSTableColumn"; headerCell.title = "Language"; ObjectID = "9ka-9O-WDj"; */
 "9ka-9O-WDj.headerCell.title" = "Sprache";
 
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "ABd-Ec-K2L"; */
-"ABd-Ec-K2L.title" = "OtherViews";
-
 /* Class = "NSTextField"; ibExternalAccessibilityDescription = "SRT/SSA Offset"; ObjectID = "aJi-zQ-0cg"; */
 "aJi-zQ-0cg.ibExternalAccessibilityDescription" = "SRT/SSA-Versatz";
 
@@ -20,7 +17,7 @@
 "aJi-zQ-0cg.ibShadowedToolTip" = "Positiver oder negativer Versatz in Millisekunden (ms) der ausgewählten SRT/SSA-Spur. Nicht anwendbar bei anderen Formaten.";
 
 /* Class = "NSMenuItem"; title = "Pop Up"; ObjectID = "cSW-OC-qKA"; */
-"cSW-OC-qKA.title" = "Pop Up";
+"cSW-OC-qKA.title" = "Pop-Up";
 
 /* Class = "NSMenuItem"; title = "Item 1"; ObjectID = "dap-ee-kor"; */
 "dap-ee-kor.title" = "Item 1";
@@ -33,9 +30,6 @@
 
 /* Class = "NSTableColumn"; headerCell.title = "Burned In"; ObjectID = "fIe-Fg-ufj"; */
 "fIe-Fg-ufj.headerCell.title" = "Eingebrannte";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "Fr7-eG-NuL"; */
-"Fr7-eG-NuL.title" = "OtherViews";
 
 /* Class = "NSTableColumn"; headerCell.title = "Default"; ObjectID = "fvq-pE-sOC"; */
 "fvq-pE-sOC.headerCell.title" = "Standard";
@@ -83,7 +77,7 @@
 "jG8-uo-1tv.title" = "Neu laden";
 
 /* Class = "NSButtonCell"; title = "Check"; ObjectID = "JLr-Qi-X0X"; */
-"JLr-Qi-X0X.title" = "Check";
+"JLr-Qi-X0X.title" = "Prüfen";
 
 /* Class = "NSTableColumn"; headerCell.title = "Forced Only"; ObjectID = "klV-Gy-igk"; */
 "klV-Gy-igk.headerCell.title" = "Nur erzwungene";
@@ -101,7 +95,7 @@
 "N3S-st-yGv.headerCell.title" = "Spur";
 
 /* Class = "NSButtonCell"; title = "Check"; ObjectID = "ooy-Sh-Edm"; */
-"ooy-Sh-Edm.title" = "Check";
+"ooy-Sh-Edm.title" = "Prüfen";
 
 /* Class = "NSButtonCell"; title = "Selection Behavior…"; ObjectID = "oxg-bs-1si"; */
 "oxg-bs-1si.title" = "Auswahlverhalten …";
@@ -125,7 +119,7 @@
 "R8a-qg-ASg.title" = "Alle Spuren entfernen";
 
 /* Class = "NSButtonCell"; title = "Check"; ObjectID = "R9w-Bn-CCt"; */
-"R9w-Bn-CCt.title" = "Check";
+"R9w-Bn-CCt.title" = "Prüfen";
 
 /* Class = "NSMenuItem"; title = "Item 1"; ObjectID = "Rj8-KI-k4L"; */
 "Rj8-KI-k4L.title" = "Item 1";
@@ -148,14 +142,8 @@
 /* Class = "NSMenuItem"; title = "Tracks"; ObjectID = "TJO-RZ-jgb"; */
 "TJO-RZ-jgb.title" = "Spuren";
 
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "Umu-1b-U1Z"; */
-"Umu-1b-U1Z.title" = "OtherViews";
-
-/* Class = "NSMenu"; title = "OtherViews"; ObjectID = "UOP-xa-WpP"; */
-"UOP-xa-WpP.title" = "OtherViews";
-
 /* Class = "NSMenuItem"; title = "Pop Up"; ObjectID = "vHW-fn-RSG"; */
-"vHW-fn-RSG.title" = "Pop Up";
+"vHW-fn-RSG.title" = "Pop-Up";
 
 /* Class = "NSButton"; ibShadowedToolTip = "Reload the subtitles tracks list using the configured Selection Behavior."; ObjectID = "Vxx-gk-9kY"; */
 "Vxx-gk-9kY.ibShadowedToolTip" = "Läd die Liste der Untertitelspuren anhand des konfigurierten Auswahlverhaltens neu.";

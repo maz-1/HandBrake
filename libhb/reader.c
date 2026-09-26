@@ -1,11 +1,13 @@
 /* reader.c
 
-   Copyright (c) 2003-2022 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
    For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
  */
+
+#include "libavutil/avutil.h"
 #include "handbrake/handbrake.h"
 
 static int  reader_init( hb_work_object_t * w, hb_job_t * job );
@@ -91,7 +93,7 @@ static int hb_reader_open( hb_work_private_t * r )
 {
     if ( r->title->type == HB_BD_TYPE )
     {
-        if ( !( r->bd = hb_bd_init( r->h, r->title->path ) ) )
+        if ( !( r->bd = hb_bd_init( r->h, r->title->path, r->job->keep_duplicate_titles ) ) )
             return 1;
         if(!hb_bd_start(r->bd, r->title))
         {
@@ -427,7 +429,7 @@ static void reader_send_eof( hb_work_private_t * r )
     int ii;
 
     // send eof buffers downstream to decoders to signal we're done.
-    push_buf(r, r->job->fifo_mpeg2, hb_buffer_eof_init());
+    push_buf(r, r->job->fifo_in, hb_buffer_eof_init());
 
     hb_audio_t *audio;
     for (ii = 0; (audio = hb_list_item(r->job->list_audio, ii)); ++ii)
@@ -687,7 +689,7 @@ static hb_fifo_t ** GetFifoForId( hb_work_private_t * r, int id )
         }
         else
         {
-            r->fifos[0] = job->fifo_mpeg2;
+            r->fifos[0] = job->fifo_in;
             r->fifos[1] = NULL;
             return r->fifos;
         }

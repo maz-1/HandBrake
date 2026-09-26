@@ -59,46 +59,46 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+  <xsd:schema xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" id="root">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" use="required" type="xsd:string"/>
+              <xsd:attribute name="type" type="xsd:string"/>
+              <xsd:attribute name="mimetype" type="xsd:string"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="alias" type="xsd:string"/>
+              <xsd:attribute name="name" type="xsd:string"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+              <xsd:attribute ref="xml:space"/>
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="name" type="xsd:string" use="required"/>
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Video_EncoderExtraArgs" xml:space="preserve">
     <value>編碼器參數的完整清單：
@@ -147,9 +147,9 @@ x264 及 x265 的尺度是對數級的，且數值越低表示更佳品質。
 來源最大值：總是盡可能按原始解析度處理。</value>
   </data>
   <data name="About_GPL" xml:space="preserve">
-    <value>本程式是自由軟體，您可以遵照自由軟體基金會 (Free Software Foundation) 出版的 GNU 通用公共許可證條款 (GNU General Public License) 第二版來修改和重新發佈這一程式，或者自由選擇使用任何更新的版本。
+    <value>本程式是自由軟體，您可以遵照自由軟體基金會（Free Software Foundation）出版的 GNU 通用公共許可證條款（GNU General Public License）第二版來修改和重新發佈這一程式，或者自由選擇使用任何更新的版本。
 發佈這一程式的目的是希望它有用，但沒有任何擔保。甚至沒有適合特定目的而隱含的擔保。更詳細的情況請參閱 GNU 通用公共許可證。
-您應該已經和程式一起收到一份 GNU 通用公共許可證的副本。如果還沒有，寫信給：
+您應該已經和程式一起收到一份 GNU 通用公共許可證的副本。如果沒有，請來信索取：
 Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.</value>
   </data>
   <data name="QueueSelection_AutoNameWarning" xml:space="preserve">
@@ -192,7 +192,10 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>HandBrake 已經在編碼。</value>
   </data>
   <data name="Main_DuplicateDestinationOnQueue" xml:space="preserve">
-    <value>佇列中已有相同目的地路徑的工作，請為該工作選擇不同的路徑。</value>
+    <value>佇列中有目的地路徑相同的工作。請為此工作選擇另一個路徑。
+
+您可能會希望到「工具選單→偏好設定→輸出檔案」設定自動檔案名稱選項。
+</value>
   </data>
   <data name="Main_JobsPending_addon" xml:space="preserve">
     <value>待處理工作 {0}</value>
@@ -201,7 +204,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>HandBrake 設定檔已改為：{0}</value>
   </data>
   <data name="Main_NewUpdate" xml:space="preserve">
-    <value>已有可用更新。 前往 工具 &gt; 選項 來安裝</value>
+    <value>已有可用更新。請到「工具」選單 &gt; 選項來安裝</value>
   </data>
   <data name="Main_NoPresetSelected" xml:space="preserve">
     <value>未選擇設定檔。</value>
@@ -213,7 +216,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>請選擇一個資料夾。</value>
   </data>
   <data name="Main_PreparingToEncode" xml:space="preserve">
-    <value>準備編碼...</value>
+    <value>準備編碼…</value>
   </data>
   <data name="Main_PresetErrorBuiltInName" xml:space="preserve">
     <value>不可匯入與內建同名的設定檔。</value>
@@ -231,8 +234,8 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>此設定檔已更新為您目前的設定。</value>
   </data>
   <data name="Main_PresetUpdateNotification" xml:space="preserve">
-    <value>HandBrake 認為您的內建設定檔已經過時... 將更新這些設定檔。
-您的自訂設定檔不會被更新，因此您需要刪除並再次新增的以重新建立它們。
+    <value>HandBrake 認為您的內建設定檔已經過時…將更新這些設定檔。
+不會更新您的自訂設定檔，您可能需要刪除後再次新增以重新建立它們。
 已備份先前的 user_presets.xml 檔案。</value>
   </data>
   <data name="Main_QueueFinished" xml:space="preserve">
@@ -248,13 +251,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>掃描失敗：</value>
   </data>
   <data name="Main_ScanFailed_CheckLog" xml:space="preserve">
-    <value>掃描失敗... 請查閱紀錄檔以了解詳情。</value>
+    <value>掃描失敗… 請查閱活動紀錄以了解詳情。</value>
   </data>
   <data name="Main_ScanningPleaseWait" xml:space="preserve">
-    <value>掃描來源中，請稍候...</value>
+    <value>掃描來源中，請稍候…</value>
   </data>
   <data name="Main_ScanningTitleXOfY" xml:space="preserve">
-    <value>正在掃描標題 {0}，共 {1} ({2}%)</value>
+    <value>正在掃描標題 {0} / {1}（{2}%）</value>
   </data>
   <data name="Main_ScanSource" xml:space="preserve">
     <value>在開始編碼前，必須先掃描來源並設定編碼方式。按一下工具列上的 [開啟來源檔] 按鈕以繼續。</value>
@@ -269,7 +272,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>選擇「來源」以繼續</value>
   </data>
   <data name="Main_XEncodesPending" xml:space="preserve">
-    <value>{0}個等待中的工作</value>
+    <value>{0} 個等待中的工作</value>
   </data>
   <data name="Notice" xml:space="preserve">
     <value>通知</value>
@@ -316,9 +319,6 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   <data name="PictureSettings_OutputResolution" xml:space="preserve">
     <value>輸出：{0}</value>
   </data>
-  <data name="Options_DefaultPathAdditionalParams" xml:space="preserve">
-    <value>可用的額外選項：{來源路徑}、 {來源資料夾名稱} 或 {來源檔}</value>
-  </data>
   <data name="Main_MatchingFileOverwriteWarning" xml:space="preserve">
     <value>您不可編碼一個與來源檔案相同路徑及名稱的檔案。請調整目的地及檔名以免覆寫來源檔案。</value>
   </data>
@@ -340,10 +340,10 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>可對影片編碼器輸入額外的進階參數。</value>
   </data>
   <data name="Subtitles_BurnInBehaviourModes" xml:space="preserve">
-    <value>無——僅壓印其容器不支援的軌道。
-外語音軌——當可用時，壓印外語音軌。
-首軌——壓印第一軌。
-首選外語音軌，首軌其次——當存在外語音軌時將其壓印，否則選用第一軌。</value>
+    <value>無 - 僅壓印其容器格式不支援的軌道。
+外語音軌 - 可用時，壓印外語音軌。
+首軌 - 壓印第一軌。
+偏好外語音軌，首軌其次 - 若存在外語音軌，就優先壓印，否則選用第一軌。</value>
   </data>
   <data name="Subtitles_WebmSubtitleIncompatibilityHeader" xml:space="preserve">
     <value>WebM 字幕相容性</value>
@@ -359,15 +359,16 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>未發現有效的來源或標題。</value>
   </data>
   <data name="Main_ScanNoTitlesFoundMessage" xml:space="preserve">
-    <value>HandBrake 無法對選取的來源檔進行編碼，因為無法找到可編碼的有效來源。這可能歸因於：
-- 來源檔的長度低於「最低標題長度」，此設定位於「偏好設定 -&gt; 進階」。
+    <value>因為從來源中找不到可編碼的有效標題，HandBrake 無法編碼選擇的來源檔。這可能是因為：
+- 來源標題的長度低於「偏好設定 &gt; 進階」當中的「最短標題長度」選項設定值。
 - 來源檔不是有效的視訊檔案，或是 HandBrake 不支援的格式。
+- 您可能沒有權限讀取檔案，或其他應用程式正鎖定該檔案。
 - 來源檔可能包含 DRM 或具有防拷機制。HandBrake 不支援移除此類機制。
 
-檢閱活動紀錄以了解詳情。</value>
+活動紀錄中可能會有更多資訊。</value>
   </data>
   <data name="Main_QueueLabel" xml:space="preserve">
-    <value>佇列{0}</value>
+    <value>佇列 {0}</value>
   </data>
   <data name="Main_Start" xml:space="preserve">
     <value>開始編碼</value>
@@ -382,7 +383,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>確定刪除設定檔：</value>
   </data>
   <data name="MainViewModel_EncodeStatusChanged_StatusLabel" xml:space="preserve">
-    <value>正在編碼: Pass {0}/{1}, {2:00.00}%, FPS: {3:000.0}, 平均 FPS: {4:000.0}, 剩餘時間: {5}, 已經過: {6} {7}</value>
+    <value>正在編碼：階段 {0}/{1}，{2:00.00}%，FPS：{3:000.0}，平均 FPS：{4:000.0}，剩餘時間：{5}，已經過：{6} {7}</value>
   </data>
   <data name="AddPresetViewModel_PresetMustProvideName" xml:space="preserve">
     <value>必須為設定檔取名。請填寫其名稱欄位。</value>
@@ -415,7 +416,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>切換回軌道</value>
   </data>
   <data name="ChaptersViewModel_UnableToExportChaptersWarning" xml:space="preserve">
-    <value>無法儲存章節紀錄點檔案！</value>
+    <value>無法儲存章節標記點檔案！</value>
   </data>
   <data name="ChaptersViewModel_UnableToExportChaptersMsg" xml:space="preserve">
     <value>無法將章節標記名稱儲存於本次編碼。</value>
@@ -433,11 +434,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>發生了未知的錯誤。</value>
   </data>
   <data name="OptionsViewModel_NewUpdate" xml:space="preserve">
-    <value>已有可用更新！欲查閱發行公告，請至網站。</value>
-  </data>
-  <data name="OptionsViewModel_64bitAvailable" xml:space="preserve">
-    <value>您的系統支援 64 位元版本的 HandBrake！相比目前的 32 位元版本，64 位元版的性能及穩定性更好。
-請到網站查詢發行公告。</value>
+    <value>已推出 HandBrake {0}！請到網站查詢發行公告。</value>
   </data>
   <data name="OptionsViewModel_NoNewUpdates" xml:space="preserve">
     <value>目前尚無更新。</value>
@@ -473,13 +470,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>確認</value>
   </data>
   <data name="QueueViewModel_JobsPending" xml:space="preserve">
-    <value>{0}個等待中的工作</value>
+    <value>{0} 個等待中的工作</value>
   </data>
   <data name="QueueViewModel_QueuePending" xml:space="preserve">
     <value>已暫停佇列</value>
   </data>
   <data name="QueueViewModel_DelSelectedJobConfirmation" xml:space="preserve">
-    <value>您確定要刪除已選的工作嗎？</value>
+    <value>您確定要刪除選擇的工作嗎？將刪除未編碼的檔案。</value>
   </data>
   <data name="QueueViewModel_JobCurrentlyRunningWarning" xml:space="preserve">
     <value>此編碼工作正在進行中。若您刪除它，編碼也將停止。您確定要進行嗎？</value>
@@ -506,7 +503,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>已開始佇列</value>
   </data>
   <data name="QueueViewModel_QueueStatusDisplay" xml:space="preserve">
-    <value>正在編碼: Pass{0}/{1},  {2:00.00}%, FPS: {3:000.0},  平均 FPS: {4:000.0},  剩餘時間:{5},  已經過: {6:d\:hh\:mm\:ss}</value>
+    <value>正在編碼：階段 {0}/{1}，{2:00.00}%，FPS：{3:000.0}， 平均 FPS：{4:000.0}，剩餘時間：{5}，已經過：{6:d\:hh\:mm\:ss}</value>
   </data>
   <data name="ShellViewModel_CanClose" xml:space="preserve">
     <value>有執行中的編碼工作。退出 HandBrake 亦將停止此編碼工作。
@@ -551,7 +548,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
 舊的預設檔已被封存在：</value>
   </data>
   <data name="Main_QueueFinishedErrors" xml:space="preserve">
-    <value>偵測到 {0} 個錯誤或取消</value>
+    <value>，偵測到 {0} 個錯誤。請確認佇列視窗以取得詳細資訊。</value>
   </data>
   <data name="MainViewModel_LowDiskSpace" xml:space="preserve">
     <value>磁碟容量不足</value>
@@ -581,12 +578,12 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>來源媒體的章節資訊無效</value>
   </data>
   <data name="ChaptersViewModel_ValidateImportedChapters_ChapterCountMismatch" xml:space="preserve">
-    <value>來源媒體與輸入檔案的章節數目不一致（{0}, {1}）。
+    <value>來源媒體與輸入檔案的章節數目不一致（{0}，{1}）。
 
 仍然要匯入章節名稱嗎？</value>
   </data>
   <data name="ChaptersViewModel_ValidateImportedChapters_ChapterCountMismatchMsg" xml:space="preserve">
-    <value>來源媒體與輸入檔案的章節數目不一致（{0}, {1}）。
+    <value>來源媒體與輸入檔案的章節數目不一致（{0}，{1}）。
 
 仍然要匯入章節名稱嗎？</value>
   </data>
@@ -646,17 +643,17 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>請檢查您使用的是有效的目的地目錄。</value>
   </data>
   <data name="MainViewModel_EncodeStatusChanged_SubScan_StatusLabel" xml:space="preserve">
-    <value>正在處理 Pass {0}/{1}, (字幕掃描)  {2:00.00}%, 剩餘掃描時間：{3},  已持續了：{4}</value>
+    <value>正在處理階段 {0}/{1}，（字幕掃描）{2:00.00}%，剩餘掃描時間：{3}，已經過：{4}</value>
   </data>
   <data name="NoAdditionalInformation" xml:space="preserve">
     <value>沒有額外的資訊</value>
   </data>
   <data name="WindowTitleStatus" xml:space="preserve">
-    <value>{0} - ({1}%, Pass {2} / {3})</value>
+    <value>{0} -（{1}%，階段 {2} / {3}）</value>
   </data>
   <data name="TaskTrayStatusTitle" xml:space="preserve">
-    <value>{1}%, Pass {2} / {3}
-剩餘時間： {4}</value>
+    <value>{0}
+正在編碼 1 個工作</value>
   </data>
   <data name="PauseOnLowDiskspace" xml:space="preserve">
     <value>已暫停佇列。警告！您要存放的磁碟空間不足。請清出更多空間後再按下開始以繼續。您亦可在偏好設定中調整最低空間水準。</value>
@@ -690,7 +687,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>請停止目前的編碼工作。若此問題持續發生，請重開 HandBrake。</value>
   </data>
   <data name="StaticPreviewView_Title" xml:space="preserve">
-    <value>預覽（實際大小的{0}%）</value>
+    <value>預覽（實際大小的 {0}%）</value>
   </data>
   <data name="OsBitnessWarning" xml:space="preserve">
     <value>HandBrake 需要在 64 位元的 Windows 10 或更新的作業系統上執行。</value>
@@ -703,7 +700,9 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   </data>
   <data name="Main_QueueOverwritePrompt" xml:space="preserve">
     <value>檔案「{0}」已經存在！
-您確定要覆寫它嗎？</value>
+您確定要覆蓋它嗎？
+
+提示：可以在偏好設定調整檔案覆蓋行為。</value>
   </data>
   <data name="Clipboard_Unavailable" xml:space="preserve">
     <value>目前無法使用系統的剪貼簿。</value>
@@ -749,7 +748,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>自動傳遞行為：</value>
   </data>
   <data name="AudioView_Bitrate" xml:space="preserve">
-    <value>位元速率</value>
+    <value>位元率</value>
   </data>
   <data name="AudioView_Codec" xml:space="preserve">
     <value>編解碼器</value>
@@ -764,7 +763,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>隱藏</value>
   </data>
   <data name="AudioView_Mixdown" xml:space="preserve">
-    <value>Mixdown</value>
+    <value>混音</value>
   </data>
   <data name="AudioView_OtherwiseFallbackEncoder" xml:space="preserve">
     <value>備選編碼器：</value>
@@ -797,13 +796,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>章節名稱</value>
   </data>
   <data name="ChaptersView_ChapterNumber" xml:space="preserve">
-    <value>章節序</value>
+    <value>章節</value>
   </data>
   <data name="ChaptersView_CreateChapterMarkers" xml:space="preserve">
     <value>建立章節標記點</value>
   </data>
   <data name="ChaptersView_Duration" xml:space="preserve">
-    <value>長度：</value>
+    <value>長度</value>
   </data>
   <data name="ChaptersView_Export" xml:space="preserve">
     <value>匯出</value>
@@ -836,7 +835,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>自訂：</value>
   </data>
   <data name="FiltersView_Deblock" xml:space="preserve">
-    <value>Deblock：</value>
+    <value>去區塊：</value>
   </data>
   <data name="FiltersView_Decomb" xml:space="preserve">
     <value>Decomb：</value>
@@ -950,7 +949,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>對齊 A/V 開頭</value>
   </data>
   <data name="MainView_Angle" xml:space="preserve">
-    <value>角度：</value>
+    <value>視角：</value>
   </data>
   <data name="MainView_AudioTab" xml:space="preserve">
     <value>音訊</value>
@@ -995,7 +994,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>（已修改）</value>
   </data>
   <data name="MainView_Muxing" xml:space="preserve">
-    <value>合成中：需要一些時間…</value>
+    <value>封裝中：需要一些時間…</value>
   </data>
   <data name="MainView_Options" xml:space="preserve">
     <value>選項</value>
@@ -1025,7 +1024,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>預覽</value>
   </data>
   <data name="MainView_ProgressStatusWithTask" xml:space="preserve">
-    <value>編碼中：{0}, {1:00.00}%，剩餘時間：{2}, {3}</value>
+    <value>{0}，{1:00.00}%，剩餘時間：{2}</value>
   </data>
   <data name="MainView_Range" xml:space="preserve">
     <value>範圍：</value>
@@ -1108,14 +1107,8 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   <data name="MetaDataView_Title" xml:space="preserve">
     <value>中繼資料</value>
   </data>
-  <data name="OptionsView_EnableNvencEncoding" xml:space="preserve">
-    <value>允許使用 Nvidia NVENC 編碼器</value>
-  </data>
-  <data name="OptionsView_EnableQuicksyncEncoding" xml:space="preserve">
-    <value>允許使用 Intel QuickSync 編碼器</value>
-  </data>
-  <data name="OptionsView_EnableVceEncoding" xml:space="preserve">
-    <value>允許使用 AMD VCE 編碼器</value>
+  <data name="OptionsView_EnableDirectXDecoding" xml:space="preserve">
+    <value>允許使用 DirectX 解碼</value>
   </data>
   <data name="OptionsView_InvalidFileFormatChars" xml:space="preserve">
     <value>輸入的檔案格式包含無效字元。這些字元已被移除。</value>
@@ -1202,7 +1195,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>紀錄檔詳盡度：</value>
   </data>
   <data name="Options_LogPath" xml:space="preserve">
-    <value>紀錄檔路徑：</value>
+    <value>路徑：</value>
   </data>
   <data name="Options_LowDiskspaceSize" xml:space="preserve">
     <value>若磁碟空間不足，暫停佇列</value>
@@ -1212,6 +1205,9 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   </data>
   <data name="Options_MinTitleScanLength" xml:space="preserve">
     <value>DVD 及藍光標題的最短長度（秒）。將跳過較短的標題：</value>
+  </data>
+  <data name="Options_KeepDuplicateTitles" xml:space="preserve">
+    <value>保留藍光來源中重複的標題（需重新啟動）</value>
   </data>
   <data name="Options_MP4FileExtension" xml:space="preserve">
     <value>MP4 副檔名：</value>
@@ -1235,13 +1231,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>欲掃描的預覽圖片數：</value>
   </data>
   <data name="Options_PriorityLevel" xml:space="preserve">
-    <value>優先權：</value>
+    <value>工作優先等級：</value>
   </data>
   <data name="Options_QsvDecode" xml:space="preserve">
-    <value>可以時，優先使用 Intel QuickSync 解碼影片。</value>
+    <value>在使用 Intel QuickSync 編碼器以及硬體可以使用的前提下，偏好使用 QuickSync 來解碼視訊串流。</value>
   </data>
   <data name="Options_QsvDecodeForNonFullPath" xml:space="preserve">
-    <value>在不使用 QuickSync 編碼器時改用 QSV 解碼器。（如：x265）</value>
+    <value>不使用 QuickSync 編碼器（換言之，使用 x265）時，仍使用 QuickSync 來解碼。</value>
   </data>
   <data name="Options_RemovePunctuation" xml:space="preserve">
     <value>移除常見的標點符號</value>
@@ -1407,7 +1403,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>鎖定系統</value>
   </data>
   <data name="QueueView_LogNotAvailableYet" xml:space="preserve">
-    <value>紀錄檔將在編碼完成後提供使用。</value>
+    <value>紀錄檔將在編碼完成後提供。</value>
   </data>
   <data name="WhenDone_Logoff" xml:space="preserve">
     <value>登出</value>
@@ -1460,9 +1456,6 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   <data name="QueueView_Statistics" xml:space="preserve">
     <value>統計資訊</value>
   </data>
-  <data name="QueueView_StatsNotAvailableYet" xml:space="preserve">
-    <value>統計資訊在作業完成後才能使用。</value>
-  </data>
   <data name="QueueView_Subtitles" xml:space="preserve">
     <value>字幕：</value>
   </data>
@@ -1488,7 +1481,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>新增軌道</value>
   </data>
   <data name="Shared_AddTrack" xml:space="preserve">
-    <value>軌道：</value>
+    <value>軌道</value>
   </data>
   <data name="Shared_AvailableLanguages" xml:space="preserve">
     <value>可用的語言：</value>
@@ -1539,7 +1532,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>先前的佇列封存可供使用。</value>
   </data>
   <data name="SourceSelection_SingleVideoFile" xml:space="preserve">
-    <value>打開單個影片檔。</value>
+    <value>開啟視訊檔。</value>
   </data>
   <data name="SourceSelection_SourceSelection" xml:space="preserve">
     <value>來源選擇</value>
@@ -1548,13 +1541,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>時間：</value>
   </data>
   <data name="StaticPreviewView_LivePreview" xml:space="preserve">
-    <value>即時預覽</value>
+    <value>編碼預覽</value>
   </data>
   <data name="StaticPreviewView_SelectPreviewImage" xml:space="preserve">
     <value>選擇一張預覽影像</value>
   </data>
-  <data name="StaticPreviewView_UseSystemDefault" xml:space="preserve">
-    <value>優先使用系統預設的影片播放器</value>
+  <data name="StaticPreviewView_UseExternalPlayer" xml:space="preserve">
+    <value>使用外部播放程式</value>
   </data>
   <data name="SubtitlesView_AddCC" xml:space="preserve">
     <value>當可用時，增加 CC 字幕</value>
@@ -1590,7 +1583,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>章節標記點</value>
   </data>
   <data name="SummaryView_Deblock" xml:space="preserve">
-    <value>Deblock</value>
+    <value>去區塊</value>
   </data>
   <data name="SummaryView_Detelecine" xml:space="preserve">
     <value>Detelecine</value>
@@ -1626,16 +1619,19 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>旋轉</value>
   </data>
   <data name="SummaryView_storage" xml:space="preserve">
-    <value>儲存空間</value>
+    <value>儲存尺寸</value>
   </data>
-  <data name="VideoView_2Pass" xml:space="preserve">
-    <value>2-Pass 編碼</value>
+  <data name="VideoView_MultiPass" xml:space="preserve">
+    <value>多階段編碼</value>
   </data>
   <data name="VideoView_AverageBitrate" xml:space="preserve">
-    <value>平均位元速率 (kbps)：</value>
+    <value>平均位元率 (kbps)：</value>
   </data>
   <data name="VideoView_Codec" xml:space="preserve">
     <value>視訊編碼器：</value>
+  </data>
+  <data name="VideoView_ColourRange" xml:space="preserve">
+    <value>色彩範圍：</value>
   </data>
   <data name="VideoView_ConstantFramerate" xml:space="preserve">
     <value>恆定影格率</value>
@@ -1673,8 +1669,8 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   <data name="VideoView_Quality" xml:space="preserve">
     <value>品質：</value>
   </data>
-  <data name="VideoView_TurboFirstPass" xml:space="preserve">
-    <value>加速首次編碼</value>
+  <data name="VideoView_TurboAnalysisPass" xml:space="preserve">
+    <value>加速分析階段</value>
   </data>
   <data name="VideoView_VariableFramerate" xml:space="preserve">
     <value>動態影格率</value>
@@ -1692,7 +1688,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>關於 HandBrake</value>
   </data>
   <data name="SourceSelection_DropFileHere" xml:space="preserve">
-    <value>或者拖動一個檔案、資料夾到這裡...</value>
+    <value>或將單一檔案、多個檔案、資料夾拖曳至此處…</value>
   </data>
   <data name="SourceSelection_Help" xml:space="preserve">
     <value>協助</value>
@@ -1719,7 +1715,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>僅限強制的</value>
   </data>
   <data name="MainView_About" xml:space="preserve">
-    <value>關於... (_A)</value>
+    <value>關於… (_A)</value>
   </data>
   <data name="MainView_ActivityLogMenu" xml:space="preserve">
     <value>動作紀錄 (_A)</value>
@@ -1770,7 +1766,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>工具 (_T)</value>
   </data>
   <data name="OptionsView_CheckingForUpdates" xml:space="preserve">
-    <value>檢查更新中...</value>
+    <value>檢查更新中…</value>
   </data>
   <data name="OptionsView_ClearLogDirConfirm" xml:space="preserve">
     <value>您確定要清除紀錄檔的目錄嗎？</value>
@@ -1779,7 +1775,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>清除紀錄檔</value>
   </data>
   <data name="OptionsView_Downloading" xml:space="preserve">
-    <value>下載中...</value>
+    <value>下載中…</value>
   </data>
   <data name="OptionsView_LogsCleared" xml:space="preserve">
     <value>已清除 HandBrake 的紀錄檔目錄！</value>
@@ -1788,7 +1784,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>通知</value>
   </data>
   <data name="OptionsView_PreparingUpdate" xml:space="preserve">
-    <value>準備更新中...</value>
+    <value>準備更新中…</value>
   </data>
   <data name="OptionsView_SelectFolder" xml:space="preserve">
     <value>請選擇一個資料夾。</value>
@@ -1848,26 +1844,17 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>刪除已選項目</value>
   </data>
   <data name="Portable_TmpNotWritable" xml:space="preserve">
-    <value>免安裝模式：無法建立 TMP 目錄。請確認該路徑是正確且可寫入的。
-
-    {0}</value>
+    <value>可攜版模式：無法建立暫存目錄，請檢查路徑是否正確、是否可寫入檔案。</value>
   </data>
   <data name="Portable_StorageNotWritable" xml:space="preserve">
-    <value>免安裝模式：無法建立儲存目錄。請確認該路徑是正確且可寫入的。
-
-    {0}</value>
+    <value>可攜版模式：無法建立儲存空間資料夾，請檢查路徑是否正確、是否可寫入檔案。</value>
   </data>
   <data name="Portable_IniFileError" xml:space="preserve">
     <value>免安裝模式：無法讀取 portable.ini，該檔案可能有錯誤。請使用 portable.ini.template 作為範本重試。</value>
   </data>
-  <data name="Startup_InitFailed" xml:space="preserve">
-    <value>HandBrake 無法初始化引擎。這常因為 GPU 驅動程式太舊。\n 請更新您電腦中所有內顯、獨顯的驅動程式。</value>
-  </data>
   <data name="OptionsView_FormatOptions" xml:space="preserve">
-    <value>Replacement Placeholders: {source} {title} {chapters} {creation-date} {creation-time} {date} {time} {quality_bitrate}</value>
-  </data>
-  <data name="OptionsView_PathOptions" xml:space="preserve">
-    <value>Replacement Placeholders: {source_path} {source_folder_name} {source}</value>
+    <value>取代選項：
+您可以拖曳或輸入上述文字。</value>
   </data>
   <data name="FileOverwriteBehaviours_Ask" xml:space="preserve">
     <value>詢問是否覆寫檔案</value>
@@ -1912,10 +1899,10 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>FiltersView_DeblockPreset</value>
   </data>
   <data name="FiltersViewAuto_DeblockTune" xml:space="preserve">
-    <value>調整去區塊濾波器</value>
+    <value>調整去區塊濾鏡</value>
   </data>
-  <data name="OptionsView_ChoiceOfEncoderHint" xml:space="preserve">
-    <value>將可在「視訊」索引標籤內選擇編碼器。</value>
+  <data name="OptionsView_EncodeNotes" xml:space="preserve">
+    <value>註：並非所有硬體編碼器都可以調整額外偏好設定。將在「視訊」分頁的「視訊編碼器」下拉選單中，列出本系統中找到的所有可用且支援的硬體編碼器。</value>
   </data>
   <data name="Queue_RecoverQueueQuestionPlural" xml:space="preserve">
     <value>HandBrake 偵測到多個未完成的佇列檔。復原它們會需要執行多個 HandBrake 個體。要復原所有未完成的工作嗎？</value>
@@ -1956,16 +1943,16 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>GB</value>
   </data>
   <data name="SystemService_ACMains" xml:space="preserve">
-    <value>已偵測 AC 電源，繼續編碼... ({0}%)</value>
+    <value>偵測到已接上 AC 市電，繼續編碼…（{0}%）</value>
   </data>
   <data name="SystemService_CriticalBattery" xml:space="preserve">
-    <value>系統電池即將耗盡！({0}%)</value>
+    <value>系統電池即將耗盡！（{0}%）</value>
   </data>
   <data name="SystemService_LowBatteryLog" xml:space="preserve">
     <value>系統低電量！（{0} %）已暫停編碼工作。</value>
   </data>
   <data name="SystemService_LowDiskSpaceLog" xml:space="preserve">
-    <value>目的地磁碟的容量已低於 {0} GB。正在暫停編碼...</value>
+    <value>目的地磁碟的容量已低於 {0} GB。暫停編碼…</value>
   </data>
   <data name="AudioDefaultsView_PaneTitle" xml:space="preserve">
     <value>自動選擇音訊</value>
@@ -2130,17 +2117,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>總是為產生的新名稱使用預設路徑。</value>
   </data>
   <data name="OptionsView_RemotePortLimit" xml:space="preserve">
-    <value>通訊埠號必須介於 5000 及 32767</value>
-  </data>
-  <data name="OptionsView_SendFileToArgPlaceholders" xml:space="preserve">
-    <value>替代預留位置：{source} {destination} {exit_code}</value>
-    <comment>Note: {source}, {destination} and {exit_code} are not translatable. </comment>
+    <value>連接埠號必須介於 5000 及 32767</value>
   </data>
   <data name="SourceSelection_UpdateAvailable" xml:space="preserve">
-    <value>新版的 HandBrake 已供使用！</value>
+    <value>有新版本可供使用！</value>
   </data>
   <data name="About_Copyright" xml:space="preserve">
-    <value>版權所有 ©️ 2003-2022 HandBrake 團隊</value>
+    <value>Copyright (C) 2003-2026 The HandBrake Team</value>
   </data>
   <data name="Options_LowBatteryLevel" xml:space="preserve">
     <value>低電量：</value>
@@ -2165,7 +2148,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>請選擇單個工作來檢視總結報告。</value>
   </data>
   <data name="OptionsView_EnableWorkerProcesses" xml:space="preserve">
-    <value>在分開的背景工作處理序中進行佇列工作。</value>
+    <value>用分開的工作處理程序處理佇列中的不同工作。</value>
   </data>
   <data name="OptionsView_WorkerDefaultPort" xml:space="preserve">
     <value>背景工作程式的預設連接埠：</value>
@@ -2178,13 +2161,13 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
 請選擇其他預設檔。</value>
   </data>
   <data name="OptionsView_ProcessIsolation" xml:space="preserve">
-    <value>隔離處理序</value>
+    <value>隔離處理程序</value>
   </data>
   <data name="OptionsView_ProcessIsolation_Warning1" xml:space="preserve">
-    <value>使用此功能會啟動一個在 127.0.0.1 指定通訊埠上的伺服器。</value>
+    <value>使用此功能會啟動一個在 127.0.0.1 指定連接埠上的伺服器。</value>
   </data>
   <data name="OptionsView_ProcessIsolation_Warning2" xml:space="preserve">
-    <value>若設定的通訊埠已被使用，它會自動使用在其數值 +100 範圍內的首個可用連接埠。</value>
+    <value>若設定的連接埠已被使用，它會自動使用在其數值 +100 範圍內的首個可用連接埠。</value>
   </data>
   <data name="OptionsView_SimultaneousEncodes" xml:space="preserve">
     <value>同時作業的最大數量：</value>
@@ -2208,19 +2191,19 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>自訂（不限制）</value>
   </data>
   <data name="PaddingMode_Fill" xml:space="preserve">
-    <value>填充（環繞）</value>
+    <value>四方都補</value>
   </data>
   <data name="PaddingMode_Height" xml:space="preserve">
-    <value>按高度（左右黑邊）</value>
+    <value>上下（Letterbox）</value>
   </data>
   <data name="PaddingMode_None" xml:space="preserve">
     <value>無</value>
   </data>
   <data name="PaddingMode_Width" xml:space="preserve">
-    <value>按寬度（上下黑邊）</value>
+    <value>左右（Pillarbox）</value>
   </data>
   <data name="PictureSettingsView_Padding" xml:space="preserve">
-    <value>填充：</value>
+    <value>補黑邊：</value>
   </data>
   <data name="PictureSettingsView_PaddingColour" xml:space="preserve">
     <value>顏色：</value>
@@ -2273,9 +2256,6 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   <data name="PictureSettingsResLimitModes_none" xml:space="preserve">
     <value>無</value>
   </data>
-  <data name="PresetManger_Title" xml:space="preserve">
-    <value>管理設定檔</value>
-  </data>
   <data name="ManagePresetView_DeleteBuiltIn" xml:space="preserve">
     <value>刪除內建的設定檔</value>
   </data>
@@ -2304,7 +2284,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>停止</value>
   </data>
   <data name="String1" xml:space="preserve">
-    <value />
+    <value/>
   </data>
   <data name="PresetService_CategoryAlreadyExists" xml:space="preserve">
     <value>您輸入的分類名稱已存在，請換個名稱。</value>
@@ -2325,7 +2305,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>顯示磁碟空間不足警示的程度：</value>
   </data>
   <data name="OptionsView_SimultaneousHardwareLimitNotice" xml:space="preserve">
-    <value>此為可同時進行的工作數量上限。實際進行編碼時，仍以硬體條件而定。</value>
+    <value>注意：這是同時可以進行編碼的工作數量上限。硬體編碼時本身可能還會有限制，降低實際可同時進行編碼的工作數量。選項只會在處理下一批佇列或重新啟動應用程式後生效。</value>
   </data>
   <data name="Preset_NotAvailable" xml:space="preserve">
     <value>（不可用）</value>
@@ -2340,10 +2320,10 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>是</value>
   </data>
   <data name="StaticPreviewView_FineTuning" xml:space="preserve">
-    <value>影像細調設定</value>
+    <value>影像微調設定</value>
   </data>
   <data name="StaticPreviewView_ShowPictureSettingsAdjustment" xml:space="preserve">
-    <value>顯示裁切控制細項。</value>
+    <value>顯示裁切控制元件。</value>
   </data>
   <data name="DarkTheme_dark" xml:space="preserve">
     <value>深色</value>
@@ -2376,7 +2356,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>來源預覽：</value>
   </data>
   <data name="QueueView_JobStatus" xml:space="preserve">
-    <value>作業狀態：</value>
+    <value>工作狀態：</value>
   </data>
   <data name="QueueView_JobStatus_Cancelled" xml:space="preserve">
     <value>已取消</value>
@@ -2394,7 +2374,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>未知的狀態。檢閱紀錄檔以了解詳情。</value>
   </data>
   <data name="QueueView_JobStatus_ReadError" xml:space="preserve">
-    <value>嘗試讀取來源時偵測到錯誤。</value>
+    <value>嘗試讀取來源時發生錯誤。</value>
   </data>
   <data name="QueueView_JobStatus_Unknown" xml:space="preserve">
     <value>未知的故障。檢閱紀錄檔以了解詳情。</value>
@@ -2462,9 +2442,8 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>自動檢查更新？</value>
   </data>
   <data name="OptionsViewModel_UpdateNotice" xml:space="preserve">
-    <value>在更新之前：
-- 確認佇列中無待處理的編碼作業。
-- 備份或記錄自訂設定檔，因為它們可能無法與新版完全相容。</value>
+    <value>- 請確認佇列中目前沒有等待編碼的工作。
+- 幫您建立的自訂設定檔做備份或加入註記，他們與新版本可能無法完全相容。</value>
   </data>
   <data name="Preset_Default" xml:space="preserve">
     <value>（預設）</value>
@@ -2549,10 +2528,10 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
 僅支援目前版本的佇列檔案。</value>
   </data>
   <data name="Notifications_EncodeDone" xml:space="preserve">
-    <value>HandBrake 編碼已完成！</value>
+    <value>HandBrake 編碼完成！</value>
   </data>
   <data name="Notifications_QueueDone" xml:space="preserve">
-    <value>HandBrake 佇列作業已完成！</value>
+    <value>HandBrake 佇列作業完成！</value>
   </data>
   <data name="OptionsView_NotificationRemovalSubText" xml:space="preserve">
     <value>這也會隱藏「當完成時」分頁的 Windows 工作列通知選項。若要使用，須再啟動此功能。</value>
@@ -2576,7 +2555,7 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
     <value>Windows 通知</value>
   </data>
   <data name="Main_QueueMultiJobStatus" xml:space="preserve">
-    <value>完成 {0} 項工作。{1} 處理了 {2} 項工作，仍有 {3} 待處理。</value>
+    <value>完成 {0} 項工作。{1} 處理了 {2} 項工作，仍有 {3} 項待處理。</value>
   </data>
   <data name="MainView_AutonameRegenerate" xml:space="preserve">
     <value>重新產生（自動命名）</value>
@@ -2601,5 +2580,453 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 0211
   </data>
   <data name="RightToLeft_WholeInterface" xml:space="preserve">
     <value>整體使用者介面</value>
+  </data>
+  <data name="SourceSelection_NightlyUpdate" xml:space="preserve">
+    <value>您目前使用的開發版本有點舊了，您可能會想要更新！</value>
+  </data>
+  <data name="SourceSelection_NightlyUpdateUrl" xml:space="preserve">
+    <value>從 Github 下載</value>
+  </data>
+  <data name="MainView_NightlyBuildsUpdate" xml:space="preserve">
+    <value>下載開發版（HTTPS）</value>
+  </data>
+  <data name="OptionsView_EnableQuicksyncHyperEncode" xml:space="preserve">
+    <value>啟用 QuickSync Deep Link 超編碼</value>
+  </data>
+  <data name="OptionsView_HyperEncodeDescription" xml:space="preserve">
+    <value>支援時，偏好使用多個媒體引擎來加速單一編碼。停用的話則可對不同的媒體引擎進行負載平衡，進行平行編碼。</value>
+  </data>
+  <data name="MainView_OpenHandBrake" xml:space="preserve">
+    <value>開啟 HandBrake</value>
+  </data>
+  <data name="Startup_UnableToStartInfo" xml:space="preserve">
+    <value>由於硬體編碼支援常造成程式啟動問題，已停用。
+- 請嘗試重開 HandBrake。
+- 若問題持續出現，可能是顯示卡驅動程式（不論是內建顯卡或獨立顯卡）已過時，而造成此問題。
+
+可以到偏好設定中重新開啟硬體編碼支援。</value>
+  </data>
+  <data name="Startup_UnableToStart" xml:space="preserve">
+    <value>HandBrake 無法啟動。</value>
+  </data>
+  <data name="OptionsView_ResetSafeMode" xml:space="preserve">
+    <value>重設安全模式</value>
+  </data>
+  <data name="OptionsView_ResetSafeModeMessage" xml:space="preserve">
+    <value>請重新啟動 HandBrake。</value>
+  </data>
+  <data name="Debug_QueueDataExport" xml:space="preserve">
+    <value>匯出佇列統計資料 (CSV)</value>
+  </data>
+  <data name="Debug_QueueExportDataDone" xml:space="preserve">
+    <value>匯出完成！</value>
+  </data>
+  <data name="Debug_QueueSweep_NotSetup" xml:space="preserve">
+    <value>您必須先掃描來源檔，並設定初始的目的地目錄</value>
+  </data>
+  <data name="OptionsView_FileCollisionNotice" xml:space="preserve">
+    <value>只在檔案已存在磁碟上時。</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>資訊</value>
+  </data>
+  <data name="SubtitleView_NoSubtitlesAdded" xml:space="preserve">
+    <value>未新增字幕軌。
+
+這可能是源自於您選取的檔案容器的限制。更多資訊請見我們的字幕說明文件。</value>
+  </data>
+  <data name="DarkTheme_None" xml:space="preserve">
+    <value>無</value>
+  </data>
+  <data name="SourceSelection_UpdateNow" xml:space="preserve">
+    <value>立即更新！</value>
+  </data>
+  <data name="CropMode_Auto" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="CropMode_Loose" xml:space="preserve">
+    <value>保守</value>
+  </data>
+  <data name="CropMode_None" xml:space="preserve">
+    <value>無</value>
+  </data>
+  <data name="CropMode_Custom" xml:space="preserve">
+    <value>自訂</value>
+  </data>
+  <data name="OptionsView_EnableNvDecSupport" xml:space="preserve">
+    <value>在使用 Nvidia NVEnc 編碼器以及硬體可以使用的前提下，偏好使用 NVDec 來解碼視訊串流。</value>
+  </data>
+  <data name="Options_Hardware" xml:space="preserve">
+    <value>硬體支援</value>
+  </data>
+  <data name="StaticPreviewViewModel_MediaError" xml:space="preserve">
+    <value>系統無法播放此檔案。
+
+請注意部分格式的檔案（例如 AV1 或 HEVC），需要安裝 Microsoft Store 上的 Microsoft AV1 或 HEVC 解碼器後才能播放。或者您也可以勾選下方的「使用外部播放程式」。</value>
+  </data>
+  <data name="StaticPreviewView_ClosePlayer" xml:space="preserve">
+    <value>關閉播放器</value>
+  </data>
+  <data name="StaticPreviewView_Play" xml:space="preserve">
+    <value>播放</value>
+  </data>
+  <data name="StaticPreviewView_VideoPreview" xml:space="preserve">
+    <value>視訊畫面預覽</value>
+  </data>
+  <data name="StaticPreviewViewModel_WebmNotSupported" xml:space="preserve">
+    <value>內建預覽功能不支援 WebM 容器格式，必須使用外部播放程式。</value>
+  </data>
+  <data name="StaticPreview_EncodingPreview" xml:space="preserve">
+    <value>正在編碼預覽…</value>
+  </data>
+  <data name="StaticPreview_Previews" xml:space="preserve">
+    <value>預覽畫面：</value>
+  </data>
+  <data name="StaticPreview_Volume" xml:space="preserve">
+    <value>音量：0</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>重設</value>
+  </data>
+  <data name="OptionsView_IsoDateFormat" xml:space="preserve">
+    <value>使用 ISO 日期格式（YYYY-MM-DD）而不使用系統格式。</value>
+  </data>
+  <data name="QueueViewModel_ShortEncodeStatus" xml:space="preserve">
+    <value>階段 {0}/{1}，{2:00.00}%，{3:000.0} fps，平均 {4:000.0} fps，預估完成時間：{5}</value>
+  </data>
+  <data name="QueueViewModel_ShortSubScanStatus" xml:space="preserve">
+    <value>正在掃描字幕 {0:00.00}%，預計剩餘時間：{1}</value>
+  </data>
+  <data name="QueueView_ExtendedQueueDisplay" xml:space="preserve">
+    <value>展開佇列資訊</value>
+  </data>
+  <data name="QueueView_MinimalQueueDisplay" xml:space="preserve">
+    <value>最小化佇列資訊</value>
+  </data>
+  <data name="QueueStats_ShortOutputStats" xml:space="preserve">
+    <value>輸出：{0}，平均 {1} fps</value>
+  </data>
+  <data name="PresetPane_Desc" xml:space="preserve">
+    <value>設定檔描述：</value>
+  </data>
+  <data name="PresetPane_HidePresetDesc" xml:space="preserve">
+    <value>隱藏設定檔描述</value>
+  </data>
+  <data name="PresetPane_ShowPresetDesc" xml:space="preserve">
+    <value>顯示設定檔描述</value>
+  </data>
+  <data name="TaskTrayStatusManyTitle" xml:space="preserve">
+    <value>{0}
+正在編碼 {1} 個工作</value>
+  </data>
+  <data name="StaticPreviewViewModel_MultipleEncodes" xml:space="preserve">
+    <value>應用程式目前正在編碼其他檔案，無法編碼出預覽畫面。
+
+若要允許同時進行多組編碼，請開啟「工具」選單 -&gt; 偏好設定 -&gt; 進階 -&gt; 隔離處理程序 -&gt;「用分開的工作處理程序處理佇列中的不同工作」。</value>
+  </data>
+  <data name="AudioView_Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="AudioView_Source" xml:space="preserve">
+    <value>來源</value>
+  </data>
+  <data name="AboutView_Documentation" xml:space="preserve">
+    <value>文件：</value>
+  </data>
+  <data name="AboutView_GithubTracker" xml:space="preserve">
+    <value>GitHub Issue Tracker：</value>
+  </data>
+  <data name="AboutView_Website" xml:space="preserve">
+    <value>網站：</value>
+  </data>
+  <data name="MainView_PresetClone" xml:space="preserve">
+    <value>複製設定檔</value>
+  </data>
+  <data name="PresetPane_MoveDown" xml:space="preserve">
+    <value>向下移動</value>
+  </data>
+  <data name="PresetPane_MoveToBottom" xml:space="preserve">
+    <value>移到底部</value>
+  </data>
+  <data name="PresetPane_MoveToTop" xml:space="preserve">
+    <value>移到頂端</value>
+  </data>
+  <data name="PresetPane_MoveUp" xml:space="preserve">
+    <value>向上移動</value>
+  </data>
+  <data name="QueueViewModel_StopButContinueJob" xml:space="preserve">
+    <value>目前有工作正在執行，您想要先等目前工作完成後再停止佇列嗎？</value>
+  </data>
+  <data name="Options_AddExt" xml:space="preserve">
+    <value>新增副檔名</value>
+  </data>
+  <data name="Options_ExcludeExtensions" xml:space="preserve">
+    <value>排除副檔名：</value>
+  </data>
+  <data name="Options_ExcludeExtensionsInfo" xml:space="preserve">
+    <value>掃描資料夾時，將排除下列副檔名。清單內容大小寫不限、不需要加點。</value>
+  </data>
+  <data name="Options_ExtensionExists" xml:space="preserve">
+    <value>這個副檔名已存在於清單中。</value>
+  </data>
+  <data name="Options_FileHandling" xml:space="preserve">
+    <value>檔案處理（掃描）</value>
+  </data>
+  <data name="Options_RecursiveFolderScan" xml:space="preserve">
+    <value>使用資料夾掃描模式時，向下遞迴掃描目錄。</value>
+  </data>
+  <data name="AudioView_AudioQuality" xml:space="preserve">
+    <value>音軌品質</value>
+  </data>
+  <data name="AudioView_AudioTrackName" xml:space="preserve">
+    <value>音軌名稱</value>
+  </data>
+  <data name="AudioView_BitrateSelection" xml:space="preserve">
+    <value>音軌位元率</value>
+  </data>
+  <data name="AudioView_DeleteTrack" xml:space="preserve">
+    <value>刪除此音軌</value>
+  </data>
+  <data name="AudioView_QualityMode" xml:space="preserve">
+    <value>音訊編碼器品質模式</value>
+  </data>
+  <data name="QueueView_AdvancedQueueDisplay" xml:space="preserve">
+    <value>使用進階佇列畫面</value>
+  </data>
+  <data name="QueueView_SimpleQueueDisplay" xml:space="preserve">
+    <value>使用簡易佇列畫面</value>
+  </data>
+  <data name="VideoView_LosslessEncodeOnly" xml:space="preserve">
+    <value>僅不失真編碼。</value>
+  </data>
+  <data name="MainView_HideClassicMenu" xml:space="preserve">
+    <value>隱藏傳統選單</value>
+  </data>
+  <data name="MainView_ShowClassicMenu" xml:space="preserve">
+    <value>顯示傳統選單</value>
+  </data>
+  <data name="OptionsViewVideo_UnsupportedIntelDriver" xml:space="preserve">
+    <value>（警告：偵測到不支援的驅動程式！建議更新）</value>
+  </data>
+  <data name="QueueSelectionView_RangeLimits" xml:space="preserve">
+    <value>範圍限制：</value>
+  </data>
+  <data name="QueueSelectionView_RangeLimitsDesc" xml:space="preserve">
+    <value>限制加入佇列的標題長度。</value>
+  </data>
+  <data name="QueueSelectionView_RangeLimitsEnable" xml:space="preserve">
+    <value>啟用範圍限制</value>
+  </data>
+  <data name="AddToQueue_RangeLimitError" xml:space="preserve">
+    <value>由於超出選擇的範圍限制，某些標題無法加入佇列。</value>
+  </data>
+  <data name="QueueView_StartAtTime" xml:space="preserve">
+    <value>之後再開始</value>
+  </data>
+  <data name="QueueView_QueueStartTime" xml:space="preserve">
+    <value>佇列將於下列時間自動開始執行：</value>
+  </data>
+  <data name="QueueView_EncodeShutdown" xml:space="preserve">
+    <value>正在結束解碼…</value>
+  </data>
+  <data name="PictureSettingsView_AllowUpscaling" xml:space="preserve">
+    <value>允許向上縮放</value>
+  </data>
+  <data name="PictureSettingsView_OptimalSize" xml:space="preserve">
+    <value>最佳大小</value>
+  </data>
+  <data name="OptionsView_Available" xml:space="preserve">
+    <value>此系統可以使用。</value>
+  </data>
+  <data name="OptionsView_NotAvailable" xml:space="preserve">
+    <value>此系統無法使用。</value>
+  </data>
+  <data name="MainView_ScanningStatus" xml:space="preserve">
+    <value>請稍後…</value>
+  </data>
+  <data name="MainView_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="MainView_OpenLog" xml:space="preserve">
+    <value>開啟紀錄視窗</value>
+  </data>
+  <data name="OptionsView_EnableNvencEncoding" xml:space="preserve">
+    <value/>
+  </data>
+  <data name="OptionsView_EnableQuicksyncEncoding" xml:space="preserve">
+    <value/>
+  </data>
+  <data name="OptionsView_EnableVceEncoding" xml:space="preserve">
+    <value/>
+  </data>
+  <data name="OptionsView_ChoiceOfEncoderHint" xml:space="preserve">
+    <value/>
+  </data>
+  <data name="AnamorphicMode_Custom" xml:space="preserve">
+    <value>自訂</value>
+  </data>
+  <data name="AnamorphicMode_None" xml:space="preserve">
+    <value>無</value>
+  </data>
+  <data name="AnamorphicMode_Automatic" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="CombDetect_Off" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="CombDetect_Custom" xml:space="preserve">
+    <value>自訂</value>
+  </data>
+  <data name="CombDetect_Default" xml:space="preserve">
+    <value>預設</value>
+  </data>
+  <data name="DeinterlaceFilter_Off" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Denoise_Off" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Detelecine_Off" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Detelecine_Default" xml:space="preserve">
+    <value>預設</value>
+  </data>
+  <data name="Detelecine_Custom" xml:space="preserve">
+    <value>自訂</value>
+  </data>
+  <data name="Sharpen_Off" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+  <data name="Options_MaxTitleScanDuration" xml:space="preserve">
+    <value>DVD 及藍光標題的最長長度（秒）。將跳過較長的標題：</value>
+  </data>
+  <data name="DefaultRangeMode_Chapters" xml:space="preserve">
+    <value>章節</value>
+  </data>
+  <data name="DefaultRangeMode_Seconds" xml:space="preserve">
+    <value>秒</value>
+  </data>
+  <data name="DefaultRangeMode_Frames" xml:space="preserve">
+    <value>影格</value>
+  </data>
+  <data name="Options_RangeModeSelection" xml:space="preserve">
+    <value>標題的預設範圍模式</value>
+  </data>
+  <data name="WhenDone_CustomAction" xml:space="preserve">
+    <value>自訂行為</value>
+  </data>
+  <data name="OptionsView_CustomActionConfig" xml:space="preserve">
+    <value>「自訂行為」設定：</value>
+  </data>
+  <data name="MainView_OpenAutonamePreferences" xml:space="preserve">
+    <value>開啟自動命名偏好設定</value>
+  </data>
+  <data name="Options_RunAction" xml:space="preserve">
+    <value>執行指令碼 / 程式：</value>
+  </data>
+  <data name="OptionsViewModel_PortableMode" xml:space="preserve">
+    <value>HandBrake 目前設定為以可攜版模式運作。若要更新可攜版，請直接從網站下載最新版即可。</value>
+  </data>
+  <data name="MetaData_Add" xml:space="preserve">
+    <value>新增列</value>
+  </data>
+  <data name="MainView_DebugMenu" xml:space="preserve">
+    <value>除錯選單</value>
+  </data>
+  <data name="MainView_DebugExportData" xml:space="preserve">
+    <value>匯出除錯檔（JSON）</value>
+  </data>
+  <data name="MainView_DebugImportData" xml:space="preserve">
+    <value>匯入除錯檔（JSON）</value>
+  </data>
+  <data name="MainView_DebugQualitySweep" xml:space="preserve">
+    <value>加入佇列 - 品質測試</value>
+  </data>
+  <data name="LogView_ChooseLogFile" xml:space="preserve">
+    <value>選擇紀錄檔：</value>
+  </data>
+  <data name="LogView_AutoScrolling" xml:space="preserve">
+    <value>自動捲動</value>
+  </data>
+  <data name="LogLevel_Minimised" xml:space="preserve">
+    <value>最低</value>
+  </data>
+  <data name="LogLevel_Standard" xml:space="preserve">
+    <value>標準</value>
+  </data>
+  <data name="LogLevel_Extended" xml:space="preserve">
+    <value>更多資訊</value>
+  </data>
+  <data name="QueueView_CancelDelayStart" xml:space="preserve">
+    <value>取消延遲</value>
+  </data>
+  <data name="QueueView_StartQueueNow" xml:space="preserve">
+    <value>開始佇列（立即）</value>
+  </data>
+  <data name="AudioTrackNaming_None" xml:space="preserve">
+    <value>無</value>
+  </data>
+  <data name="AudioTrackNaming_Unnamed" xml:space="preserve">
+    <value>僅未命名軌道</value>
+  </data>
+  <data name="AudioTrackNaming_All" xml:space="preserve">
+    <value>所有軌道</value>
+  </data>
+  <data name="AudioDefaultsView_NamingBehaviour" xml:space="preserve">
+    <value>軌道命名行為：</value>
+  </data>
+  <data name="AudioDefaultsView_AutoNaming" xml:space="preserve">
+    <value>自動命名：</value>
+  </data>
+  <data name="AudioDefaultsView_PassthruTrackNames" xml:space="preserve">
+    <value>傳遞軌道名稱</value>
+  </data>
+  <data name="SubtitlesDefaultsView_PassthruTrackName" xml:space="preserve">
+    <value>傳遞軌道名稱</value>
+  </data>
+  <data name="VideoColourRange_SameAsSource" xml:space="preserve">
+    <value>和來源一樣</value>
+  </data>
+  <data name="VideoColourRange_Full" xml:space="preserve">
+    <value>完整</value>
+  </data>
+  <data name="VideoColourRange_Limited" xml:space="preserve">
+    <value>限制</value>
+  </data>
+  <data name="DarkTheme_Modern" xml:space="preserve">
+    <value>現代</value>
+  </data>
+  <data name="Options_BeforeUpdating" xml:space="preserve">
+    <value>更新之前</value>
+  </data>
+  <data name="Options_UpdateNotComplete" xml:space="preserve">
+    <value>已取消安裝更新。</value>
+  </data>
+  <data name="AboutView_ReleaseNotes" xml:space="preserve">
+    <value>發行公告</value>
+  </data>
+  <data name="Options_ReleaseNotesDesc" xml:space="preserve">
+    <value>您可以在下列網址找到 HandBrake 的最新變更：</value>
+  </data>
+  <data name="PresetUiType_Menu" xml:space="preserve">
+    <value>選單</value>
+  </data>
+  <data name="PresetUiType_Overlay" xml:space="preserve">
+    <value>覆蓋</value>
+  </data>
+  <data name="OptionsView_PresetUiType" xml:space="preserve">
+    <value>顯示工具列設定檔彈出視窗為：</value>
+  </data>
+  <data name="QueueViewModel_CancelErrorWillBeCleared" xml:space="preserve">
+    <value>目前佇列中含有已取消或發生錯誤的工作，佇列開始時將清除這些工作。
+
+您確認要繼續嗎？</value>
+  </data>
+  <data name="QueueView_ExportSelected" xml:space="preserve">
+    <value>匯出佇列（選擇項目）</value>
+  </data>
+  <data name="VideoView_SameAsSource" xml:space="preserve">
+    <value>和來源一樣</value>
   </data>
 </root>
