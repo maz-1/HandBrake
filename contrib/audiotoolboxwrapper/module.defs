@@ -1,9 +1,9 @@
 $(eval $(call import.MODULE.defs,AUDIOTOOLBOXWRAPPER,audiotoolboxwrapper))
 $(eval $(call import.CONTRIB.defs,AUDIOTOOLBOXWRAPPER))
 
-AUDIOTOOLBOXWRAPPER.FETCH.url      = https://github.com/maz-1/AudioToolboxWrapper/archive/34559baa33baa9706b7db02f93457e0d45951e16.tar.gz
-AUDIOTOOLBOXWRAPPER.FETCH.sha256   = 5859aaf8395099225b79e1c0463c9cd6c4ff15e0a067fb9e7cc6731d9697b91c
-AUDIOTOOLBOXWRAPPER.FETCH.basename = AudioToolboxWrapper-34559baa33baa9706b7db02f93457e0d45951e16.tar.gz
+AUDIOTOOLBOXWRAPPER.FETCH.url      = https://github.com/maz-1/AudioToolboxWrapper/archive/d23032360c0c6e99d2160fb833751bb36151156b.tar.gz
+AUDIOTOOLBOXWRAPPER.FETCH.sha256   = 368e213e52f72dbc9406dbb9df37f594ca5297a0e6bc749b25c976a4858b5878
+AUDIOTOOLBOXWRAPPER.FETCH.basename = AudioToolboxWrapper-d23032360c0c6e99d2160fb833751bb36151156b.tar.gz
 
 AUDIOTOOLBOXWRAPPER.build_dir             = build
 AUDIOTOOLBOXWRAPPER.CONFIGURE.exe         = cmake
