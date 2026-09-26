@@ -192,7 +192,7 @@ int encCoreAudioInit(hb_work_object_t *w, hb_job_t *job, enum AAC_MODE mode)
     // pass the number of channels used into the private work data
     pv->nchannels = audio->config.out.ch_layout->nb_channels;
 
-    bzero(&input, sizeof(AudioStreamBasicDescription));
+    memset(&input, 0, sizeof(AudioStreamBasicDescription));
     input.mSampleRate = (Float64)audio->config.out.samplerate;
     input.mFormatID = kAudioFormatLinearPCM;
     input.mFormatFlags = (kLinearPCMFormatFlagIsFloat|kAudioFormatFlagsNativeEndian);
@@ -202,7 +202,7 @@ int encCoreAudioInit(hb_work_object_t *w, hb_job_t *job, enum AAC_MODE mode)
     input.mChannelsPerFrame = pv->nchannels;
     input.mBitsPerChannel = 32;
 
-    bzero(&output, sizeof(AudioStreamBasicDescription));
+    memset(&output, 0, sizeof(AudioStreamBasicDescription));
     switch (mode)
     {
         case AAC_MODE_HE:
@@ -222,7 +222,7 @@ int encCoreAudioInit(hb_work_object_t *w, hb_job_t *job, enum AAC_MODE mode)
     if (err != noErr)
     {
         // Retry without the samplerate
-        bzero(&output, sizeof(AudioStreamBasicDescription));
+        memset(&output, 0, sizeof(AudioStreamBasicDescription));
         switch (mode)
         {
             case AAC_MODE_HE:
@@ -339,7 +339,7 @@ int encCoreAudioInit(hb_work_object_t *w, hb_job_t *job, enum AAC_MODE mode)
                                     audio->config.out.ch_layout);
 
     AudioChannelLayout channel_layout;
-    bzero(&channel_layout, sizeof(channel_layout));
+    memset(&channel_layout, 0, sizeof(channel_layout));
 
     channel_layout.mChannelLayoutTag = get_aac_tag(audio->config.out.ch_layout);
 
@@ -386,7 +386,7 @@ int encCoreAudioInit(hb_work_object_t *w, hb_job_t *job, enum AAC_MODE mode)
 
     AudioConverterPrimeInfo primeInfo;
     UInt32 piSize = sizeof(primeInfo);
-    bzero(&primeInfo, piSize);
+    memset(&primeInfo, 0, piSize);
     AudioConverterGetProperty(pv->converter,
                               kAudioConverterPrimeInfo,
                               &piSize, &primeInfo);
